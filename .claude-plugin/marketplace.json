@@ -1,0 +1,23 @@
+{
+  "name": "affinity-mcp",
+  "owner": {
+    "name": "Paloexiz",
+    "url": "https://github.com/Paloexiz"
+  },
+  "plugins": [
+    {
+      "name": "affinity-mcp",
+      "source": "./",
+      "version": "0.1.10",
+      "description": "Connect to Affinity by Canva's local MCP server for SDK scripting and document previews.",
+      "category": "Productivity",
+      "homepage": "https://github.com/Paloexiz/Affinity-MCP",
+      "icon": "https://raw.githubusercontent.com/Paloexiz/Affinity-MCP/main/assets/affinity-mcp-icon.svg",
+      "description_i18n": {
+        "en": "Connect to Affinity by Canva's local MCP server for SDK scripting and document previews.",
+        "zh-CN": "通过 Affinity 本地 MCP 服务读取 SDK、执行脚本并渲染文档预览。"
+      }
+    }
+  ],
+  "description": "Affinity MCP plugin for Claude Code and ZCode."
+}

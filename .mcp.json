@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "affinity-by-canva": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/affinity-mcp-proxy.mjs"
+      ],
+      "env": {
+        "AFFINITY_MCP_BASE_URL": "http://localhost:6767",
+        "AFFINITY_MCP_PROTOCOL_VERSION": "2025-11-25"
+      },
+      "enabled": true,
+      "timeoutMs": 60000
+    }
+  }
+}

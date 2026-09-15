@@ -1,0 +1,48 @@
+{
+  "name": "affinity-mcp",
+  "version": "0.1.10",
+  "description": "Connect to Affinity by Canva's local MCP server for SDK scripting and document previews.",
+  "author": {
+    "name": "Paloexiz",
+    "url": "https://github.com/Paloexiz"
+  },
+  "homepage": "https://github.com/Paloexiz/Affinity-MCP",
+  "repository": "https://github.com/Paloexiz/Affinity-MCP",
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": {
+    "affinity-by-canva": {
+      "command": "node",
+      "args": [
+        "scripts/affinity-mcp-proxy.mjs"
+      ],
+      "cwd": ".",
+      "env": {
+        "AFFINITY_MCP_BASE_URL": "http://localhost:6767",
+        "AFFINITY_MCP_PROTOCOL_VERSION": "2025-11-25"
+      }
+    }
+  },
+  "interface": {
+    "displayName": "Affinity MCP",
+    "shortDescription": "Control Affinity through its local MCP server.",
+    "developerName": "Paloexiz",
+    "category": "Productivity",
+    "websiteURL": "https://github.com/Paloexiz/Affinity-MCP",
+    "capabilities": [
+      "MCP",
+      "Local",
+      "Automation"
+    ],
+    "brandColor": "#9CFF65",
+    "composerIcon": "./assets/affinity-mcp-icon.svg",
+    "logo": "./assets/affinity-mcp-icon.svg",
+    "logoDark": "./assets/affinity-mcp-icon.svg",
+    "defaultPrompt": [
+      "Read the Affinity SDK preamble.",
+      "List open Affinity documents.",
+      "Render the current Affinity spread."
+    ],
+    "longDescription": "Connect Codex to Affinity by Canva's local MCP server. Read SDK documentation, execute Affinity scripts and render document previews through a dependency-free local proxy."
+  }
+}

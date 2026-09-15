@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title desc">
+  <title id="title">Affinity MCP</title>
+  <desc id="desc">A lime geometric A with an interlocking connection, on a dark plum rounded square.</desc>
+  <rect x="4" y="4" width="248" height="248" rx="48" fill="#160C29"/>
+  <g fill="none" stroke="#9CFF65">
+    <path d="M52 200 128 56 204 200" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M83 142H123C136 142 145 151 145 164" stroke-width="18"/>
+    <path d="M112 160V162C112 175 121 184 134 184H195" stroke-width="18"/>
+  </g>
+</svg>

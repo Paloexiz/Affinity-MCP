@@ -1,0 +1,9 @@
+Affinity MCP includes code and skills derived from
+https://github.com/deba33/codex-plugins-by-deba33 (MIT, Copyright (c) 2026 debad).
+Originally created by ChatGPT Codex under deba33's supervision.
+
+Migration baseline: Paloexiz/codex-plugins-by-deba33 commit
+9f2c2db7cec1e01f9fe551c57a2875da6ea50d57.
+The original license is preserved in LICENSE.upstream.
+This repository is maintained by Paloexiz and is not an official
+OpenAI, Z.ai, Anthropic, Canva or Affinity product.

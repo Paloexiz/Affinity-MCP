@@ -1,0 +1,76 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docs_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0; }; docs_hook_output=$(/usr/bin/env node \"$docs_repo_root/scripts/docs-hooks.mjs\" 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0; }; printf '%s' \"$docs_hook_output\"",
+            "commandWindows": "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; $docsRepoRoot = git rev-parse --show-toplevel 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0 }; $docsHookOutput = node \"$($docsRepoRoot.Trim())/scripts/docs-hooks.mjs\" 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0 }; Write-Output $docsHookOutput; exit 0",
+            "timeout": 10,
+            "additionalContextLimit": 65000,
+            "statusMessage": "Read repository docs"
+          }
+        ],
+        "matcher": "startup|resume|clear|compact"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docs_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0; }; docs_hook_output=$(/usr/bin/env node \"$docs_repo_root/scripts/docs-hooks.mjs\" 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0; }; printf '%s' \"$docs_hook_output\"",
+            "commandWindows": "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; $docsRepoRoot = git rev-parse --show-toplevel 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0 }; $docsHookOutput = node \"$($docsRepoRoot.Trim())/scripts/docs-hooks.mjs\" 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0 }; Write-Output $docsHookOutput; exit 0",
+            "timeout": 10,
+            "additionalContextLimit": 65000,
+            "statusMessage": "Read repository docs"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docs_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0; }; docs_hook_output=$(/usr/bin/env node \"$docs_repo_root/scripts/docs-hooks.mjs\" 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0; }; printf '%s' \"$docs_hook_output\"",
+            "commandWindows": "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; $docsRepoRoot = git rev-parse --show-toplevel 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0 }; $docsHookOutput = node \"$($docsRepoRoot.Trim())/scripts/docs-hooks.mjs\" 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0 }; Write-Output $docsHookOutput; exit 0",
+            "timeout": 10,
+            "additionalContextLimit": 65000,
+            "statusMessage": "Check docs synchronization and privacy"
+          }
+        ],
+        "matcher": ".*"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docs_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0; }; docs_hook_output=$(/usr/bin/env node \"$docs_repo_root/scripts/docs-hooks.mjs\" 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0; }; printf '%s' \"$docs_hook_output\"",
+            "commandWindows": "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; $docsRepoRoot = git rev-parse --show-toplevel 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0 }; $docsHookOutput = node \"$($docsRepoRoot.Trim())/scripts/docs-hooks.mjs\" 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0 }; Write-Output $docsHookOutput; exit 0",
+            "timeout": 10,
+            "additionalContextLimit": 65000,
+            "statusMessage": "Check docs synchronization and privacy"
+          }
+        ],
+        "matcher": ".*"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docs_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0; }; docs_hook_output=$(/usr/bin/env node \"$docs_repo_root/scripts/docs-hooks.mjs\" 2>/dev/null) || { printf '%s' '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0; }; printf '%s' \"$docs_hook_output\"",
+            "commandWindows": "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; $docsRepoRoot = git rev-parse --show-toplevel 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Git root lookup failed. Check Git access/configuration locally; raw output was suppressed.\"}'; exit 0 }; $docsHookOutput = node \"$($docsRepoRoot.Trim())/scripts/docs-hooks.mjs\" 2>$null; if (-not $?) { Write-Output '{\"systemMessage\":\"Docs hook could not run: Node hook startup failed. Check Node.js and the hook entry locally; raw output was suppressed.\"}'; exit 0 }; Write-Output $docsHookOutput; exit 0",
+            "timeout": 10,
+            "statusMessage": "Check docs synchronization and privacy"
+          }
+        ]
+      }
+    ]
+  }
+}

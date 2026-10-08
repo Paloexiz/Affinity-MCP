@@ -1,6 +1,13 @@
 # Behaviours and limits
 
-Cases below are runtime-checked, not whole-module guarantees. Re-read the live preamble, topic and ranges before relying on an operation. Behaviour can differ between platforms and Affinity builds, so re-check on the target system instead of assuming these hold everywhere.
+Cases below are operation-specific records, not whole-module guarantees. Read the live preamble and relevant topics/ranges before first use, retaining them during an unchanged session. Revalidate affected assumptions after build/connection changes or conflicting results.
+
+<a id="version-boundaries"></a>
+## Version boundaries
+
+Unless explicitly marked 3.3 below, entries retain the historical 3.2-era reference observations; their original per-case build/platform metadata is incomplete. They are lookup leads for a different build, not inherited test passes. The 3.2.3.4646 Windows close failure is historical. The 2026-10-08 samples specifically used **3.3.0.4850 Win32**; an independent SDK version was not obtained. Plugin version and application build are separate.
+
+Mandatory preamble reading does not make every preamble/hint claim correct. Prefer the current public wrapper, verify exact native imports/ranges when needed, and compare the requested result with actual post-state. An `ALWAYS add hint` suggestion does not override user authorization. The 3.3 samples used `app.userDesktopPath`; Collection `.first` / `.at(0)` worked while `[0]` did not. A missing `DocumentApi.getDocumentProperties` entry does not prove all native property reads are absent. Spread prerequisites vary by command; use [the operation-specific notes](scripting-pitfalls.md#documents-and-spreads), not a blanket switch before every edit.
 
 ## Nodes and text
 
@@ -20,9 +27,59 @@ selection.addSubSelectionForNode(textNode,
 document.executeCommand(DocumentCommand.createSetText(selection, 'Replacement'));
 ```
 
-- `TextSelection.from` is undefined despite a convenience wrapper referencing it. `begin` / `end` identify endpoints, not start / length.
+- A historical convenience wrapper referenced missing `TextSelection.from`. The inspected 3.3.0.4850 `Node.setText` wrapper instead uses `TextSelection.create(this.storyRange)`; plain full replacement passed on the sample. `begin` / `end` identify endpoints, not start / length. Use the actual story range and verify the target text; linked/partial ranges need their own checks.
+- Plain replacement is not a format-preserving recipe: in a 3.3 sample, full replacement merged 20px/12px runs into 20px. For preservation tasks, capture character/paragraph runs first and sample-verify the intended edit/range. The same-length, single-run artistic edit below passed only its limited case. `canHideOverflow` is a capability getter; neither its value nor a complete Story proves visible content or permanent deletion.
 - `Font.all` enumerates the installed fonts; `StoryDelta.createPostscriptName` with `createFormatText` selects one. Glyph height, character spacing, alignment and indents can be set on live text and read back. A character-spacing value of 2 produces very wide spacing and wrapping—it is not a two-pixel recipe.
 - `CharGlyph.create(33)`, clone, `char32` and `string` work. `createInsertGlyph` with such a typed glyph fails at construction (`expected GlyphHandle`).
+
+<a id="text-tool-choice-and-refit"></a>
+## Text tool choice and refit
+
+Prefer **Artistic Text** for new text, including ordinary multiline paragraphs. Keep a paragraph or continuous, jointly positioned copy in one editable object; use internal line/paragraph breaks and character formatting instead of splitting it into separate lines or words. Separate objects are appropriate for independent labels, columns or deliberate independent transforms, not simply because the copy has multiple lines. Artistic Text supports multiple lines; its natural width follows its longest line, and scaling it changes the glyph size. A three-line artistic object with mixed font-height runs and a same-length edit inside one run was verified on 3.3.0.4850 Win32; arbitrary cross-run replacements remain unverified.
+
+Choose **Frame Text** for a specific fixed-width reflow, column, linked-flow or fixed-container requirement, or when explicitly requested. This preference does not authorize converting existing objects. After changing text:
+
+1. Preserve the agreed font sizes and content. Read full text, line breaks, character/paragraph attribute runs, frame dimensions and text render/UI scale matrices before editing; plain string equality alone does not prove formatting survived.
+2. Establish the permitted container constraints. For a fixed-width column, hold the agreed width and allow height changes within the available area; for a fixed-size card/cell, preserve both dimensions and adjust internal layout only within the brief. Artistic headings normally retain their natural content bounds.
+3. When frame dimensions may change, establish width first, allow reflow, then measure the resulting line layout and required height. Include insets, first-baseline/Initial Advance, leading and neighboring objects; do not fit to glyph ink alone or assume the old height is suitable after editing.
+4. Use only a documented, sample-verified frame-resize route that preserves glyph sizes and text scales. UI frame-handle resizing and scaling the entire text object have different semantics; a generic transform plus a box ratio is not an established auto-fit recipe. No automatic frame-fit method is verified here. If the available SDK cannot reliably resize/reflow or expose the needed measurement, stop that operation, identify the unmet width/height or overflow constraint, and request the specific UI adjustment or another authorized layout choice. Do not claim a completed fit or silently shrink type, delete copy, or split it into fragments.
+5. Re-read text and intended character/paragraph attributes, font-height runs, text scale matrix components, frame/content geometry and overflow/clipping. Verify all copy and the final line are visible without unintended overlap; a complete Story can still overflow or be clipped. `canHideOverflow` is a capability getter, not an overflow-state toggle. Fixed frames need not shrink to their contents for accurate content alignment; use the measured content boundary instead.
+
+Native vertical frame Align has no verified read/write entry in the inspected 3.3 SDK surfaces. UI supports vertical alignment, but moving or tightening a frame does not set that native mode. Initial Advance is vertical first-baseline spacing; FirstLineIndent is horizontal indentation. Keep those, insets, leading and baseline-grid constraints distinct.
+
+<a id="text-alignment-workflow"></a>
+## Text alignment workflow
+
+Verified on Affinity **3.3.0.4850 Win32** with two unlinked, multiline `FrameTextNode` objects: native paragraph `Centre` followed by horizontal translation aligned the text blocks while preserving text, font-height runs, text scale matrices, frame width/height and vertical position. This covers horizontal centering, not native vertical frame alignment or automatic frame fitting.
+
+1. Confirm the target document UUID, spread and text nodes. Unless the user explicitly asks to align frame bounds, use text content as the alignment object. Clarify an ambiguous reference (each other, page or key object) and whether multiline paragraphs should be centered internally. Offer the combined case when needed: paragraph centering and block alignment are not mutually exclusive. Preserve paragraph style if the user explicitly requests only moving the blocks.
+2. When multiline centered layout is intended, apply native paragraph `Centre` to each target's explicit text sub-selection first. For the verified unlinked-frame case:
+
+   ```js
+   const { Selection, TextSelection } = require('/selections.js');
+   const { DocumentCommand } = require('/commands.js');
+   const { StoryDelta, ParagraphAlignXType } = require('/storydelta.js');
+   // doc and textNode have already been identified and scope-checked.
+   const selection = Selection.create(doc, textNode);
+   selection.addSubSelectionForNode(textNode,
+     TextSelection.create(textNode.storyRange));
+   doc.executeCommand(DocumentCommand.createFormatText(selection,
+     StoryDelta.createAlignX(ParagraphAlignXType.Centre)));
+   ```
+
+   Read `story.getParagraphAttRunsFrom(0)` and check `paragraphAtts.alignXType.value === 1` for the intended paragraphs before positioning. Linked frames require separately verified story/paragraph ranges; do not assume their ranges start at zero or affect only one frame.
+3. After paragraph formatting, measure glyph geometry in spread coordinates:
+
+   ```js
+   const glyphBox = textNode.curvesInterface.polyPolyCurves
+     .getExactBoundingBox(textNode.baseToSpreadTransform);
+   ```
+
+   Reject null, empty or non-finite bounds. This reads glyph outlines without converting the editable text to curves or mutating those outlines; the method accepts the transform directly, so no clone-and-transform step is needed. `getExactSpreadVisibleBox(false, false)` matched these glyph bounds in the verified plain-frame samples; ordinary `getSpreadVisibleBox(false)` included frame geometry and was unsuitable as a content-center proxy. Do not assume these equivalences for decorated or clipped objects.
+4. Compute each block's center as `glyphBox.x + glyphBox.width / 2`, then `dx = targetX - centerX`. Use the agreed reference for `targetX`; for alignment within the current selection, the midpoint of the original combined content bounds preserves the selection's overall horizontal placement. Capture that reference before paragraph formatting. Apply pure horizontal translations with `DocumentCommand.createTransform(Selection.create(doc, textNode), Transform.createTranslate(dx, 0))`, importing `Transform` from `/geometry.js`. Batch each phase with `CompoundCommandBuilder`; format, remeasure, then translate in one script rather than iterating from screenshots.
+5. Read back paragraph modes and content centers, plus unchanged text, font-height runs, frame y/width/height and text scale matrix components (compare values, not object identity). Render to check that short and long lines are centered within each paragraph and that the blocks share the requested axis. Checking only the combined outer bounds misses paragraphs left-aligned inside an otherwise centered block.
+
+Native paragraph centering uses typographic spacing; it does not guarantee identical optical centers for every glyph's ink. The inspected `GroupTransformData` exposes object align/distribute settings but no glyph-bounds switch; do not substitute native object alignment for content alignment without verifying its boundary semantics. Native vertical frame Align remains an unexposed entry point in the inspected SDK surfaces; moving a frame does not set that mode. Revalidate linked or overflowing text, text on paths, clipping, effects and color fonts before applying this recipe to those cases. No timing benchmark establishes that glyph-outline measurement is faster than an already verified exact-visible query.
 
 ## Structure and geometry
 
@@ -51,6 +108,8 @@ document.executeCommand(DocumentCommand.createSetText(selection, 'Replacement'))
 - `createImageTrace` produces real vector geometry (PolyCurve nodes) from a bitmap; an unchanged document selection is not evidence of no output.
 
 ## Lifecycle, documents and export
+
+- Historical 3.2 Windows close paths returned `NOT_IMPLEMENTED`. On 3.3.0.4850 Win32, synchronous `Document.close()` closed modified, unsaved disposable samples, confirmed by re-enumeration. Async/promises close, business documents and save prompts remain unverified. Confirm authorization and the sample identity before closing; do not extrapolate this result to discarding user work.
 
 - `save`, `saveAs`, `saveAsync`, `saveAsAsync` and the package variants write files and clear the save-state getters afterwards. `executeCommandAsync` completes callbacks.
 - Sync `Document.export` with PNG/CurrentSpread and async `exportAsync` with PNG/CurrentPage produce rendered images. Other scopes, presets and bleed behaviour are unverified. `exportMacro` writes the current macro.

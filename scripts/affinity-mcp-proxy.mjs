@@ -1,8 +1,24 @@
 #!/usr/bin/env node
 
+const CLIENT_PROTOCOL_VERSION = "2025-11-25";
 const AFFINITY_BASE_URL = process.env.AFFINITY_MCP_BASE_URL || "http://localhost:6767";
 const AFFINITY_PROTOCOL_VERSION =
   process.env.AFFINITY_MCP_PROTOCOL_VERSION || "2025-11-25";
+const timeoutSetting = process.env.AFFINITY_MCP_REQUEST_TIMEOUT_MS;
+if (timeoutSetting !== undefined && (!/^\d+$/.test(timeoutSetting) || Number(timeoutSetting) < 100 || Number(timeoutSetting) > 300000)) {
+  throw new Error("AFFINITY_MCP_REQUEST_TIMEOUT_MS must be an integer from 100 to 300000 milliseconds");
+}
+const REQUEST_TIMEOUT_MS = timeoutSetting === undefined ? 30000 : Number(timeoutSetting);
+
+function failure(phase, cause, method) {
+  const outcome = method === "tools/call" ? "unknown" : "not_submitted";
+  const guidance = outcome === "unknown"
+    ? " The tool may have executed. Inspect the target state before retrying; do not replay blindly."
+    : phase === "connect" ? " Check the configured endpoint, whether Affinity is running and MCP is enabled." : "";
+  return Object.assign(new Error(`Affinity MCP ${phase}: ${cause}.${guidance}`), {
+    data: { phase, cause, method, outcome },
+  });
+}
 
 const STATIC_TOOLS = [
   {
@@ -138,6 +154,7 @@ class AffinitySseClient {
     this.nextId = 1;
     this.connected = false;
     this.connecting = null;
+    this.streamError = null;
   }
 
   async connect() {
@@ -158,6 +175,7 @@ class AffinitySseClient {
     await this.close();
     this.controller = new AbortController();
     const controller = this.controller;
+    this.streamError = null;
     const timer = setTimeout(() => controller.abort(), 30000);
     let res;
     try {
@@ -166,20 +184,25 @@ class AffinitySseClient {
         signal: controller.signal,
         redirect: "error",
       });
+    } catch (err) {
+      throw failure("connect", err.message);
     } finally {
       clearTimeout(timer);
     }
     if (!res.ok || !res.body) {
-      throw new Error(`Affinity MCP SSE failed: HTTP ${res.status}`);
+      throw failure("connect", `SSE HTTP ${res.status}`);
     }
-    this.#readSse(res.body, this.controller);
+    this.#readSse(res.body, controller);
     await this.#waitForEndpoint();
     await this.request("initialize", {
       protocolVersion: AFFINITY_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "affinity-mcp-proxy", version: "0.1.10" },
+      clientInfo: { name: "affinity-mcp-proxy", version: "0.1.11" },
     });
     await this.notify("notifications/initialized", {});
+    if (this.controller !== controller || controller.signal.aborted || this.streamError || !this.endpointPath) {
+      throw this.streamError || failure("sse", "connection closed during initialization");
+    }
     this.connected = true;
   }
 
@@ -188,9 +211,9 @@ class AffinitySseClient {
     this.endpointPath = null;
     if (this.controller) this.controller.abort();
     this.controller = null;
-    for (const { reject, timer } of this.pending.values()) {
+    for (const { reject, timer, method } of this.pending.values()) {
       clearTimeout(timer);
-      reject(new Error("Affinity MCP connection closed"));
+      reject(failure("sse", "connection closed", method));
     }
     this.pending.clear();
   }
@@ -226,12 +249,16 @@ class AffinitySseClient {
           }
         }
       } catch (err) {
-        if (this.controller === controller) this.#failAll(err);
+        if (this.controller === controller) {
+          this.streamError = err.data ? err : failure("sse", err.message);
+          this.#failAll(err);
+        }
       } finally {
         if (this.controller === controller) {
           this.connected = false;
           this.endpointPath = null;
-          this.#failAll(new Error("Affinity MCP connection closed; a submitted tool may have executed. Inspect its result before retrying."));
+          this.streamError ||= failure("sse", "connection closed");
+          this.#failAll(new Error("connection closed"));
         }
       }
     })();
@@ -239,27 +266,31 @@ class AffinitySseClient {
 
   #flushEvent(eventName, eventData) {
     if (eventName === "endpoint") {
-      const endpoint = new URL(eventData.trim(), AFFINITY_BASE_URL);
-      if (endpoint.origin !== new URL(AFFINITY_BASE_URL).origin) {
-        throw new Error("Affinity MCP endpoint must use the configured server origin");
+      try {
+        const endpoint = new URL(eventData.trim(), AFFINITY_BASE_URL);
+        if (endpoint.origin !== new URL(AFFINITY_BASE_URL).origin) {
+          throw new Error("endpoint must use the configured server origin");
+        }
+        this.endpointPath = endpoint.href;
+      } catch (err) {
+        throw failure("endpoint", err.message);
       }
-      this.endpointPath = endpoint.href;
     } else if ((!eventName || eventName === "message") && eventData.trim()) {
       const msg = JSON.parse(eventData);
       if (msg.id != null && this.pending.has(msg.id)) {
-        const { resolve, reject, timer } = this.pending.get(msg.id);
+        const { resolve, reject, timer, method } = this.pending.get(msg.id);
         clearTimeout(timer);
         this.pending.delete(msg.id);
-        if (msg.error) reject(new Error(JSON.stringify(msg.error)));
+        if (msg.error) reject(failure("upstream", JSON.stringify(msg.error), method));
         else resolve(msg.result);
       }
     }
   }
 
   #failAll(err) {
-    for (const { reject, timer } of this.pending.values()) {
+    for (const { reject, timer, method } of this.pending.values()) {
       clearTimeout(timer);
-      reject(err);
+      reject(failure(err.data?.phase || "sse", err.data?.cause || err.message, method));
     }
     this.pending.clear();
   }
@@ -267,36 +298,38 @@ class AffinitySseClient {
   async #waitForEndpoint() {
     for (let i = 0; i < 50; i += 1) {
       if (this.endpointPath) return;
+      if (this.streamError) throw this.streamError;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    throw new Error("Timed out waiting for Affinity MCP endpoint");
+    throw failure("endpoint", "Timed out waiting for endpoint");
   }
 
   async request(method, params) {
-    if (!this.endpointPath) throw new Error("Affinity MCP endpoint is not ready");
+    if (!this.endpointPath) throw failure("endpoint", "endpoint is not ready");
     const id = this.nextId++;
+    let postComplete = false;
     const result = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id);
-          reject(new Error(`Timed out waiting for Affinity MCP ${method}`));
+          reject(failure(postComplete ? "response" : "post", `Timed out waiting for ${method} after ${REQUEST_TIMEOUT_MS} ms`, method));
         }
-      }, 30000);
-      this.pending.set(id, { resolve, reject, timer });
+      }, REQUEST_TIMEOUT_MS);
+      this.pending.set(id, { resolve, reject, timer, method });
     });
 
-    // Observe an SSE rejection even while the HTTP POST is still pending.
-    result.catch(() => {});
-    try {
-      await this.#post({ jsonrpc: "2.0", id, method, params });
-    } catch (err) {
+    // The first terminal event wins, including an SSE reply before POST completes.
+    // Always observe the POST rejection, even after its request has settled.
+    this.#post({ jsonrpc: "2.0", id, method, params }).then(() => {
+      postComplete = true;
+    }).catch(err => {
       const pending = this.pending.get(id);
       if (pending) {
         clearTimeout(pending.timer);
         this.pending.delete(id);
         pending.reject(err);
       }
-    }
+    });
     return result;
   }
 
@@ -305,16 +338,18 @@ class AffinitySseClient {
   }
 
   async #post(payload) {
-    const url = new URL(this.endpointPath, AFFINITY_BASE_URL);
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.any([this.controller.signal, AbortSignal.timeout(30000)]),
-      redirect: "error",
-    });
-    if (!res.ok) {
-      throw new Error(`Affinity MCP POST failed: HTTP ${res.status} ${await res.text()}`);
+    try {
+      const url = new URL(this.endpointPath, AFFINITY_BASE_URL);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.any([this.controller.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
+        redirect: "error",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${await res.text()}`);
+    } catch (err) {
+      throw failure("post", err.message, payload.method);
     }
   }
 
@@ -403,10 +438,14 @@ async function handleMessage(message) {
   try {
     switch (message.method) {
       case "initialize":
+        if (typeof message.params?.protocolVersion !== "string") {
+          sendError(message.id, -32602, "protocolVersion must be a string");
+          break;
+        }
         sendResult(message.id, {
-          protocolVersion: message.params?.protocolVersion || "2025-11-25",
+          protocolVersion: CLIENT_PROTOCOL_VERSION,
           capabilities: { tools: {} },
-          serverInfo: { name: "affinity-mcp", version: "0.1.10" },
+          serverInfo: { name: "affinity-mcp", version: "0.1.11" },
           instructions:
             "Use Affinity by Canva through its local MCP server. Read read_sdk_documentation_topic with filename 'preamble' before writing or executing scripts.",
         });
@@ -449,7 +488,8 @@ async function handleMessage(message) {
     sendError(
       message.id,
       -32603,
-      `Affinity MCP proxy error: ${err.message}. Ensure Affinity is running and MCP is enabled.`,
+      `Affinity MCP proxy error: ${err.message}`,
+      err.data,
     );
   }
 }
@@ -458,8 +498,8 @@ function sendResult(id, result) {
   send({ jsonrpc: "2.0", id, result });
 }
 
-function sendError(id, code, message) {
-  send({ jsonrpc: "2.0", id, error: { code, message } });
+function sendError(id, code, message, data) {
+  send({ jsonrpc: "2.0", id, error: { code, message, ...(data && { data }) } });
 }
 
 function send(message) {

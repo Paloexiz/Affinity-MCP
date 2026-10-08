@@ -12,10 +12,42 @@ Read this before long scripted sessions and whenever a preview, a tool result or
 
 ## Documents and spreads
 
-- **[SDK]** `Document.current` follows the most recently created or activated document. `execute_script` only acts on it, while `render_spread` and `render_selection` take the session UUID explicitly—verify `Document.current.sessionUuid` inside every script when more than one document is open.
+- **[SDK]** `Document.current` follows the most recently created or activated document; scripts using it can therefore acquire a different target. `render_spread` and `render_selection` take the session UUID explicitly. Bind the intended document and verify its UUID inside every script modifying an existing document, even with only one document open. Authorized creation has the separate identity-binding step below.
 - **[server]** No MCP tool switches the active document; open the intended document before running a script that only makes sense for it.
 - **[SDK]** Setting the current spread is required for some command-class operations on nodes of another spread, not for all of them: `createSetVisibility` (`Document.setVisible`) fails with a bare `COMMAND_FAILED` until the spread is current, while `setEditable`, `Document.applyTransform` and `AddChildNodesCommandBuilder` work without switching. Match the exact error to the operation before assuming a cause.
 - **[SDK]** Do not set the spread that is already current: it clears the selection.
+
+<a id="session-recovery"></a>
+## Session recovery before further writes
+
+Connection availability, preamble state, document identity and current-spread prerequisites are separate checks. Use the trigger that actually occurred:
+
+| Trigger | Next action |
+| --- | --- |
+| First scripted connection | Read preamble, discover/read relevant topics and required native ranges; enumerate documents and establish the intended document/spread, or the authorized creation intent if the target does not exist yet. Cache this material for the unchanged connection. |
+| Explicit preamble-not-read refusal | Stop writes and read preamble plus necessary topics/ranges on this connection. Recheck the intended document and operation preconditions before continuing; do not mistake the refusal for a successful edit. |
+| Invalid document UUID | Stop using that UUID and its cached handles. Re-enumerate documents, match the intended document using title/path and known content/scope, then use its new confirmed UUID. Identity failure alone does not prove a transport reconnection or require rediscovering every SDK topic. |
+| Timeout/disconnect, application restart or confirmed connection change | Reconnect if needed; after a connection change, read preamble and affected topics/ranges again. Re-enumerate documents and discard stale handles. Read back the previous operation's target state before choosing any further write. A timeout on an unchanged connection still requires post-state inspection, not automatically full discovery. |
+| A new disposable document becomes current | Treat it as a different document, not proof that the original was reopened or the MCP connection changed. Keep its identity separate; re-establish the intended current document before resuming the original task. |
+| Normal continuous calls | Reuse confirmed documentation and identity; keep the in-script UUID guard and operation-specific spread checks. Do not repeat full enumeration/discovery without a trigger. |
+
+Before **every script modifying an existing document**, bind the confirmed document and reject a mismatch before any write to it. Replace the placeholder with the UUID established for this task:
+
+```js
+const { Document } = require('/document.js');
+const expectedSessionUuid = '<confirmed target UUID>';
+const doc = Document.current;
+if (!doc || doc.sessionUuid !== expectedSessionUuid) {
+  throw new Error('TARGET_DOCUMENT_MISMATCH');
+}
+// Only now resolve target nodes and perform the authorized operation.
+```
+
+For **authorized new-document creation**, no target UUID exists before `Document.createFromOptions()`. First record the requested creation options and current open-document inventory, without modifying existing documents. After creation, identify the added document using a documented creation result or a scoped before/after inventory difference, then confirm its actual UUID before populating or otherwise editing it. Stop if the added identity is ambiguous; do not use an assumed current document or a matching title alone. Apply the UUID guard to subsequent writes to that new document. This exception authorizes only the requested creation, not edits to another open document.
+
+If the script creates/activates a different document, crosses an asynchronous boundary, or otherwise changes context, recheck the intended identity before subsequent writes. Confirm each command's spread prerequisite from the notes above; switch only when needed and never reset an already-current spread. Render with the same confirmed UUID and intended spread index. A failed render with an old UUID is not proof of empty content.
+
+For an uncertain submitted operation, compare actual text/runs, geometry, hierarchy, visibility and object counts with the retained baseline and intended post-state; `isDirty` alone cannot establish completion. Resume only the proven missing work, not the entire script. If the result or intended document remains ambiguous, stop affected writes and request the specific document activation or decision needed. Do not silently target `Document.current`, close/reopen a user document, or restart the application to force recovery. The proxy reconnects transport and never automatically replays; it does not restore SDK preconditions or roll back edits for the agent.
 
 ## Saving and state
 

@@ -14,7 +14,7 @@ const ticket = createHash('sha256').update('test-session\0test-turn').digest('he
 const context = value => value.hookSpecificOutput?.additionalContext || '';
 const write = (root, name, value) => { fs.mkdirSync(path.dirname(path.join(root,name)),{recursive:true}); fs.writeFileSync(path.join(root,name),value,'utf8'); };
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'ai-agent-docs-hooks-中文 space-'));
+  const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'docs-hooks-中文 space-'));
   t.after(()=>{ assert.equal(path.dirname(root),fs.realpathSync(os.tmpdir())); fs.rmSync(root,{recursive:true,force:true}); });
   execFileSync('git',['init','--quiet'],{cwd:root,windowsHide:true});
   write(root,'.gitignore','/docs/\n/.scratch/\n');
@@ -118,9 +118,93 @@ test('privacy scans ignored docs, refuses private context, never echoes sensitiv
   assert.match(output,/docs\/private.md/);
 });
 
+test('private file references are blocked across markup and bare paths without echoing them',t=>{
+  const root=fixture(t);
+  const samples=[
+    '[raw](../.scratch/evidence.json)',
+    '![image](../.scratch/evidence.png)',
+    '[raw][evidence]\n[evidence]: ../.scratch/evidence.json',
+    '<a href="../.scratch/evidence.json">raw</a>',
+    '<img src="../.scratch/secret">',
+    '<a href="../.scratch/evidence/(raw).md">raw</a>',
+    '<img src="../.scratch/evidence/[raw].png">',
+    '<a href="../.scratch/evidence/ raw file.md">raw</a>',
+    '`../.scratch/evidence/ raw file`',
+    '[raw](<../.scratch/evidence/ raw file.md>)',
+    '[raw]: <../.scratch/evidence/ raw file.md>',
+    '../.scratch/evidence/(raw).md',
+    '../.scratch/evidence/(nested[raw]).md',
+    '（../.scratch/evidence/【raw】.md）',
+    '<a href="../.scratch/evidence/)raw.md">raw</a>',
+    '../.scratch/evidence/)raw.md',
+    '../.scratch/evidence/）raw.md',
+    'Directory (.scratch/evidence/) and file .scratch/secret',
+    '[directory](.scratch/evidence/)[file](.scratch/secret)',
+    '`mv .scratch/evidence.json .scratch/archive/`',
+    '`cp .scratch/secret .scratch/<effort>/`',
+    '`cat "../.scratch/evidence/ raw file"`',
+    '`./.scratch/run --output public/`',
+    '`./.scratch/run public/`',
+    '`.scratch/a b/`',
+    '` .scratch/ a b/ `',
+    '`".scratch/a b"`',
+    '`<.scratch/a b>`',
+    '".scratch/secret .scratch/archive/"',
+    '`../.scratch/evidence/,raw`',
+    '`../.scratch/evidence.json`',
+    'Evidence: ../.scratch/internal.json',
+    'Evidence: ..\\.scratch\\secret',
+    '../.scratch/secret?download=1',
+    '../.scratch/secret#section',
+    '../.scratch/<effort>/evidence/ and ../.scratch/secret',
+    '[raw]: ../transcript.jsonl',
+    '<a href="../db.sqlite">raw</a>',
+  ];
+  for(const [i,sample] of samples.entries()) {
+    write(root,'docs/README.md',`# Context\nDO_NOT_INJECT_PRIVATE_DOCUMENT\n${sample}\n`);
+    const findings=privacyFindings(root);
+    assert.deepEqual(findings,[{file:'docs/README.md',line:sample.includes('\n')?4:3,rule:'private-evidence-link'}],sample);
+    for(const event of ['SessionStart','PreToolUse']) {
+      const output=JSON.stringify(handleHook(root,input(event,{turn_id:`private-${i}`})));
+      assert.match(output,/隐私检查未通过/,sample);
+      assert.ok(!output.includes('DO_NOT_INJECT_PRIVATE_DOCUMENT'),sample);
+      assert.ok(!output.includes(sample),sample);
+    }
+  }
+  write(root,'docs/README.md','# Public context\nPUBLIC_DOCUMENT_RESTORED');
+  assert.match(context(handleHook(root,input('PreToolUse',{turn_id:`private-${samples.length-1}`}))),/PUBLIC_DOCUMENT_RESTORED/);
+});
+
+test('directory descriptions and public references remain eligible for context',t=>{
+  const root=fixture(t);
+  write(root,'docs/README.md',[
+    '# Public context',
+    '.scratch', '.scratch/', '.scratch/docs-hooks/',
+    '`../.scratch/<effort>/evidence/`', '.scratch/<effort>/archives/',
+    '`../.scratch/(archive)/`', '`"../.scratch/ directory with spaces/"`',
+    '`<.scratch/a b/>`', '`ls ".scratch/a b/"`',
+    '<../.scratch/ directory with spaces/>',
+    'Internal directory (.scratch/evidence/) stores raw data.',
+    'Internal data is stored in .scratch/evidence/, for local use.',
+    'Internal data is stored in .scratch/evidence/.',
+    'Internal directory .scratch/evidence/: stores raw data.',
+    '内部资料保存在 .scratch/evidence/，仅供本机使用。',
+    '内部资料保存在 .scratch/evidence/。',
+    '`"../.scratch/evidence/, directory/"`',
+    '内部目录（.scratch/evidence/）用于存放原始资料。',
+    '内部目录【.scratch/(archive)/】用于存放原始资料。',
+    '[directory](.scratch/evidence/)',
+    '`../.scratch/foo)/`',
+    '..\\.scratch\\<effort>\\evidence\\', '.scratch/evidence/#说明',
+    '[architecture](architecture.md)', '<a href="https://example.com/docs">public</a>',
+  ].join('\n'));
+  assert.deepEqual(privacyFindings(root),[]);
+  assert.match(context(handleHook(root,input('SessionStart'))),/Public context/);
+});
+
 test('privacy reports dangling documentation links instead of skipping them',t=>{
   const root=fixture(t);
-  const target=path.join(root,'ai-agent-missing-docs');
+  const target=path.join(root,'missing-docs');
   fs.mkdirSync(target);
   fs.symlinkSync(target,path.join(root,'docs/dangling'),process.platform==='win32'?'junction':'dir');
   fs.rmdirSync(target);
@@ -142,8 +226,8 @@ test('privacy repair retries document injection and cannot silently pass before 
 test('Git failures expose neither native stderr nor local paths on either output stream',t=>{
   const root=fixture(t);
   write(root,'scripts/docs-hooks.mjs',fs.readFileSync(path.join(repo,'scripts/docs-hooks.mjs'),'utf8'));
-  const config=path.join(root,'ai-agent-private-gitconfig');
-  write(root,'ai-agent-private-gitconfig','[broken\n');
+  const config=path.join(root,'private-gitconfig');
+  write(root,'private-gitconfig','[broken\n');
   const result=spawnSync(process.execPath,['scripts/docs-hooks.mjs'],{
     cwd:root,input:JSON.stringify(input('PreToolUse')),encoding:'utf8',windowsHide:true,
     env:{...process.env,GIT_CONFIG_GLOBAL:config},
@@ -153,7 +237,7 @@ test('Git failures expose neither native stderr nor local paths on either output
   assert.equal(result.stderr,'');
   for(const output of [result.stdout,result.stderr]) {
     assert.ok(!output.includes(root));
-    assert.ok(!output.includes('ai-agent-private-gitconfig'));
+    assert.ok(!output.includes('private-gitconfig'));
   }
 });
 
@@ -207,8 +291,8 @@ test('configuration launches real hooks from a Unicode subdirectory with JSON-on
 
 test('configured launcher suppresses Git root lookup errors before Node starts',t=>{
   const root=fixture(t);
-  const privateConfig=path.join(root,'ai-agent-private-gitconfig');
-  write(root,'ai-agent-private-gitconfig','[broken\n');
+  const privateConfig=path.join(root,'private-gitconfig');
+  write(root,'private-gitconfig','[broken\n');
   const config=JSON.parse(fs.readFileSync(path.join(repo,'.codex/hooks.json'),'utf8'));
   const windows=process.platform==='win32';
   const commands=new Set(Object.values(config.hooks).flatMap(groups=>groups.flatMap(group=>group.hooks.map(hook=>windows?hook.commandWindows:hook.command))));
@@ -220,7 +304,7 @@ test('configured launcher suppresses Git root lookup errors before Node starts',
     assert.equal(result.status,0);
     assert.match(JSON.parse(result.stdout).systemMessage,/Git root lookup failed/);
     assert.equal(result.stderr,'');
-    assert.ok(!result.stdout.includes('ai-agent-private-gitconfig'));
+    assert.ok(!result.stdout.includes('private-gitconfig'));
   }
 });
 

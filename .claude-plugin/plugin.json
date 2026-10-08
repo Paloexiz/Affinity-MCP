@@ -1,6 +1,6 @@
 {
   "name": "affinity-mcp",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Connect to Affinity by Canva's local MCP server for SDK scripting and document previews.",
   "author": {
     "name": "Paloexiz",

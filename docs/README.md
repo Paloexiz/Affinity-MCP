@@ -17,10 +17,10 @@
 
 ## 阅读这些记录时
 
-- 插件版本、MCP 协议日期、Affinity 应用构建号是三个不同维度。当前仓库清单为插件 `0.1.10`；已保存的较新应用样本为 `3.3.0.4850 Win32`，观察日期为 2026-10-08。它不等于“官方最新版”。具体来源见[版本身份表](sdk/README.md#version-identity)。
+- 插件版本、MCP 协议日期、Affinity 应用构建号是三个不同维度。当前仓库清单为插件 `0.1.11`；已保存的较新应用样本为 `3.3.0.4850 Win32`，观察日期为 2026-10-08。它不等于“官方最新版”。具体来源见[版本身份表](sdk/README.md#version-identity)。
 - SDK 能力以具体操作、对象和后置状态为单位。函数存在、调用无异常、文本正确、视觉正确与文件保存成功分别需要证据。
 - 版本页中的“样本通过”指该页注明日期的既有实验；[脱敏证据摘要](sdk/evidence/2026-10-08.md)的结论只适用于记录的样本与观察日期。
-- 随包 [Skill](../skills/affinity-mcp/SKILL.md) 和 [SDK reference](../skills/affinity-mcp/references/sdk-verified.md) 仍保留部分旧结论。本地版本页会指出差异，但不会自动更新仓库 Skill、已安装副本或实时 preamble。
+- 随包 [Skill](../skills/affinity-mcp/SKILL.md) 和 [SDK reference](../skills/affinity-mcp/references/sdk-verified.md#version-boundaries) 区分历史记录与3.3样本，未注明新证据的旧案例需在目标构建复验。仓库内容更新不证明已安装副本或实时 preamble 已刷新。
 
 ## 分析资料与待办
 

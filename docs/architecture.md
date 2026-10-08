@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-实现基线：提交 `b399cf64bf599a207308a7158fe8a1370658a209`，插件 `0.1.10`。本页解释已经存在的实现；不把设计建议写成现状。SDK 操作的构建差异单独记录在 [SDK 索引](sdk/README.md)。
+实现依据为仓库中的[代理源码](../scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.1.11`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -18,7 +18,7 @@ flowchart LR
     A --> R[预览 / SDK 文档 / 脚本库 / hints]
 ```
 
-图中代理是独立进程；Affinity MCP 服务与 SDK 属于外部应用能力。Skill 不在消息转发路径中，不会在代理内部强制验证脚本内容。[实现定位：代理 133–330、400–455 行](../scripts/affinity-mcp-proxy.mjs)。
+图中代理是独立进程；Affinity MCP 服务与 SDK 属于外部应用能力。Skill 不在消息转发路径中，不会在代理内部强制验证脚本内容。[代理实现](../scripts/affinity-mcp-proxy.mjs)。
 
 ## 仓库构成
 
@@ -39,10 +39,10 @@ flowchart LR
 ## 连接和一次请求
 
 1. 客户端按清单启动 `node scripts/affinity-mcp-proxy.mjs`。Codex 使用插件目录作为 `cwd`；共用配置用 `${CLAUDE_PLUGIN_ROOT}` 定位脚本。[Codex 清单](../.codex-plugin/plugin.json)、[共用配置](../.mcp.json)。
-2. 代理在本地回答客户端的 `initialize`、`ping`。只有 `tools/list` 或 `tools/call` 才触发对 Affinity 的惰性连接。因此 initialize/ping 成功不能证明应用在线。[代理 321–328、400–427 行](../scripts/affinity-mcp-proxy.mjs)。
-3. 代理 GET `${AFFINITY_MCP_BASE_URL}/sse`，读取 `endpoint` 事件；只接受与配置基址相同 origin 的 POST 地址。随后向该地址发送 `initialize` 和 `notifications/initialized`。[代理 143–184、240–247 行](../scripts/affinity-mcp-proxy.mjs)。
-4. 每次上游请求分配新的内部 ID，并放入内存 `pending` Map。请求经 HTTP POST 发出，结果从 SSE 返回；代理按内部 ID 完成 Promise，再用原客户端请求 ID 返回。[代理 247–300、457–470 行](../scripts/affinity-mcp-proxy.mjs)。
-5. `tools/call` 的工具名、参数和结果被转发，结果可含文本、图像和 `isError`。代理不把脚本输出转换成业务成功结论；没有串行执行队列，客户端并发到来的请求可重叠等待。[代理 326–328、382、429–434 行](../scripts/affinity-mcp-proxy.mjs)。
+2. 代理在本地回答客户端的 `initialize`、`ping`。只有 `tools/list` 或 `tools/call` 才触发对 Affinity 的惰性连接。因此 initialize/ping 成功不能证明应用在线。[代理实现](../scripts/affinity-mcp-proxy.mjs)。
+3. 代理 GET `${AFFINITY_MCP_BASE_URL}/sse`，读取 `endpoint` 事件；只接受与配置基址相同 origin 的 POST 地址。随后向该地址发送 `initialize` 和 `notifications/initialized`。[代理实现](../scripts/affinity-mcp-proxy.mjs)。
+4. 每次上游请求分配新的内部 ID，并放入内存 `pending` Map。请求经 HTTP POST 发出，结果从 SSE 返回；代理按内部 ID 完成 Promise，再用原客户端请求 ID 返回。[代理实现](../scripts/affinity-mcp-proxy.mjs)。
+5. `tools/call` 的工具名、参数和结果被转发，结果可含文本、图像和 `isError`。代理不把脚本输出转换成业务成功结论；没有串行执行队列，客户端并发到来的请求可重叠等待。[代理实现](../scripts/affinity-mcp-proxy.mjs)。
 
 ```mermaid
 sequenceDiagram
@@ -64,23 +64,26 @@ sequenceDiagram
     P-->>C: result，客户端 ID
 ```
 
-客户端侧默认使用换行分隔 JSON；还兼容旧 `Content-Length` 帧，并以首字节选择连接的输入/输出模式。日志走 stderr。[代理 333–383、465–470 行](../scripts/affinity-mcp-proxy.mjs)。MCP `2025-11-25` 的标准 stdio 使用换行分隔；当前代理对 Affinity 使用的是独立 SSE 与 POST endpoint 的旧 HTTP+SSE 形态，不能因为配置中的协议日期较新就称为 Streamable HTTP 实现。[MCP transport 规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)。
+客户端侧默认使用换行分隔 JSON；还兼容旧 `Content-Length` 帧，并以首字节选择连接的输入/输出模式。日志走 stderr。[代理实现](../scripts/affinity-mcp-proxy.mjs)。MCP `2025-11-25` 的标准 stdio 使用换行分隔；当前代理对 Affinity 使用的是独立 SSE 与 POST endpoint 的旧 HTTP+SSE 形态，不能因为配置中的协议日期较新就称为 Streamable HTTP 实现。[MCP transport 规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)。
 
 ## 协议表面和故障行为
 
 | 请求或事件 | 当前行为 | 实现依据 |
 | --- | --- | --- |
-| `tools/list` | 成功时原样转发结果与 `nextCursor`；无 cursor 的发现失败返回 11 个静态备用工具；有 cursor 时失败直接报错 | [代理 7–131、419–427 行](../scripts/affinity-mcp-proxy.mjs) |
-| `tools/call` | 每次先确保连接；已提交调用不会自动重放 | [代理 275–329 行](../scripts/affinity-mcp-proxy.mjs) |
-| `resources/list`、`prompts/list` | 返回空列表；SDK 文档通过工具读取 | [代理 437–443 行](../scripts/affinity-mcp-proxy.mjs) |
-| 通知 | 客户端没有 id 的消息被忽略；上游 `notifications/initialized` 由代理自己发送 | [代理 182、400–401 行](../scripts/affinity-mcp-proxy.mjs) |
-| 断开 SSE | 清理连接标记并拒绝所有 pending 请求；后续新请求可重新连接 | [代理 228–265 行](../scripts/affinity-mcp-proxy.mjs) |
-| stdin EOF、SIGINT、SIGTERM | 关闭连接、清理 pending，再退出 | [代理 186–196、385–398 行](../scripts/affinity-mcp-proxy.mjs) |
-| 迟到响应 | 对应 ID 已不在 pending 时不再交付；不据此取消应用中的脚本 | [代理 247–255、279–284 行](../scripts/affinity-mcp-proxy.mjs) |
-| 未知方法或坏输入 | 未知方法 `-32601`；坏 JSON `-32700`；无效 JSON-RPC `-32600` | [代理 370–380、445–446 行](../scripts/affinity-mcp-proxy.mjs) |
-| 请求异常 | 通常包装为 `-32603` 并附通用“启动应用/启用 MCP”建议；即使真正原因是 tools/call 超时也可能出现 | [代理 448–453 行](../scripts/affinity-mcp-proxy.mjs)；详细问题记录只在本地 tracker |
+| `initialize` | 客户端侧支持`2025-11-25`；请求其他字符串时返回此支持版本，由客户端判断是否继续；缺失或非字符串protocolVersion返回`-32602`。只处理本地协商，不连接Affinity | [代理实现](../scripts/affinity-mcp-proxy.mjs)的CLIENT_PROTOCOL_VERSION与initialize分支；[MCP版本协商](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle#version-negotiation) |
+| `tools/list` | 成功时原样转发结果与 `nextCursor`；无 cursor 的发现失败返回 11 个静态备用工具；有 cursor 时失败直接报错 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| `tools/call` | 每次先确保连接；已提交调用不会自动重放 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| `resources/list`、`prompts/list` | 返回空列表；SDK 文档通过工具读取 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| 通知 | 客户端没有 id 的消息被忽略；上游 `notifications/initialized` 由代理自己发送 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| 断开 SSE | 清理连接标记并拒绝所有 pending 请求；初始化通知结束前再次确认本次连接仍有效，失败不标记connected；后续独立新请求可重新连接 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| stdin EOF、SIGINT、SIGTERM | 关闭连接、清理 pending，再退出 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| 迟到响应 | 对应 ID 已不在 pending 时不再交付；不据此取消应用中的脚本 | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| 未知方法或坏输入 | 未知方法 `-32601`；坏 JSON `-32700`；无效 JSON-RPC `-32600` | [代理实现](../scripts/affinity-mcp-proxy.mjs) |
+| 传输/上游异常 | 包装为 `-32603`，消息与error.data区分connect/endpoint/post/response/sse/upstream，保留cause/outcome，已知方法时包含method；本地输入/未知方法错误不保证有data。只有connect失败建议检查应用和MCP设置 | [代理实现](../scripts/affinity-mcp-proxy.mjs)的failure与handleMessage |
 
 备用列表只能帮助工具发现；真正的能力目录以在线 `tools/list` 和 SDK topics 为准。`initialize`、`ping`、备用列表均不构成连接健康证明。[同上 tools/list 路由](../scripts/affinity-mcp-proxy.mjs)。
+
+客户端侧的支持版本与`AFFINITY_MCP_PROTOCOL_VERSION`分开：后者只控制代理发给Affinity的初始化版本，客户端请求不会覆盖它。两段协商可以使用不同版本；声明版本不等于对所有可选MCP能力的全面认证。
 
 ## 时间边界与恢复
 
@@ -88,11 +91,13 @@ sequenceDiagram
 | --- | --- | --- |
 | 首次 GET `/sse` 返回 | 30,000 ms | Fetch 响应返回后清除此计时器；不是整个 SSE 流寿命 |
 | 等待 endpoint | 50 次 × 100 ms | 约 5 秒的轮询窗口 |
-| 上游响应 pending | 30,000 ms | 从注册 pending 开始计时 |
-| 单个 POST | 30,000 ms | 与连接 AbortSignal 合并 |
-| 共用客户端 `.mcp.json` | `timeoutMs: 60000` | 客户端配置，未用于替换上述硬编码值；Codex 内联配置未设此字段 |
+| 上游响应 pending | AFFINITY_MCP_REQUEST_TIMEOUT_MS，默认30,000 ms | 从注册pending开始；POST未结束时归因post阶段，否则response阶段 |
+| 单个 POST | 同一环境配置 | 与连接AbortSignal合并，也用于initialize请求及initialized通知 |
+| 共用客户端 `.mcp.json` | `timeoutMs: 60000` | 客户端配置，不替换代理环境值；Codex内联配置未设此字段 |
 
-依据：[代理 157–176、267–300、307–318 行](../scripts/affinity-mcp-proxy.mjs)、[共用配置](../.mcp.json)。这些阶段会串接或重叠，并非统一的整次调用 deadline；不能承诺“总是在 30 秒内返回”。
+依据：[代理实现](../scripts/affinity-mcp-proxy.mjs)的REQUEST_TIMEOUT_MS、request与post、[共用配置](../.mcp.json)。允许100～300000毫秒整数，未设置使用默认值；空值、非整数和越界值在启动时报错退出，stderr不打印配置值。更改环境需重启代理。初始SSE建连和endpoint等待仍独立，各阶段串接/重叠，不是整次调用deadline；客户端预算须相应覆盖。
+
+请求结果以先到的终止事件为准：SSE成功/上游错误可以在POST仍等候时完成请求，随后POST错误仍被观察但不改变已交付结果。等待超时移除pending，迟到成功/错误仍丢弃，不补第二次响应。SSE解析失败/断线拒绝当前pending，后续新请求可重连。工具尝试提交后的传输失败或上游错误保守标outcome=unknown，先读回文档实际状态；not_submitted仅表示本次业务工具未提交（例如建连/初始化失败），不推断历史操作状态。代理不取消或回滚应用内脚本。
 
 连接失败、HTTP 错误、脚本错误、权限拒绝、工具超时分别定位。超时或断线后应用可能已经改变文档，代理没有回滚机制；先重读 preamble 和文档身份、检查实际状态，再决定后续动作。[Skill 恢复要求](../skills/affinity-mcp/SKILL.md)、[版本样本的错误边界](sdk/3.3.0.4850.md#errors)。
 
@@ -105,14 +110,14 @@ sequenceDiagram
 | 当前工具目录、安装 Skill 副本、输出截断和图像附件处理 | 客户端/宿主；须与仓库内容分别核对 |
 | 文件访问、脚本网络、脚本库、hint/AI 权限 | Affinity 设置及用户授权；不是代理传输本身提供的权限 |
 
-依据：[代理内存字段及关闭逻辑](../scripts/affinity-mcp-proxy.mjs)、[运行边界 reference](../skills/affinity-mcp/references/scripting-pitfalls.md)、[权限说明](../skills/affinity-mcp/SKILL.md)。代理拒绝重定向并检查 endpoint 同源，但源码没有认证配置或脚本授权判定；默认部署是同机 localhost。将 BASE_URL 改成远程地址需要另行评估，不能从当前文档推导远程部署保证。[代理 3、164–168、240–246、307–315 行](../scripts/affinity-mcp-proxy.mjs)。
+依据：[代理内存字段及关闭逻辑](../scripts/affinity-mcp-proxy.mjs)、[运行边界 reference](../skills/affinity-mcp/references/scripting-pitfalls.md)、[权限说明](../skills/affinity-mcp/SKILL.md)。代理拒绝重定向并检查 endpoint 同源，但源码没有认证配置或脚本授权判定；默认部署是同机 localhost。将 BASE_URL 改成远程地址需要另行评估，不能从当前文档推导远程部署保证。[代理实现](../scripts/affinity-mcp-proxy.mjs)。
 
 ## 验证覆盖与维护入口
 
 仓库开发参与平台包括 Windows、macOS、Linux；维护工具不得依赖个人机器路径或只提供单一平台命令。仓库 [文档 hooks](hooks.md) 使用跨平台 Node.js 实现及独立的 PowerShell/POSIX 启动入口，其三平台测试与 Affinity SDK 的应用平台证据分别记录。
 
-现有测试命令为 `node scripts/affinity-mcp-proxy.test.mjs`。测试启动本地模拟服务和真实子进程，覆盖两种帧格式、分页、文本/图像转发、HTTP 503、断开后不重放、后续重连、EOF 退出、版本一致性及含空格/中文的安装路径。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
+现有测试命令为 `node scripts/affinity-mcp-proxy.test.mjs`。本地模拟服务与真实子进程覆盖两种帧格式、分页、文本/图像透传、HTTP503、配置默认/上下界/非法值、连接/endpoint/初始化与通知等待、延迟POST/SSE竞态、迟到成功与错误不重复响应、异常SSE、断开不重放及后续重连、EOF、版本一致性和含空格/中文的安装路径。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
 
-当前测试没有证明真实 Affinity 的 SDK 功能，也未穷尽备用列表、各超时分支、权限配置和所有协议错误输入。SDK 功能证据由[构建记录](sdk/README.md)承担；新场景的验收方法见[验证指南](sdk/verification.md)。不要把模拟服务通过写成“已适配全部 Affinity 功能”。
+测试不证明真实Affinity SDK功能，也未穷尽备用列表、30秒SSE建连的所有网络故障、权限配置和全部协议坏输入。SDK证据由[构建记录](sdk/README.md)承担，新场景见[验证指南](sdk/verification.md)，不把模拟服务通过写成“已适配全部功能”。
 
 后续改变连接策略、工具转发语义或部署边界时，更新本页和对应测试；若实际作出新的长期架构选择，再新增 ADR 记录当时的原因、选项和后果。本页未追认历史作者未记录的设计动机。

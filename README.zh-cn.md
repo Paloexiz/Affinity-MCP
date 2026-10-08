@@ -90,6 +90,10 @@ codex plugin add affinity-mcp@affinity-mcp
 
 脚本超时或连接中断后可能已经执行，请先检查文档再决定是否重试。代理不会自动重放已提交的工具调用。离线返回的备用工具列表不能证明已连上 Affinity by Canva。
 
+在代理进程环境中设置 `AFFINITY_MCP_REQUEST_TIMEOUT_MS` 可调整上游请求/POST等待：默认 `30000`，允许 `100`～`300000` 毫秒整数。未设置时使用默认值；空字符串、非整数或越界值使代理退出并在stderr报错。上游initialize/initialized也使用此值。首次SSE建连仍为30秒、endpoint发现约5秒，各阶段不是统一的端到端deadline。客户端工具预算需覆盖预期等待及建连；共用配置的 `timeoutMs: 60000` 不会覆盖此环境设置。更改环境后需重启代理。
+
+传输/上游错误消息与JSON-RPC `error.data.phase` 区分 `connect`、`endpoint`、`post`、`response`、`sse`、`upstream`，并保留原因；已知请求方法时包含 `method`，本地输入校验和不支持的方法错误可以没有 `data`。工具调用已尝试提交时，`outcome: "unknown"` 表示结果未知，包括HTTP错误，须先读回再决定重试。`not_submitted` 表示本次请求的工具尚未提交（例如初始化失败），不证明先前操作未执行。SSE响应可在POST结束前完成请求；迟到成功/错误不补第二次响应或自动重放，SDK文字、图像与isError结果仍原样透传。
+
 ## 目前支持的功能
 
 - [x] **连接 Affinity by Canva**：Codex、ZCode 和 Claude Code 可通过本地 MCP 调用 Affinity by Canva。
@@ -113,7 +117,7 @@ codex plugin add affinity-mcp@affinity-mcp
 
 以下状态截至 **2026-09-11**，依据 Affinity by Canva **3.2.3.4646** 的实际验证；后续版本可能变化。
 
-- [ ] **通过 SDK 关闭文档**：关闭接口当前未实现。
+- [ ] **通过 SDK 关闭文档**：历史3.2 Windows路径返回NOT_IMPLEMENTED；3.3.0.4850 Win32仅同步关闭已修改、未保存的自建样本通过，异步路径、业务文档和保存提示仍未验证。见[生命周期边界](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export)。
 - [ ] **向现有文档插入或拼接页面**：SDK 没有可用入口，只能新建多页文档。
 - [ ] **直接创建默认画笔对象**：RasterBrush 和 VectorBrush 的默认创建入口不可用；已有矢量画笔仍可读取和修改。
 - [ ] **调整 RasterBrush 参数**：尚未取得可用的栅格画笔对象，透明度和间距未验证。
@@ -139,7 +143,7 @@ codex plugin add affinity-mcp@affinity-mcp
 node scripts/affinity-mcp-proxy.test.mjs
 ```
 
-检查覆盖两种 stdio 帧格式、分页、文字与图片转发、HTTP 错误、断线不重放、重连、EOF 退出、版本一致性，以及包含空格和中文路径下的 Codex 和 Claude Code/ZCode 共用启动配置。测试使用本地模拟服务，不修改 Affinity by Canva 文档。
+检查覆盖两种stdio帧格式、分页、文字与图片透传、HTTP错误、可配置等待及非法/边界值、连接/endpoint/初始化失败、延迟POST与SSE竞态、迟到成功/错误不重复响应、异常SSE、断线不重放、重连、EOF退出、版本一致性及包含空格和中文路径下的Codex和Claude Code/ZCode共用启动配置。测试使用本地模拟服务，不修改Affinity by Canva文档。
 
 ## 结构依据与致谢
 

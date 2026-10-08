@@ -7,10 +7,10 @@
 
 | 维度 | 已知值 | 依据与限制 |
 | --- | --- | --- |
-| 仓库插件版本 | `0.1.10` | [Codex 清单](../../.codex-plugin/plugin.json)、[共用插件清单](../../.claude-plugin/plugin.json)、[市场条目](../../.claude-plugin/marketplace.json)；这是静态仓库值 |
-| 代理报告版本 | `0.1.10` | [代理源码](../../scripts/affinity-mcp-proxy.mjs) 180、409 行；静态声明，不是运行时握手证据 |
+| 仓库插件版本 | `0.1.11` | [Codex 清单](../../.codex-plugin/plugin.json)、[共用插件清单](../../.claude-plugin/plugin.json)、[市场条目](../../.claude-plugin/marketplace.json)；这是静态仓库值 |
+| 代理报告版本 | `0.1.11` | [代理源码](../../scripts/affinity-mcp-proxy.mjs) 中的 `clientInfo.version` 与 `serverInfo.version`；静态声明，不是运行时握手证据 |
 | MCP 协议默认值 | `2025-11-25` | [配置](../../.mcp.json)与[代理源码](../../scripts/affinity-mcp-proxy.mjs)；不是 SDK 版本或协议全面兼容认证 |
-| 历史能力基线 | `3.2.3.4646` | [README 原有说明](../../README.md) 114 行，截至 2026-09-11；历史转录，没有独立复验结果 |
+| 历史能力基线 | `3.2.3.4646` | [README 的 Unsupported or unverified features](../../README.md#unsupported-or-unverified-features) 中的范围说明，截至 2026-09-11；历史转录，没有独立复验结果 |
 | 较新样本构建 | `Affinity 3.3.0.4850 Win32 (Sep 11 2026)` | [脱敏证据摘要](evidence/2026-10-08.md) A-01，观察于 2026-10-08；括号内是应用自报字符串，不作为发布日期 |
 | 样本中 SDK 独立版本 | 未记录 | 不能用 `app.buildVersion=0` 或插件版本代填 |
 | 样本的安装插件/宿主精确版本 | 原始样本未完整记录 | 仓库版本已知，不意味着每次运行加载的副本和宿主都已锁定 |
@@ -32,7 +32,9 @@
 | `closeAsync` / `document.promises.close` | 旧说明报告受限 | 未重新测试 | [历史限制](3.2.3.4646.md#limits) |
 | `Node.setText` 替换普通文本 | 旧 wrapper 使用缺失 `TextSelection.from` 的问题有历史记录；显式文本子选区已有替代方法 | 当前 wrapper 使用 `TextSelection.create`；普通替换读回通过 | [文本结果](3.3.0.4850.md#text) |
 | 替换并保留混合格式 | 无充分通用保证 | 20px/12px 样本替换后合为单个 20px run，未达到保混排目标 | [文本结果](3.3.0.4850.md#text) |
-| 段落水平 Align | 随包资料报告部分写入/读回成功 | 函数与 9 个枚举成员只读确认；本构建未做新的 Align 写试验 | [Align](3.3.0.4850.md#alignment) |
+| 多行艺术字与局部替换 | 此处不作跨版本推断 | 一个艺术字对象内三行及24px/18px runs，run内同长局部替换保持该样本的格式与对象完整性 | [文本结果](3.3.0.4850.md#text) |
+| 段落水平 Align | 随包资料报告部分写入/读回成功 | 单个未链接框的Left/Centre/Right写入、读回与排文通过；其他六种模式及链接范围未测 | [Align](3.3.0.4850.md#alignment) |
+| 框与内容中心 | 此处不作跨版本推断 | 框居中、内容靠左上的反例已验证；简单样本的exact visible box与文字边界相符 | [Align](3.3.0.4850.md#alignment) |
 | 框内垂直 Align | 无可依赖的已验证 SDK 配方 | 已查 wrapper、相关原生原型和命令未发现入口；UI 功能存在不证明 SDK 可写 | [Align](3.3.0.4850.md#alignment) |
 | `canHideOverflow` | 不作跨版本推断 | getter/能力读数；不能把 true 当成隐藏开关已开启 | [文本结果](3.3.0.4850.md#text) |
 | 保存、PNG、画板、像素等既有案例 | 历史 reference 有指定案例 | 此样本未覆盖 | [历史能力目录](3.2.3.4646.md#capabilities) |

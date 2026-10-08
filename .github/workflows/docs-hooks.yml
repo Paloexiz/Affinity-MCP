@@ -1,0 +1,43 @@
+name: Docs hooks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'AGENTS.md'
+      - '.gitignore'
+      - '.codex/hooks.json'
+      - 'scripts/docs-hooks*'
+      - '.github/workflows/docs-hooks.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'AGENTS.md'
+      - '.gitignore'
+      - '.codex/hooks.json'
+      - 'scripts/docs-hooks*'
+      - '.github/workflows/docs-hooks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - run: node scripts/docs-hooks.mjs check
+      - run: node --test scripts/docs-hooks.test.mjs

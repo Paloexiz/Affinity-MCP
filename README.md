@@ -90,6 +90,10 @@ See [supported operations and limits](skills/affinity-mcp/SKILL.md#supported-ope
 
 After a timeout or disconnect, inspect document state before retrying: the script may already have executed. Submitted tool calls are never replayed automatically. An offline fallback tool list does not prove a live Affinity by Canva connection.
 
+Set `AFFINITY_MCP_REQUEST_TIMEOUT_MS` in the proxy process environment to change upstream request/POST waits: default `30000`, allowed integer range `100`–`300000` milliseconds. An unset value uses the default; empty, non-integer or out-of-range values stop the proxy with an error on stderr. It also applies to upstream initialize/initialized calls. Initial SSE connection setup remains 30 seconds and endpoint discovery about 5 seconds; these stages are not one end-to-end deadline. Set the client's own tool budget to cover its intended wait and connection setup; the shared config's `timeoutMs: 60000` does not override this environment setting. Restart the proxy after changing its environment.
+
+Transport/upstream errors identify `connect`, `endpoint`, `post`, `response`, `sse` or `upstream` in the message and JSON-RPC `error.data.phase`, retaining the cause. `method` is included when a request method is known; local input validation and unsupported-method errors need not have `data`. For a tool call attempted upstream, `outcome: "unknown"` requires state inspection before retrying, including HTTP failures. `not_submitted` means the requested tool call was not sent (for example, initialization failed); it is not a claim that earlier work did not execute. An SSE response can settle a request before its POST completes. Late results/errors never produce a second response or automatic replay; SDK text, images and `isError` results remain unaltered.
+
 ## Supported features
 
 - [x] **Connect to Affinity by Canva**: Codex, ZCode and Claude Code can call Affinity by Canva through its local MCP server.
@@ -113,7 +117,7 @@ After a timeout or disconnect, inspect document state before retrying: the scrip
 
 The status below is current through **September 11, 2026**, based on Affinity by Canva **3.2.3.4646**. Later releases may behave differently.
 
-- [ ] **Close documents through the SDK**: the close interface is not currently implemented.
+- [ ] **Close documents through the SDK**: historical 3.2 Windows paths returned `NOT_IMPLEMENTED`. On 3.3.0.4850 Win32, synchronous close passed only disposable, modified/unsaved samples; async paths, business documents and save prompts remain unverified. See [lifecycle boundaries](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export).
 - [ ] **Insert or stitch pages into an existing document**: the SDK has no usable entry point; it can only create a new multi-page document.
 - [ ] **Create default brush objects directly**: the default RasterBrush and VectorBrush entry points are unavailable; an existing vector brush can still be read and modified.
 - [ ] **Adjust RasterBrush properties**: no usable raster-brush object has been obtained, so opacity and spacing remain unverified.
@@ -139,7 +143,7 @@ SDK operations not listed here remain unverified. Permission-controlled features
 node scripts/affinity-mcp-proxy.test.mjs
 ```
 
-Tests cover newline/legacy framing, pagination, text/image forwarding, HTTP errors, disconnect without replay, reconnection, EOF shutdown, release metadata and the Codex/shared Claude Code-ZCode launchers under paths containing spaces and Unicode. Tests use a local mock service and do not modify Affinity by Canva documents.
+Tests cover newline/legacy framing, pagination, text/image forwarding, HTTP errors, configurable waits and invalid/boundary values, connect/endpoint/initialize failures, delayed POST/SSE races, late success/error without duplicate responses, malformed SSE, disconnect without replay, reconnection, EOF shutdown, release metadata and the Codex/shared Claude Code-ZCode launchers under paths containing spaces and Unicode. Tests use a local mock service and do not modify Affinity by Canva documents.
 
 ## Sources and attribution
 

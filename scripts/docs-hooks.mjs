@@ -5,12 +5,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // Repository maintenance only. Never read transcripts or change project documents.
-const STATE_DIR = '.scratch/ai-agent-docs-hooks';
+const STATE_DIR = '.scratch/docs-hooks';
 const BOOTSTRAP = ['docs/README.md', 'docs/agents/domain.md', 'docs/maintaining.md', 'docs/architecture.md', 'docs/sdk/README.md', 'docs/hooks.md'];
 const MAX_FILE = 8 * 1024 * 1024;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fingerprint = value => hash(JSON.stringify(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
-const ignored = name => /(^|\/)(?:\.git|\.scratch|\.serena|node_modules|ai-agent-[^/]*)(\/|$)/.test(name);
+const ignored = name => /(^|\/)(?:\.git|\.scratch|\.serena|node_modules)(\/|$)/.test(name);
 const isDocument = name => name.startsWith('docs/') || /\.(?:md|mdx|rst|txt)$/i.test(name) || /^(?:LICENSE|NOTICE)(?:\.|$)/.test(name);
 const inside = (root, target) => { const rel = path.relative(root, target); return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); };
 
@@ -61,11 +61,46 @@ export function snapshot(root) {
 const PRIVACY_RULES = [
   ['absolute-machine-path', /(?:\b[A-Za-z]:[\\/]|\/(?:Users|home)\/|~[\\/]\.(?:codex|zcode|claude)[\\/])/],
   ['session-identifier', /\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b|\b(?:sess_|part_|rollout-\d{4}|call_[A-Za-z0-9]{12})/i],
-  ['private-evidence-link', /\]\([^)]*(?:\.scratch[\\/]|\.jsonl\b|db\.sqlite\b)/i],
   ['private-key', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bsk-[a-zA-Z0-9_-]{24,}\b/],
   ['email', /\b[A-Z0-9._%+-]+@(?!example\.(?:com|org|net)\b|[^\s@]+\.invalid\b)[A-Z0-9.-]+\.[A-Z]{2,}\b/i],
   ['phone', /(?:^|[^\d])(?:1[3-9]\d{9}|\+\d(?:[ -]?\d){10,14})(?!\d)/],
 ];
+
+function privateEvidenceReference(line) {
+  if (/\.jsonl\b|\bdb\.sqlite\b/i.test(line)) return true;
+  const paths = [];
+  let nestedPrivate = false;
+  const bare = line.replace(/(["'`])([^\r\n]*?)\1|<([^\s<>]*\.scratch[\\/][^<>\r\n]*)>/gi, (whole, quote, quoted, angled) => {
+    const candidate = quoted ?? angled;
+    // Keep a single path intact; code spans containing commands still need token scanning.
+    const startsWithPath = /^[^\s"'`<>]*\.scratch[\\/]/i.test(candidate.trimStart());
+    if (quote === '`' && startsWithPath && /\s/.test(candidate)) nestedPrivate = true;
+    else if (startsWithPath && candidate.match(/\.scratch[\\/]/gi).length === 1) paths.push(candidate);
+    else nestedPrivate ||= privateEvidenceReference(candidate);
+    return ' '.repeat(whole.length);
+  });
+  const pairs = { '(': ')', '[': ']', '（': '）', '【': '】' };
+  // shortcut: bare punctuation is prose; quote literal punctuation paths to disambiguate.
+  const pathPattern = /\.scratch[\\/](?:<[^<>\s]+>|[^\s<>"'`|,:;!，。；、！？：])+/gi;
+  for (let match; (match = pathPattern.exec(bare));) {
+    const outer = bare.slice(0, match.index).match(/([([（【])[^\s()[\]（）【】]*$/)?.[1];
+    const stack = [];
+    let end = match[0].length;
+    for (let i = 0; i < end; i++) {
+      const char = match[0][i];
+      if (pairs[char]) stack.push(pairs[char]);
+      else if (char === stack.at(-1)) stack.pop();
+      else if (!stack.length && char === pairs[outer]) { end = i; break; }
+    }
+    paths.push(match[0].slice(0, end).replace(/([\\/])\.$/, '$1'));
+    pathPattern.lastIndex = match.index + end;
+  }
+  // Directory descriptions must end in a slash; extensionless files are private too.
+  return nestedPrivate || paths.some(candidate => {
+    const start = candidate.search(/\.scratch[\\/]/i);
+    return start >= 0 && !/[\\/]$/.test(candidate.slice(start).split(/[?#]/)[0]);
+  });
+}
 
 export function privacyFindings(root) {
   const found = [];
@@ -78,6 +113,7 @@ export function privacyFindings(root) {
     try { content = new TextDecoder('utf-8', { fatal: true }).decode(readBytes(root, name)); }
     catch { found.push({ file: name, line: 1, rule: 'unreadable-document' }); continue; }
     for (const [i, line] of content.split(/\r?\n/).entries()) {
+      if (privateEvidenceReference(line)) found.push({ file: name, line: i + 1, rule: 'private-evidence-link' });
       for (const [rule, pattern] of PRIVACY_RULES) if (pattern.test(line)) found.push({ file: name, line: i + 1, rule });
     }
   }
@@ -122,7 +158,7 @@ function withState(root, ticket, operation) {
     const { state: next, output } = operation(state);
     if (next) {
       next.updatedAt = new Date().toISOString();
-      const temp = path.join(dir, `ai-agent-${ticket}-${process.pid}.tmp`);
+      const temp = path.join(dir, `${ticket}-${process.pid}.tmp`);
       try { fs.writeFileSync(temp, `${JSON.stringify(next)}\n`, { encoding: 'utf8', flag: 'wx' }); fs.renameSync(temp, file); }
       finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
     }

@@ -197,7 +197,7 @@ class AffinitySseClient {
     await this.request("initialize", {
       protocolVersion: AFFINITY_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "affinity-mcp-proxy", version: "0.1.0" },
+      clientInfo: { name: "affinity-mcp-proxy", version: "0.2.0" },
     });
     await this.notify("notifications/initialized", {});
     if (this.controller !== controller || controller.signal.aborted || this.streamError || !this.endpointPath) {
@@ -445,7 +445,7 @@ async function handleMessage(message) {
         sendResult(message.id, {
           protocolVersion: CLIENT_PROTOCOL_VERSION,
           capabilities: { tools: {} },
-          serverInfo: { name: "affinity-mcp", version: "0.1.0" },
+          serverInfo: { name: "affinity-mcp", version: "0.2.0" },
           instructions:
             "Use Affinity by Canva through its local MCP server. Read read_sdk_documentation_topic with filename 'preamble' before writing or executing scripts.",
         });

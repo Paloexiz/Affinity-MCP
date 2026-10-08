@@ -2,7 +2,6 @@
 /.serena/
 .mimosa/
 /.scratch/
-ai-agent-*
 /docs/agents/issue-tracker.md
 
 # Node dependencies, coverage and package-manager logs

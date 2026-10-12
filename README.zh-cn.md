@@ -6,7 +6,7 @@
 
 **语言选择：[English](README.md)  | 简体中文**
 
-连接 **Codex、ZCode 和 Claude Code** 与 Affinity by Canva 本地 MCP 服务的独立插件。一个仓库只维护一个插件，清单、脚本、Skill 和资源直接放在根目录。
+连接 **Codex、ZCode 和 Claude Code** 与 Affinity by Canva 本地 MCP 服务的独立插件。一个仓库只维护一个插件，清单放在根目录，运行脚本随 `skills/affinity-mcp/` 分发。
 
 由 [Paloexiz](https://github.com/Paloexiz) 维护的社区项目，并非 OpenAI、Z.ai、Anthropic、Canva 或 Affinity 官方产品。
 
@@ -36,6 +36,8 @@
 - 支持插件的 Codex、ZCode 或 Claude Code。
 
 ## 安装
+
+仅支持安装完整 **Affinity MCP Plugin**。不支持单独复制 `skills/affinity-mcp/` 或通过技能安装器安装它；Skill 目录中的运行脚本由完整 Plugin 清单注册和启动 MCP，单独安装 Skill 不会注册该服务。
 
 如果客户端里已经存在其它提供 Affinity by Canva 工具的插件或 MCP 服务，先把它停用再安装本插件，否则两份会同时生效，Affinity 工具会出现重复。
 
@@ -148,10 +150,12 @@ node scripts/affinity-mcp-proxy.test.mjs
 保持Affinity打开并启用MCP，然后显式运行：
 
 ```shell
-node scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
+node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
 ```
 
 将`<absolute-plugin-root>`替换为确定的插件安装目录绝对路径。Claude Code/ZCode的`.mcp.json`启动配置使用`--config shared`。检查器读取该副本的配置并启动对应代理，不自动猜缓存版本，也不修改安装文件。
+
+代理与连接检查器位于 `skills/affinity-mcp/scripts/`，作为完整 Plugin 的一部分分发。检查器核对所选副本的插件清单与代理版本是否一致。
 
 检查器初始化代理，跟随`tools/list`分页并读取SDK preamble，不执行脚本，也不改变文档、设置、hint或脚本库。发现降级、RPC/工具错误、无法识别的preamble或超时均判失败；进程清理完成后才报告通过。单次请求上限45秒，整次检查预算60秒，之后进行有界的进程清理。
 

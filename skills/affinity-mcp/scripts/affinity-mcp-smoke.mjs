@@ -34,7 +34,10 @@ export async function checkInstalledConnection(root, configuration, timeoutMs = 
   assert.equal(cwd, pluginRoot, "Only the plugin root cwd is supported");
   const args = launch.args.map(expand);
   const proxyPath = resolve(cwd, args[0]);
-  assert.equal(proxyPath, join(pluginRoot, "scripts/affinity-mcp-proxy.mjs"), "Unsupported proxy path");
+  assert.ok([
+    "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs",
+    "scripts/affinity-mcp-proxy.mjs",
+  ].some(file => proxyPath === join(pluginRoot, file)), "Unsupported proxy path");
   const env = { ...process.env };
   for (const [key, value] of Object.entries(launch.env)) {
     if (process.platform === "win32") {

@@ -123,6 +123,7 @@ export function privacyFindings(root) {
 const changes = (before, after) => [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(name => before[name] !== after[name]).sort();
 export function relatedDocs(name) {
   if (name.startsWith('.codex/') || name === '.github/workflows/docs-hooks.yml' || /^scripts\/docs-hooks/.test(name)) return ['docs/hooks.md'];
+  if (['skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs', 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'].includes(name)) return ['docs/architecture.md'];
   if (name.startsWith('skills/')) return ['docs/sdk/README.md', 'docs/sdk/verification.md'];
   if (name === '.gitignore' || name === '.gitattributes') return ['docs/maintaining.md'];
   return ['docs/architecture.md'];

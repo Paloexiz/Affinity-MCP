@@ -6,13 +6,17 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { handleHook, recordReview, privacyFindings } from './docs-hooks.mjs';
+import { handleHook, recordReview, privacyFindings, relatedDocs } from './docs-hooks.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const input = (event, extra = {}) => ({session_id:'test-session',turn_id:'test-turn',hook_event_name:event,...extra});
 const ticket = createHash('sha256').update('test-session\0test-turn').digest('hex').slice(0,32);
 const context = value => value.hookSpecificOutput?.additionalContext || '';
 const write = (root, name, value) => { fs.mkdirSync(path.dirname(path.join(root,name)),{recursive:true}); fs.writeFileSync(path.join(root,name),value,'utf8'); };
+test('Skill runtime scripts require architecture review while other Skill code retains SDK review',()=>{
+  for(const name of ['affinity-mcp-proxy.mjs','affinity-mcp-smoke.mjs']) assert.deepEqual(relatedDocs(`skills/affinity-mcp/scripts/${name}`),['docs/architecture.md']);
+  for(const name of ['skills/affinity-mcp/scripts/affinity-mcp-proxy.test.mjs','skills/affinity-mcp/scripts/other.mjs','skills/other/scripts/affinity-mcp-proxy.mjs']) assert.deepEqual(relatedDocs(name),['docs/sdk/README.md','docs/sdk/verification.md']);
+});
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'docs-hooks-中文 space-'));
   t.after(()=>{ assert.equal(path.dirname(root),fs.realpathSync(os.tmpdir())); fs.rmSync(root,{recursive:true,force:true}); });

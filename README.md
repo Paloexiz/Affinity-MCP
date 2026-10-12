@@ -6,7 +6,7 @@
 
 Select your Language: English | [简体中文](README.zh-cn.md)
 
-A standalone plugin for **Codex, ZCode and Claude Code**, connecting to Affinity by Canva's local MCP server. One repository contains one plugin; its files live directly at the repository root.
+A standalone plugin for **Codex, ZCode and Claude Code**, connecting to Affinity by Canva's local MCP server. One repository contains one plugin; manifests live at the root and runtime scripts ship inside `skills/affinity-mcp/`.
 
 Independent community project maintained by [Paloexiz](https://github.com/Paloexiz), not an official OpenAI, Z.ai, Anthropic, Canva or Affinity release.
 
@@ -36,6 +36,8 @@ The screenshot shows the recommended configuration. Keep **Access files on your 
 - Codex, ZCode or Claude Code with plugin support.
 
 ## Install
+
+Install the complete **Affinity MCP Plugin**. Copying `skills/affinity-mcp/` alone or installing it through a skill installer is unsupported. The complete Plugin manifests register and launch the MCP server using the Skill's runtime scripts; installing the Skill alone does not register that server.
 
 If the client already has another plugin or MCP server that provides Affinity by Canva's tools, disable it before installing this one — otherwise both stay active and every Affinity tool appears twice.
 
@@ -148,10 +150,12 @@ Tests cover newline/legacy framing, UTF-8 splits inside a character, multiple me
 Keep Affinity open with MCP enabled, then explicitly run:
 
 ```shell
-node scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
+node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
 ```
 
 Replace `<absolute-plugin-root>` with the exact installed plugin directory. Use `--config shared` for the Claude Code/ZCode `.mcp.json` launcher. The checker reads that copy's configuration and starts its proxy; it does not choose a cache version automatically or change the installed files.
+
+The proxy and connection checker ship in `skills/affinity-mcp/scripts/` as part of the complete Plugin. The checker verifies that the selected copy's manifest and proxy versions match.
 
 It initializes the proxy, follows `tools/list` pagination and reads the SDK preamble. It does not execute scripts or change documents, settings, hints or the script library. Fallback discovery, RPC/tool errors, unrecognized preamble content and timeouts fail the check; cleanup must complete before it reports success. Requests have a 45-second limit within a 60-second overall budget, followed by bounded process cleanup.
 

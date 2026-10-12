@@ -37,6 +37,7 @@
 | --- | --- |
 | `.codex/`、`scripts/docs-hooks*`、hooks 的 CI 配置 | 本页 |
 | `skills/` 下的非文档实现文件 | SDK 索引或验证方法 |
+| `skills/affinity-mcp/scripts/` 中的 `affinity-mcp-proxy.mjs`、`affinity-mcp-smoke.mjs` | 架构说明；优先于通用 Skill 分类 |
 | `.gitignore`、`.gitattributes` | 文档维护说明 |
 | 其他实现、配置、资源 | 架构说明 |
 
@@ -85,6 +86,6 @@ node scripts/docs-hooks.mjs check
 
 直接 CLI 另验证正常检查的 JSON 输出、隐私发现及未知 mode 的非零退出；Windows 同时使用普通和 namespaced 入口路径。模块导入只输出测试 sentinel，不读取 hook stdin 或生成状态，原有 PowerShell/POSIX 启动器回归继续保留。[测试实现](../scripts/docs-hooks.test.mjs)。
 
-[三平台回归配置](../.github/workflows/docs-hooks.yml)在相关文档、忽略规则或 hooks 文件的 PR 及 `main` 推送时触发，也可手动运行。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
+[三平台回归配置](../.github/workflows/docs-hooks.yml)在相关文档、忽略规则、hooks 文件或两个 Skill 运行脚本的 PR 及 `main` 推送时触发，也可手动运行。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
 
 各平台的通过结论必须来自对应环境的实际运行结果，CI 配置存在不代表测试已通过。启用后还需观察真实生命周期是否触发；手动模拟和 hook 信任状态都不能替代此项检查。本机执行结果与启用记录按[维护规则](maintaining.md)仅在本机保存。

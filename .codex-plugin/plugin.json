@@ -14,7 +14,7 @@
     "affinity-by-canva": {
       "command": "node",
       "args": [
-        "scripts/affinity-mcp-proxy.mjs"
+        "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"
       ],
       "cwd": ".",
       "env": {

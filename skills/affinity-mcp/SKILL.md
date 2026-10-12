@@ -37,7 +37,7 @@ Operations outside those cases are unverified: do not present them as supported 
 
 ## Version-dependent limits
 
-Historical 3.2.3.4646 Windows records reported `NOT_IMPLEMENTED` for close paths. On 3.3.0.4850 Win32, synchronous `Document.close()` removed modified, unsaved disposable samples from `Document.all`; async/promises close, business documents and save prompts remain unverified. Use only an authorized, identity-checked close in a covered case; this is not permission to discard user work, substitute GUI actions or terminate the application. See [lifecycle boundaries](references/sdk-verified.md#lifecycle-documents-and-export).
+On 3.3.0.4850 Win32, synchronous `Document.close()` removed modified, unsaved disposable samples from `Document.all`; async/promises close, business documents and save prompts remain unverified. Use only an authorized, identity-checked close in a covered case; this is not permission to discard user work, substitute GUI actions or terminate the application. See [lifecycle boundaries](references/sdk-verified.md#lifecycle-documents-and-export) and [version boundaries](references/sdk-verified.md#version-boundaries).
 
 The historical `DocumentCommand.createInsertGlyph(selection, CharGlyph.create(33))` case failed at construction with `TypeError: expected GlyphHandle`; it does not rule out plain replacement. Plain full replacement passed on the 3.3.0.4850 Win32 sample, while mixed-size runs merged; see [text replacement boundaries](references/sdk-verified.md#nodes-and-text). An ordinary shape's historical artboard-properties path returned `DISPOSED`, so check `isArtboardEnabled` first.
 

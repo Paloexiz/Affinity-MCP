@@ -27,7 +27,7 @@ selection.addSubSelectionForNode(textNode,
 document.executeCommand(DocumentCommand.createSetText(selection, 'Replacement'));
 ```
 
-- A historical convenience wrapper referenced missing `TextSelection.from`. The inspected 3.3.0.4850 `Node.setText` wrapper instead uses `TextSelection.create(this.storyRange)`; plain full replacement passed on the sample. `begin` / `end` identify endpoints, not start / length. Use the actual story range and verify the target text; linked/partial ranges need their own checks.
+- The inspected 3.3.0.4850 Win32 `Node.setText` wrapper uses `TextSelection.create(this.storyRange)`; plain full replacement passed on the 2026-10-08 sample. `begin` / `end` identify endpoints, not start / length. Use the actual story range and verify the target text; linked/partial ranges need their own checks.
 - Plain replacement is not a format-preserving recipe: in a 3.3 sample, full replacement merged 20px/12px runs into 20px. For preservation tasks, capture character/paragraph runs first and sample-verify the intended edit/range. The same-length, single-run artistic edit below passed only its limited case. `canHideOverflow` is a capability getter; neither its value nor a complete Story proves visible content or permanent deletion.
 - `Font.all` enumerates the installed fonts; `StoryDelta.createPostscriptName` with `createFormatText` selects one. Glyph height, character spacing, alignment and indents can be set on live text and read back. A character-spacing value of 2 produces very wide spacing and wrapping—it is not a two-pixel recipe.
 - `CharGlyph.create(33)`, clone, `char32` and `string` work. `createInsertGlyph` with such a typed glyph fails at construction (`expected GlyphHandle`).
@@ -109,7 +109,7 @@ Native paragraph centering uses typographic spacing; it does not guarantee ident
 
 ## Lifecycle, documents and export
 
-- Historical 3.2 Windows close paths returned `NOT_IMPLEMENTED`. On 3.3.0.4850 Win32, synchronous `Document.close()` closed modified, unsaved disposable samples, confirmed by re-enumeration. Async/promises close, business documents and save prompts remain unverified. Confirm authorization and the sample identity before closing; do not extrapolate this result to discarding user work.
+- On 3.3.0.4850 Win32, synchronous `Document.close()` closed modified, unsaved disposable samples, confirmed by re-enumeration. Async/promises close, business documents and save prompts remain unverified. Confirm authorization and the sample identity before closing; do not extrapolate this result to discarding user work.
 
 - `save`, `saveAs`, `saveAsync`, `saveAsAsync` and the package variants write files and clear the save-state getters afterwards. `executeCommandAsync` completes callbacks.
 - Sync `Document.export` with PNG/CurrentSpread and async `exportAsync` with PNG/CurrentPage produce rendered images. Other scopes, presets and bleed behaviour are unverified. `exportMacro` writes the current macro.

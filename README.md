@@ -96,6 +96,8 @@ Transport/upstream errors identify `connect`, `endpoint`, `post`, `response`, `s
 
 ## Supported features
 
+These categories cover only the cases recorded in the [SDK reference](skills/affinity-mcp/references/sdk-verified.md#version-boundaries). Historical cases with incomplete build/platform metadata require validation in the target environment.
+
 - [x] **Connect to Affinity by Canva**: Codex, ZCode and Claude Code can call Affinity by Canva through its local MCP server.
 - [x] **Read SDK resources**: list and read SDK documentation, search hints and save local hints when authorized.
 - [x] **Run and inspect scripts**: execute JavaScript in Affinity by Canva and render the current canvas or selection to check the result.
@@ -115,9 +117,9 @@ Transport/upstream errors identify `connect`, `endpoint`, `post`, `response`, `s
 
 ## Unsupported or unverified features
 
-The status below is current through **September 11, 2026**, based on Affinity by Canva **3.2.3.4646**. Later releases may behave differently.
+The entries below describe operation-specific limits. Unless a build is stated, they come from historical **3.2.3.4646** records through **September 11, 2026**; some cases lack complete build/platform metadata and require validation in the target environment. Entries for **3.3.0.4850 Win32** cover only the samples observed on **October 8, 2026**. See [version boundaries](skills/affinity-mcp/references/sdk-verified.md#version-boundaries).
 
-- [ ] **Close documents through the SDK**: historical 3.2 Windows paths returned `NOT_IMPLEMENTED`. On 3.3.0.4850 Win32, synchronous close passed only disposable, modified/unsaved samples; async paths, business documents and save prompts remain unverified. See [lifecycle boundaries](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export).
+- [ ] **Unverified document-close scenarios**: on 3.3.0.4850 Win32, synchronous close passed only disposable, modified/unsaved samples; async paths, business documents and save prompts remain unverified. See [lifecycle boundaries](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export).
 - [ ] **Insert or stitch pages into an existing document**: the SDK has no usable entry point; it can only create a new multi-page document.
 - [ ] **Create default brush objects directly**: the default RasterBrush and VectorBrush entry points are unavailable; an existing vector brush can still be read and modified.
 - [ ] **Adjust RasterBrush properties**: no usable raster-brush object has been obtained, so opacity and spacing remain unverified.
@@ -165,4 +167,4 @@ The JSON summary records the selected directory/configuration, plugin version, p
 
 The layout follows [Superpowers](https://github.com/obra/superpowers) and its [single-entry index pointing to ./](https://github.com/obra/superpowers/blob/main/.claude-plugin/marketplace.json). ZCode reuses that format through its documented [Claude Code plugin compatibility](https://zcode.z.ai/en/docs/plugin). Claude Code integration follows its [plugin reference](https://code.claude.com/docs/en/plugins-reference) and [marketplace specification](https://code.claude.com/docs/en/plugin-marketplaces).
 
-Proxy and Skill derive from [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33), including the fixes in Paloexiz's fork at `9f2c2db`. Original MIT attribution is retained in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). This repository uses [MIT](LICENSE).
+Proxy and Skill derive from [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33), with source revision `9f2c2db` in Paloexiz's fork. Original MIT attribution is retained in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). This repository uses [MIT](LICENSE).

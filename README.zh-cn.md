@@ -96,6 +96,8 @@ codex plugin add affinity-mcp@affinity-mcp
 
 ## 目前支持的功能
 
+这些分类仅覆盖 [SDK reference](skills/affinity-mcp/references/sdk-verified.md#version-boundaries) 中记录的具体案例；构建和平台元数据不完整的历史案例须在目标环境复验。
+
 - [x] **连接 Affinity by Canva**：Codex、ZCode 和 Claude Code 可通过本地 MCP 调用 Affinity by Canva。
 - [x] **查询 SDK 资料**：列出和读取 SDK 文档、搜索提示，并在授权后保存本地提示。
 - [x] **执行与检查脚本**：在 Affinity by Canva 中运行 JavaScript，渲染当前画布或选区核对结果。
@@ -115,9 +117,9 @@ codex plugin add affinity-mcp@affinity-mcp
 
 ## 不支持或尚未验证的功能
 
-以下状态截至 **2026-09-11**，依据 Affinity by Canva **3.2.3.4646** 的实际验证；后续版本可能变化。
+以下条目按具体操作说明能力边界。未单独注明构建的条目来自截至 **2026-09-11** 的 **3.2.3.4646** 历史记录，部分案例的构建和平台元数据不完整，须在目标环境复验。**3.3.0.4850 Win32** 条目仅覆盖 **2026-10-08** 观察的样本。详见[版本边界](skills/affinity-mcp/references/sdk-verified.md#version-boundaries)。
 
-- [ ] **通过 SDK 关闭文档**：历史3.2 Windows路径返回NOT_IMPLEMENTED；3.3.0.4850 Win32仅同步关闭已修改、未保存的自建样本通过，异步路径、业务文档和保存提示仍未验证。见[生命周期边界](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export)。
+- [ ] **未验证的文档关闭场景**：3.3.0.4850 Win32 仅同步关闭已修改、未保存的自建样本通过，异步路径、业务文档和保存提示仍未验证。见[生命周期边界](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export)。
 - [ ] **向现有文档插入或拼接页面**：SDK 没有可用入口，只能新建多页文档。
 - [ ] **直接创建默认画笔对象**：RasterBrush 和 VectorBrush 的默认创建入口不可用；已有矢量画笔仍可读取和修改。
 - [ ] **调整 RasterBrush 参数**：尚未取得可用的栅格画笔对象，透明度和间距未验证。
@@ -165,4 +167,4 @@ JSON摘要记录所选目录/配置、插件版本、代理SHA-256和Node版本�
 
 根目录布局参考 [Superpowers](https://github.com/obra/superpowers) 及其 [source 为 ./ 的单条市场索引](https://github.com/obra/superpowers/blob/main/.claude-plugin/marketplace.json)。ZCode 通过其[文档声明的 Claude Code 插件兼容能力](https://zcode.z.ai/cn/docs/plugin)复用该格式。Claude Code 入口参考其[插件规范](https://code.claude.com/docs/en/plugins-reference)和[市场规范](https://code.claude.com/docs/en/plugin-marketplaces)。
 
-代理和 Skill 来自 [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33)，迁移基线是 Paloexiz fork 的 `9f2c2db`，包含此前的代理修复与 SDK 实测指引。原 MIT 许可及署名保留在 [LICENSE.upstream](LICENSE.upstream) 和 [NOTICE](NOTICE)，本仓库使用 [MIT](LICENSE)。
+代理和 Skill 来自 [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33)，来源提交为 Paloexiz fork 的 `9f2c2db`。原 MIT 许可及署名保留在 [LICENSE.upstream](LICENSE.upstream) 和 [NOTICE](NOTICE)，本仓库使用 [MIT](LICENSE)。

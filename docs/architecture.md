@@ -67,7 +67,7 @@ sequenceDiagram
 
 客户端侧默认使用换行分隔 JSON；还兼容旧 `Content-Length` 帧。首次输入暂存 c/C 开头的候选头，完整 CRLF 头中存在独立的非负十进制 `Content-Length` 行时才确认旧帧模式，允许大小写变化、`Content-Type` 在前及附加头字段。候选出现非头行或完整头缺少合法长度时，原缓冲按换行 JSON 处理；确认后的输入/输出模式固定。每帧 body 的字节长度只从 CRLF 分隔的独立 `Content-Length` 字段行读取，其他字段名称或值中的同名文本不参与长度选择。若输入恰是合法旧帧头但 body 尚未完整，则继续等待，无法同时将它解释为坏 JSON。日志走 stderr。[代理实现](../scripts/affinity-mcp-proxy.mjs)。MCP `2025-11-25` 的标准 stdio 使用换行分隔；当前代理对 Affinity 使用的是独立 SSE 与 POST endpoint 的旧 HTTP+SSE 形态，不能因为配置中的协议日期较新就称为 Streamable HTTP 实现。[MCP transport 规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)。
 
-SSE 按 LF、CRLF 或裸 CR 分行；CR 立即结束一行，跨分片紧随其后的一个 LF 只作为同一行结束符消费。UTF-8 使用流式解码，多行 `data` 以换行连接；只有空行触发事件派发，EOF 不补派发未以空行结束的事件。[代理实现](../scripts/affinity-mcp-proxy.mjs)、[WHATWG 事件流格式](https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream)。
+SSE 按 LF、CRLF 或裸 CR 分行；CR 立即结束一行，跨分片紧随其后的一个 LF 只作为同一行结束符消费。UTF-8 使用流式解码，非空行按第一个冒号拆分字段名和值，仅移除值开头的一个 ASCII 空格；无冒号行使用完整字段名和空值。字段名精确匹配 `event` 或 `data`：裸 `event` 清空事件类型，裸 `data` 与 `data:` 均追加一个换行；注释和其他字段忽略。多行 `data` 以换行连接；只有空行触发事件派发，EOF 不补派发未以空行结束的事件。[代理实现](../scripts/affinity-mcp-proxy.mjs)、[WHATWG 事件流格式](https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream)。
 
 ## 协议表面和故障行为
 
@@ -130,7 +130,7 @@ SSE 按 LF、CRLF 或裸 CR 分行；CR 立即结束一行，跨分片紧随其�
 
 初始化结果回归在两种stdio格式下覆盖必需字段缺失/非法类型及返回协议不匹配；两套启动配置和timeout边界使用代表负例。并发调用共用一个失败握手，检查零initialized/业务提交、固定诊断不回显非法字段，以及后续独立调用重新连接。合法最小字段、空capabilities和扩展信息继续通过。两套连接检查配置均拒绝持续坏握手，也拒绝发现降级后重新连接并读到合法preamble的假在线结果。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
 
-SSE 回归覆盖 LF、裸 CR、跨读取的 CRLF、混合行结束符、默认及显式 message 事件、多行 data、中文 UTF-8 字节内部拆分，以及 EOF 未完成事件丢弃。末尾 CR 后的 LF 要等初始化 POST 才发送，以验证 CR 本身及时派发 endpoint；中文后半字节要等测试观察器确认同一解码实例已收到前半段才发送。观察器只委托原生解码并报告输入，不改变生产解析逻辑；既有并发、超时和恢复用例仍通过普通 CLI 验证。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
+SSE 回归覆盖 LF、裸 CR、跨读取的 CRLF、混合行结束符、默认及显式 message 事件、多行 data、中文 UTF-8 字节内部拆分，以及 EOF 未完成事件丢弃。字段回归通过普通 CLI 检查裸 `event`、`event:`、`event: ` 重置后的响应、注释和相似字段名忽略、仅一个 ASCII 空格可移除；透明 JSON 解析观察器委托原生解析并记录专属样本输入，验证裸 `data`、`data:`、`data: ` 各追加一个换行。末尾 CR 后的 LF 要等初始化 POST 才发送，以验证 CR 本身及时派发 endpoint；中文后半字节要等测试观察器确认同一解码实例已收到前半段才发送。观察器只委托原生解码并报告输入，不改变生产解析逻辑；既有并发、超时和恢复用例仍通过普通 CLI 验证。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
 
 客户端输入回归在两种帧格式下逐条比较完整响应，覆盖非法 ID、params、工具名/arguments、cursor，以及合法字符串/整数 ID、扩展字段、通知静默和后续请求恢复。被拒绝输入不连接或提交上游；空串 cursor 透传且失败不降级，省略 arguments 仍为对象。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
 

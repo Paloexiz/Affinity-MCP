@@ -259,10 +259,12 @@ class AffinitySseClient {
               this.#flushEvent(eventName, eventData, controller);
               eventName = "";
               eventData = "";
-            } else if (line.startsWith("event:")) {
-              eventName = line.slice(6).replace(/^ /, "");
-            } else if (line.startsWith("data:")) {
-              eventData += line.slice(5).replace(/^ /, "") + "\n";
+            } else {
+              const colon = line.indexOf(":");
+              const field = colon < 0 ? line : line.slice(0, colon);
+              const value = colon < 0 ? "" : line.slice(colon + 1).replace(/^ /, "");
+              if (field === "event") eventName = value;
+              else if (field === "data") eventData += value + "\n";
             }
           }
         }

@@ -200,7 +200,12 @@ const server = createServer(async (req, res) => {
   }
   // Default SSE event and multiline data are both valid.
   const eol = sseProbe?.eol ?? "\r\n";
-  if (msg.method === "tools/call" && sseProbe?.incomplete) {
+  if (msg.method === "tools/call" && sseProbe?.fields) {
+    for (const field of [": event", "EVENT", "eventual", "event ", "unknown: message", "event:  message", "event:\tmessage"]) {
+      writeSse(stream, `event: ignored${eol}${field}${eol}data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { unexpected: true } })}${eol}${eol}`);
+    }
+    writeSse(stream, `event: ignored${eol}${sseProbe.fields.eventReset}${eol}DATA: ignored${eol}datax: ignored${eol}data: {"jsonrpc":"2.0","id":${msg.id},${eol}${sseProbe.fields.emptyData}${eol}data: "result":${JSON.stringify(result)}}${eol}${eol}`);
+  } else if (msg.method === "tools/call" && sseProbe?.incomplete) {
     writeSse(stream, `data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, result })}${eol}`);
     stream.end();
   } else if (msg.method === "tools/call" && sseProbe?.split) {
@@ -477,7 +482,7 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
   }
 }
 
-async function checkSseLineEndings(eol, split = false, incomplete = false) {
+async function checkSseLineEndings(eol, split = false, incomplete = false, fields) {
   const proxy = join(root, "scripts/affinity-mcp-proxy.mjs");
   const observer = `
     const NativeDecoder = globalThis.TextDecoder;
@@ -492,20 +497,29 @@ async function checkSseLineEndings(eol, split = false, incomplete = false) {
         return result;
       }
     };
+    const nativeParse = JSON.parse;
+    JSON.parse = function (text, ...args) {
+      const result = nativeParse.call(this, text, ...args);
+      if (typeof text === "string" && text.includes("中文 SDK result") && process.connected) process.send({ parsed: text });
+      return result;
+    };
     await import(${JSON.stringify(pathToFileURL(proxy).href)});
   `;
-  const child = spawn(process.execPath, split ? ["--input-type=module", "--eval", observer] : [proxy], {
+  const observed = split || fields?.observe;
+  const child = spawn(process.execPath, observed ? ["--input-type=module", "--eval", observer] : [proxy], {
     env: { ...process.env, AFFINITY_MCP_BASE_URL: `http://127.0.0.1:${server.address().port}`, AFFINITY_MCP_REQUEST_TIMEOUT_MS: "1000" },
-    stdio: split ? ["pipe", "pipe", "pipe", "ipc"] : ["pipe", "pipe", "pipe"],
+    stdio: observed ? ["pipe", "pipe", "pipe", "ipc"] : ["pipe", "pipe", "pipe"],
   });
   const decoded = new Map();
+  const parsed = [];
   let decodedWait;
   const hasDecoded = prefix => [...decoded.values()].some(bytes => bytes.length >= prefix.length && bytes.subarray(0, prefix.length).equals(prefix));
   child.on("message", message => {
+    if (message.parsed !== undefined) { parsed.push(message.parsed); return; }
     decoded.set(message.decoder, Buffer.concat([decoded.get(message.decoder) ?? Buffer.alloc(0), Buffer.from(message.bytes)]));
     if (decodedWait && hasDecoded(decodedWait.prefix)) { decodedWait.resolve(); decodedWait = undefined; }
   });
-  sseProbe = { eol, split, incomplete, sent: Buffer.alloc(0), waitForDecoded() {
+  sseProbe = { eol, split, incomplete, fields, sent: Buffer.alloc(0), waitForDecoded() {
     const prefix = this.sent;
     if (hasDecoded(prefix)) return Promise.resolve();
     return new Promise(resolve => { decodedWait = { prefix, resolve }; });
@@ -536,7 +550,11 @@ async function checkSseLineEndings(eol, split = false, incomplete = false) {
     assert.deepEqual(output.toString("utf8").trim().split("\n").map(line => JSON.parse(line)), [reply], "Exactly one complete response, with no late or extra output");
     assert.equal(session, connections + 1);
     assert.deepEqual(calls.slice(before).map(call => call.method), ["initialize", "notifications/initialized", "tools/call"]);
-    console.log(`PASS SSE ${JSON.stringify(eol)}${split ? " split CRLF, mixed endings, observed UTF-8 split" : ""}${incomplete ? " incomplete EOF is discarded" : ""}`);
+    if (fields?.observe) {
+      const call = calls.at(-1);
+      assert.deepEqual(parsed, [`{"jsonrpc":"2.0","id":${call.id},\n\n"result":${JSON.stringify(reply.result)}}\n`], "Every empty data field appends one LF before JSON parsing");
+    }
+    console.log(`PASS SSE ${JSON.stringify(eol)}${split ? " split CRLF, mixed endings, observed UTF-8 split" : ""}${incomplete ? " incomplete EOF is discarded" : ""}${fields ? ` fields ${JSON.stringify(fields)}` : ""}`);
   } finally {
     clearTimeout(timer);
     sseProbe = undefined;
@@ -711,6 +729,11 @@ try {
   await checkSseLineEndings("\n");
   await checkSseLineEndings("\r\n", true);
   await checkSseLineEndings("\r\n", false, true);
+  await checkSseLineEndings("\n", false, false, { eventReset: "event:", emptyData: "data", observe: true });
+  for (const suffix of ["", ":", ": "]) {
+    await checkSseLineEndings("\n", false, false, { eventReset: `event${suffix}`, emptyData: `data${suffix}` });
+    await checkSseLineEndings("\n", false, false, { eventReset: `event${suffix}`, emptyData: `data${suffix}`, observe: true });
+  }
   await checkInvalidRequests(false);
   await checkInvalidRequests(true);
   await check(false);

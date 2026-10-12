@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { handleHook, recordReview, privacyFindings } from './docs-hooks.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -265,6 +265,37 @@ test('late/missing events do not claim successful verification; ticket path trav
   assert.throws(()=>recordReview(root,ticket,'Checked current changes and documentation.',true),/No valid/);
   assert.throws(()=>recordReview(root,'../escape','Checked current changes and documentation.',true),/Invalid review ticket/);
   assert.match(handleHook(root,{hook_event_name:'Stop'}).systemMessage,/缺少/);
+});
+
+test('direct CLI executes through equivalent paths and imported modules stay silent',t=>{
+  const root=fixture(t);
+  const entry=path.join(root,'scripts/docs-hooks.mjs');
+  write(root,'scripts/docs-hooks.mjs',fs.readFileSync(path.join(repo,'scripts/docs-hooks.mjs'),'utf8'));
+  const entries=process.platform==='win32'?[entry,path.toNamespacedPath(entry)]:[entry];
+  for(const file of entries){
+    const clean=spawnSync(process.execPath,[file,'check'],{cwd:root,encoding:'utf8',timeout:10000,windowsHide:true});
+    assert.equal(clean.status,0,clean.stderr);
+    assert.equal(clean.stderr,'');
+    assert.deepEqual(JSON.parse(clean.stdout),{ok:true,findings:[]});
+    write(root,'docs/private.md','private.owner@private-company.test');
+    const unsafe=spawnSync(process.execPath,[file,'check'],{cwd:root,encoding:'utf8',timeout:10000,windowsHide:true});
+    assert.equal(unsafe.status,1,unsafe.stderr);
+    assert.equal(unsafe.stderr,'');
+    assert.deepEqual(JSON.parse(unsafe.stdout),{ok:false,findings:[{file:'docs/private.md',line:1,rule:'email'}]});
+    assert.ok(!unsafe.stdout.includes('private.owner'));
+    fs.unlinkSync(path.join(root,'docs/private.md'));
+    const invalid=spawnSync(process.execPath,[file,'unknown'],{cwd:root,encoding:'utf8',timeout:10000,windowsHide:true});
+    assert.equal(invalid.status,1);
+    assert.equal(invalid.stdout,'');
+    assert.match(invalid.stderr,/Expected hook, check or review/);
+  }
+  const imported=spawnSync(process.execPath,['--input-type=module','-e',`await import(${JSON.stringify(pathToFileURL(entry).href)}); console.log('import-only');`],{
+    cwd:root,input:JSON.stringify(input('SessionStart')),encoding:'utf8',timeout:10000,windowsHide:true,
+  });
+  assert.equal(imported.status,0,imported.stderr);
+  assert.equal(imported.stdout.trim(),'import-only');
+  assert.equal(imported.stderr,'');
+  assert.ok(!fs.existsSync(path.join(root,'.scratch')),'Importing hooks creates no state');
 });
 
 test('configuration launches real hooks from a Unicode subdirectory with JSON-only stdout',t=>{

@@ -8,6 +8,7 @@
 - Windows、macOS、Linux 共用一个 Node.js 实现，使用仓库已有 Node.js 24.20+ 运行环境及 Git；无新增第三方依赖。Windows 的 `commandWindows` 使用 PowerShell 并显式设置 UTF-8；macOS/Linux 的 `command` 使用 POSIX shell。从仓库子目录启动也通过 Git 根目录定位脚本；配置不包含个人绝对路径。
 - 各平台将 `docs/` 中的公共技术文档与 `AGENTS.md` 随仓库维护；本地专用说明和内部资料由忽略规则排除。公共文档不得引用被忽略的内容，具体约束见 [维护规则](maintaining.md)。入口缺失时 hook 会提示检查失败，不会声称已读。测试使用合成文档，个人资料不进入仓库或 CI。
 - 这是 Codex 项目级配置，不修改用户全局设置，也不假定 Claude Code/ZCode 会读取它。其他客户端的自动执行未配置、未验证。
+- 脚本通过 Node 的 `import.meta.main` 判断直接入口，不按 argv 与模块路径字符串比较；等价入口路径会执行 CLI，导入模块只提供函数。运行前提仍是 Node.js 24.20+。[Node.js 24 入口标志](https://nodejs.org/docs/latest-v24.x/api/esm.html#importmetamain)。
 - Codex 要求项目配置层受信任，并在 `/hooks` 或 hooks 管理界面审阅、信任具体 hook 定义。更改定义后可能需要重新信任；写好配置、脚本测试通过都不等于当前会话已启用。依据：[官方 Hooks 文档](https://developers.openai.com/codex/hooks)。
 
 ## 执行流程
@@ -81,6 +82,8 @@ node scripts/docs-hooks.mjs check
 ```
 
 测试在可清理的临时 Git 仓库验证：开始事件、实际文件变更、已有脏状态、仅文档修改、删除/新增、复核失效、显式无更新理由、Stop 限额、忽略目录内隐私、悬空文档链接、输出不泄漏、以及真实启动命令在含空格/中文的子目录运行。测试要能创建临时 Git 元数据；受限沙箱拒绝时需在允许的本地测试环境运行，不应改动仓库或全局 Git 权限。
+
+直接 CLI 另验证正常检查的 JSON 输出、隐私发现及未知 mode 的非零退出；Windows 同时使用普通和 namespaced 入口路径。模块导入只输出测试 sentinel，不读取 hook stdin 或生成状态，原有 PowerShell/POSIX 启动器回归继续保留。[测试实现](../scripts/docs-hooks.test.mjs)。
 
 [三平台回归配置](../.github/workflows/docs-hooks.yml)在相关文档、忽略规则或 hooks 文件的 PR 及 `main` 推送时触发，也可手动运行。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
 

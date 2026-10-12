@@ -267,7 +267,7 @@ async function main() {
   } else throw new Error('Expected hook, check or review');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   main().catch(error => {
     // Do not echo raw payloads, transcripts, document content, or system-specific exception paths.
     const safe = error instanceof SyntaxError ? 'Invalid JSON input or state; no raw content was logged'

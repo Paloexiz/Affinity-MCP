@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/scripts/affinity-mcp-proxy.mjs"
+        "${CLAUDE_PLUGIN_ROOT}/skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"
       ],
       "env": {
         "AFFINITY_MCP_BASE_URL": "http://localhost:6767",

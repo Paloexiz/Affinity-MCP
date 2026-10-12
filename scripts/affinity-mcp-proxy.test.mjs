@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { createServer } from "node:http";
 import { once } from "node:events";
+import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSync, realpathSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, cpSync, rmSync, realpathSync } from "node:fs";
 import { join, dirname, resolve, toNamespacedPath } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
-import { checkInstalledConnection } from "./affinity-mcp-smoke.mjs";
+import { checkInstalledConnection } from "../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const readJson = name => JSON.parse(readFileSync(join(root, name), "utf8"));
@@ -30,8 +31,10 @@ const codexLaunch = codex.mcpServers["affinity-by-canva"];
 const sharedLaunch = readJson(".mcp.json").mcpServers["affinity-by-canva"];
 // Exercise literal replacement characters as well as spaces and Unicode.
 const scratch = mkdtempSync(join(tmpdir(), "ai-agent-affinity plugin-中文-$&-$'-$`-${literal}-"));
-mkdirSync(join(scratch, "scripts"));
-copyFileSync(join(root, "scripts/affinity-mcp-proxy.mjs"), join(scratch, "scripts/affinity-mcp-proxy.mjs"));
+const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
+for (const name of pluginFiles) {
+  cpSync(join(root, name), join(scratch, name), { recursive: true });
+}
 
 // Exercise the real process boundary; no Affinity documents are touched.
 const streams = new Map();
@@ -227,7 +230,7 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
   delete env.AFFINITY_MCP_REQUEST_TIMEOUT_MS;
   if (timeout !== undefined) env.AFFINITY_MCP_REQUEST_TIMEOUT_MS = timeout;
   const child = spawn(launch?.command ?? process.execPath,
-    launch ? launch.args.map(arg => arg.replaceAll("${CLAUDE_PLUGIN_ROOT}", () => scratch)) : [fileURLToPath(new URL("./affinity-mcp-proxy.mjs", import.meta.url))], {
+    launch ? launch.args.map(arg => arg.replaceAll("${CLAUDE_PLUGIN_ROOT}", () => scratch)) : [join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs")], {
     cwd: launch?.cwd ? resolve(scratch, launch.cwd) : tmpdir(),
     env,
     stdio: ["pipe", "pipe", "pipe"],
@@ -483,7 +486,7 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
 }
 
 async function checkSseLineEndings(eol, split = false, incomplete = false, fields) {
-  const proxy = join(root, "scripts/affinity-mcp-proxy.mjs");
+  const proxy = join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
   const observer = `
     const NativeDecoder = globalThis.TextDecoder;
     let nextId = 0;
@@ -583,7 +586,7 @@ async function checkStdioDetection() {
       return Buffer.from(header ? `${header(Buffer.byteLength(body))}\r\n${body}` : `${body}\n`);
     };
     const wire = Buffer.concat([Buffer.from(prefix), ...requests.map(encode)]);
-    const proxy = join(root, "scripts/affinity-mcp-proxy.mjs");
+    const proxy = join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
     const observer = `
       await import(${JSON.stringify(pathToFileURL(proxy).href)});
       process.stdin.on("data", bytes => process.send({ stdinBytes: bytes.length }));
@@ -688,7 +691,7 @@ async function checkInvalidRequests(framed) {
     expected.push({ jsonrpc: "2.0", id: key, result: {} });
   }
   const before = calls.length, connections = session;
-  const child = spawn(process.execPath, [join(root, "scripts/affinity-mcp-proxy.mjs")], {
+  const child = spawn(process.execPath, [join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs")], {
     cwd: tmpdir(), env: { ...process.env, AFFINITY_MCP_BASE_URL: `http://127.0.0.1:${server.address().port}`, AFFINITY_MCP_REQUEST_TIMEOUT_MS: "300" },
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -744,7 +747,7 @@ try {
   await check(false, undefined, "minimum timeout", "100");
   await check(false, undefined, "maximum timeout", "300000");
   for (const value of ["", "0", "99", "300001", "1.5", "NaN", "-100", "1e3"]) {
-    const child = spawn(process.execPath, [join(root, "scripts/affinity-mcp-proxy.mjs")], {
+    const child = spawn(process.execPath, [join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs")], {
       env: { ...process.env, AFFINITY_MCP_REQUEST_TIMEOUT_MS: value }, stdio: ["pipe", "pipe", "pipe"],
     });
     let stderr = "", stdout = "";
@@ -772,7 +775,7 @@ try {
     assert.equal(checked.status, "PASS");
     assert.equal(checked.pluginRoot, realpathSync(scratch));
     assert.equal(checked.pluginVersion, codex.version);
-    assert.match(checked.proxySha256, /^[a-f0-9]{64}$/);
+    assert.equal(checked.proxySha256, createHash("sha256").update(readFileSync(join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"))).digest("hex"));
     assert.match(checked.nodeVersion, /^v\d+\.\d+\.\d+$/);
     assert.equal(checked.applicationBuild, null);
     assert.equal(checked.tools, 3);
@@ -780,6 +783,41 @@ try {
     assert.deepEqual(calls.slice(before).map(c => c.method), ["initialize", "notifications/initialized", "tools/list", "tools/list", "tools/call"]);
     assert.equal(calls.at(-1).params.name, "read_sdk_documentation_topic");
   }
+  const legacyRoot = join(scratch, "ai-agent-legacy-plugin");
+  for (const name of pluginFiles) {
+    cpSync(join(scratch, name), join(legacyRoot, name), { recursive: true });
+  }
+  mkdirSync(join(legacyRoot, "scripts"));
+  const legacyProxy = join(legacyRoot, "scripts/affinity-mcp-proxy.mjs");
+  copyFileSync(join(legacyRoot, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"), legacyProxy);
+  copyFileSync(join(legacyRoot, "skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs"), join(legacyRoot, "scripts/affinity-mcp-smoke.mjs"));
+  rmSync(join(legacyRoot, "skills/affinity-mcp/scripts"), { recursive: true });
+  for (const [file, launch] of [[".codex-plugin/plugin.json", "codex"], [".mcp.json", "shared"]]) {
+    const config = JSON.parse(readFileSync(join(legacyRoot, file), "utf8"));
+    config.mcpServers["affinity-by-canva"].args = [launch === "codex" ? "scripts/affinity-mcp-proxy.mjs" : "${CLAUDE_PLUGIN_ROOT}/scripts/affinity-mcp-proxy.mjs"];
+    writeFileSync(join(legacyRoot, file), JSON.stringify(config));
+    const before = calls.length;
+    const checked = await checkInstalledConnection(legacyRoot, launch);
+    assert.equal(checked.pluginRoot, realpathSync(legacyRoot));
+    assert.equal(checked.pluginVersion, codex.version);
+    assert.equal(checked.proxySha256, createHash("sha256").update(readFileSync(legacyProxy)).digest("hex"));
+    assert.equal(checked.status, "PASS");
+    assert.deepEqual(calls.slice(before).map(c => c.method), ["initialize", "notifications/initialized", "tools/list", "tools/list", "tools/call"]);
+  }
+  const skillOnly = join(scratch, "ai-agent-skill-only");
+  cpSync(join(scratch, "skills/affinity-mcp"), skillOnly, { recursive: true });
+  const beforeRejectedInstall = calls.length;
+  for (const config of ["codex", "shared"]) await assert.rejects(checkInstalledConnection(skillOnly, config), /Cannot read .*plugin\.json/);
+  const installedCodexPath = join(scratch, ".codex-plugin/plugin.json");
+  const installedCodex = JSON.parse(readFileSync(installedCodexPath, "utf8"));
+  const savedArgs = installedCodex.mcpServers["affinity-by-canva"].args;
+  installedCodex.mcpServers["affinity-by-canva"].args = ["skills/affinity-mcp/scripts/other.mjs"];
+  writeFileSync(installedCodexPath, JSON.stringify(installedCodex));
+  await assert.rejects(checkInstalledConnection(scratch, "codex"), /Unsupported proxy path/);
+  installedCodex.mcpServers["affinity-by-canva"].args = savedArgs;
+  writeFileSync(installedCodexPath, JSON.stringify(installedCodex));
+  assert.equal(calls.length, beforeRejectedInstall, "Bare Skills and arbitrary proxy paths fail before upstream calls");
+  console.log("PASS plugin layouts: complete new/legacy plugins, exact identity/hash, bare Skill and arbitrary path refusal");
   for (const config of ["codex", "shared"]) {
     const before = calls.length;
     initializeResultOverride = {};
@@ -792,7 +830,7 @@ try {
     assert.deepEqual(calls.slice(fallbackBefore).map(call => call.method), ["initialize", "initialize", "notifications/initialized", "tools/call"], "A healthy preamble after failed discovery cannot hide fallback");
   }
   console.log("PASS upstream initialization: invalid fields/version, concurrent rejection, no submission, recovery and both-config smoke refusal");
-  const preambleProxy = join(scratch, "scripts/affinity-mcp-proxy.mjs");
+  const preambleProxy = join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
   const preambleExitFile = join(scratch, "ai-agent-preamble-exit.json");
   try {
     writeFileSync(preambleProxy, readFileSync(preambleProxy, "utf8") +
@@ -825,7 +863,7 @@ try {
     }
   } finally {
     preambleContentOverride = undefined;
-    copyFileSync(join(root, "scripts/affinity-mcp-proxy.mjs"), preambleProxy);
+    copyFileSync(join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"), preambleProxy);
     rmSync(preambleExitFile, { force: true });
   }
   console.log("PASS preamble text validation: malformed and mixed blocks fail, valid multi-block text, both configs and EOF cleanup");
@@ -849,7 +887,7 @@ try {
     }
   }
   const execNode = promisify(execFile);
-  const smokeEntry = join(root, "scripts/affinity-mcp-smoke.mjs");
+  const smokeEntry = join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs");
   const entries = process.platform === "win32" ? [smokeEntry, toNamespacedPath(smokeEntry)] : [smokeEntry];
   for (const entry of entries) {
     for (const config of ["codex", "shared"]) {
@@ -892,7 +930,7 @@ try {
     await assert.rejects(checkInstalledConnection(scratch, "codex", budget), expected);
     upstreamMode = "normal";
   }
-  const proxyCopy = join(scratch, "scripts/affinity-mcp-proxy.mjs");
+  const proxyCopy = join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
   const pidFile = join(scratch, "ai-agent-child-pid.txt");
   writeFileSync(proxyCopy, readFileSync(proxyCopy, "utf8") +
     "\nimport { writeFileSync as writePid } from 'node:fs';\n" +
@@ -901,17 +939,17 @@ try {
   await assert.rejects(checkInstalledConnection(scratch, "codex"), /stdin EOF/);
   const stoppedPid = Number(readFileSync(pidFile, "utf8"));
   assert.throws(() => process.kill(stoppedPid, 0), { code: "ESRCH" }, "Forced cleanup confirms the child has exited");
-  copyFileSync(join(root, "scripts/affinity-mcp-proxy.mjs"), proxyCopy);
+  copyFileSync(join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"), proxyCopy);
   writeFileSync(proxyCopy, readFileSync(proxyCopy, "utf8") +
     "\nprocess.stdin.removeAllListeners('end');\n" +
     "process.stdin.on('end', () => { console.error('Affinity discovery unavailable; using fallback tools: late diagnostic'); process.exit(0); });\n");
   await assert.rejects(checkInstalledConnection(scratch, "codex"), /fallback/i);
-  copyFileSync(join(root, "scripts/affinity-mcp-proxy.mjs"), proxyCopy);
+  copyFileSync(join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"), proxyCopy);
   await assert.rejects(checkInstalledConnection("relative", "codex"), /absolute/i);
   await assert.rejects(checkInstalledConnection(scratch, "unknown"), /config/i);
   const sharedPath = join(scratch, ".mcp.json");
   const installedShared = JSON.parse(readFileSync(sharedPath, "utf8"));
-  installedShared.mcpServers["affinity-by-canva"].args = ["${UNKNOWN}/scripts/affinity-mcp-proxy.mjs"];
+  installedShared.mcpServers["affinity-by-canva"].args = ["${UNKNOWN}/skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"];
   writeFileSync(sharedPath, JSON.stringify(installedShared));
   await assert.rejects(checkInstalledConnection(scratch, "shared"), /variable/i);
   installedShared.mcpServers["affinity-by-canva"].args = sharedLaunch.args;

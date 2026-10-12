@@ -33,6 +33,8 @@ API 事实需要应用内 `preamble`/SDK topics、匹配构建的 wrapper 声明
 
 不能取得的字段写“未记录”，不要从当前仓库版本反推历史运行时版本。内部实验记录可保存原始路径和运行时身份；整理到 docs 时必须去除这些内容，并按[维护规则](../maintaining.md)检查引用目标不被 Git 忽略。
 
+连接预检使用随完整 Plugin 分发的[检查器](../../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs)，显式选择安装根目录和 Codex 或共用启动配置。检查器核对完整 Plugin 清单、代理入口和版本一致性。单独 Skill 缺少插件清单时不能作为安装副本验收。连接、preamble、宿主实际加载路径和 SDK 操作结果分别核验，不能互相替代。[命令与边界](../../README.zh-cn.md#检查真实安装连接)。
+
 ## 执行顺序
 
 1. **先只读识别环境。** 读取 preamble、列 topic，并读取将要用到的公共 wrapper。核对应用身份、文档清单、目标文档身份和保存状态；重连后重新读取。遵循[随包发现要求](../../skills/affinity-mcp/SKILL.md)。

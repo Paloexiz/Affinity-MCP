@@ -20,6 +20,9 @@ function failure(phase, cause, method) {
   });
 }
 
+const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
+const isRequestId = value => typeof value === "string" || Number.isInteger(value);
+
 const STATIC_TOOLS = [
   {
     name: "add_sdk_hint",
@@ -194,11 +197,19 @@ class AffinitySseClient {
     }
     this.#readSse(res.body, controller);
     await this.#waitForEndpoint();
-    await this.request("initialize", {
+    const initialized = await this.request("initialize", {
       protocolVersion: AFFINITY_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: { name: "affinity-mcp-proxy", version: "0.2.0" },
     });
+    if (typeof initialized.protocolVersion !== "string" || !isObject(initialized.capabilities) ||
+        !isObject(initialized.serverInfo) || typeof initialized.serverInfo.name !== "string" ||
+        typeof initialized.serverInfo.version !== "string") {
+      throw failure("upstream", "Invalid upstream initialize result", "initialize");
+    }
+    if (initialized.protocolVersion !== AFFINITY_PROTOCOL_VERSION) {
+      throw failure("upstream", "Unsupported upstream protocol version", "initialize");
+    }
     await this.notify("notifications/initialized", {});
     if (this.controller !== controller || controller.signal.aborted || this.streamError || !this.endpointPath) {
       throw this.streamError || failure("sse", "connection closed during initialization");
@@ -224,6 +235,7 @@ class AffinitySseClient {
     let buffer = "";
     let eventName = "";
     let eventData = "";
+    let skipLF = false;
 
     (async () => {
       try {
@@ -233,12 +245,18 @@ class AffinitySseClient {
           if (this.controller !== controller) return;
           buffer += decoder.decode(value, { stream: true });
           for (;;) {
-            const nl = buffer.indexOf("\n");
+            if (skipLF) {
+              if (!buffer.length) break;
+              if (buffer[0] === "\n") buffer = buffer.slice(1);
+              skipLF = false;
+            }
+            const nl = buffer.search(/[\r\n]/);
             if (nl < 0) break;
-            const line = buffer.slice(0, nl).replace(/\r$/, "");
+            const line = buffer.slice(0, nl);
+            skipLF = buffer[nl] === "\r";
             buffer = buffer.slice(nl + 1);
             if (line === "") {
-              this.#flushEvent(eventName, eventData);
+              this.#flushEvent(eventName, eventData, controller);
               eventName = "";
               eventData = "";
             } else if (line.startsWith("event:")) {
@@ -264,7 +282,7 @@ class AffinitySseClient {
     })();
   }
 
-  #flushEvent(eventName, eventData) {
+  #flushEvent(eventName, eventData, controller) {
     if (eventName === "endpoint") {
       try {
         const endpoint = new URL(eventData.trim(), AFFINITY_BASE_URL);
@@ -277,11 +295,45 @@ class AffinitySseClient {
       }
     } else if ((!eventName || eventName === "message") && eventData.trim()) {
       const msg = JSON.parse(eventData);
-      if (msg.id != null && this.pending.has(msg.id)) {
+      if (!isObject(msg) || msg.jsonrpc !== "2.0") {
+        throw failure("sse", "Invalid upstream JSON-RPC message");
+      }
+      if (Object.hasOwn(msg, "method")) {
+        if (typeof msg.method !== "string" || (Object.hasOwn(msg, "id") && !isRequestId(msg.id))) {
+          throw failure("sse", "Invalid upstream JSON-RPC request");
+        }
+        if (!Object.hasOwn(msg, "id")) return;
+        const reply = { jsonrpc: "2.0", id: msg.id };
+        if (Object.hasOwn(msg, "params") && !isObject(msg.params)) {
+          reply.error = { code: -32602, message: "params must be an object" };
+        } else if (msg.method === "ping") {
+          reply.result = {};
+        } else {
+          reply.error = { code: -32601, message: `Unsupported method: ${msg.method}` };
+        }
+        // Reply IDs belong to the upstream request, independently of our pending IDs.
+        this.#post(reply).catch(err => {
+          if (this.controller !== controller) return;
+          this.streamError = err;
+          this.connected = false;
+          this.endpointPath = null;
+          this.#failAll(err);
+          controller.abort();
+        });
+        return;
+      }
+      if (this.pending.has(msg.id)) {
+        const hasResult = Object.hasOwn(msg, "result");
+        const hasError = Object.hasOwn(msg, "error");
+        if (!isRequestId(msg.id) || hasResult === hasError ||
+            (hasResult && !isObject(msg.result)) ||
+            (hasError && (!isObject(msg.error) || !Number.isInteger(msg.error.code) || typeof msg.error.message !== "string"))) {
+          throw failure("sse", "Invalid upstream JSON-RPC response");
+        }
         const { resolve, reject, timer, method } = this.pending.get(msg.id);
         clearTimeout(timer);
         this.pending.delete(msg.id);
-        if (msg.error) reject(failure("upstream", JSON.stringify(msg.error), method));
+        if (hasError) reject(failure("upstream", JSON.stringify(msg.error), method));
         else resolve(msg.result);
       }
     }
@@ -360,7 +412,7 @@ class AffinitySseClient {
 
   async callTool(name, args) {
     await this.connect();
-    return this.request("tools/call", { name, arguments: args || {} });
+    return this.request("tools/call", { name, arguments: args });
   }
 }
 
@@ -374,7 +426,14 @@ process.stdin.on("data", (chunk) => {
     if (framedStdio === undefined) {
       if (inputBuffer.length < 1) return;
       // Keep compatibility with clients that used this proxy's old framing.
-      framedStdio = inputBuffer[0] === 67 || inputBuffer[0] === 99;
+      if (inputBuffer[0] === 67 || inputBuffer[0] === 99) {
+        const separator = inputBuffer.indexOf("\r\n\r\n");
+        const prefix = inputBuffer.subarray(0, separator < 0 ? inputBuffer.length : separator + 2).toString("utf8");
+        const lines = prefix.split("\n").slice(0, -1);
+        const isHeader = lines.every(line => /^[!#$%&'*+.^_`|~0-9A-Za-z-]+:[^\r\n]*\r$/.test(line));
+        if (isHeader && separator < 0) return;
+        framedStdio = isHeader && lines.some(line => /^content-length:[ \t]*\d+[ \t]*\r$/i.test(line));
+      } else framedStdio = false;
     }
     if (!framedStdio) {
       const end = inputBuffer.indexOf("\n");
@@ -387,7 +446,7 @@ process.stdin.on("data", (chunk) => {
     const separator = inputBuffer.indexOf("\r\n\r\n");
     if (separator < 0) return;
     const header = inputBuffer.slice(0, separator).toString("utf8");
-    const match = header.match(/content-length:\s*(\d+)/i);
+    const match = header.match(/(?:^|\r\n)content-length:[ \t]*(\d+)[ \t]*(?:\r\n|$)/i);
     if (!match) {
       inputBuffer = inputBuffer.slice(separator + 4);
       continue;
@@ -410,11 +469,17 @@ function receive(rawMessage) {
     sendError(null, -32700, "Invalid JSON");
     return;
   }
-  if (!message || typeof message !== "object" || Array.isArray(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string") {
-    sendError(message?.id ?? null, -32600, "Invalid JSON-RPC request");
+  if (!isObject(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string" ||
+      (Object.hasOwn(message, "id") && !isRequestId(message.id))) {
+    sendError(isObject(message) && isRequestId(message.id) ? message.id : null, -32600, "Invalid JSON-RPC request");
     return;
   }
-  handleMessage(message).catch(err => sendError(message.id ?? null, -32603, err.message));
+  if (!Object.hasOwn(message, "id")) return;
+  if (Object.hasOwn(message, "params") && !isObject(message.params)) {
+    sendError(message.id, -32602, "params must be an object");
+    return;
+  }
+  handleMessage(message).catch(err => sendError(message.id, -32603, err.message));
 }
 
 process.stdin.on("end", async () => {
@@ -433,8 +498,6 @@ process.on("SIGTERM", async () => {
 });
 
 async function handleMessage(message) {
-  if (message.id == null) return;
-
   try {
     switch (message.method) {
       case "initialize":
@@ -455,21 +518,31 @@ async function handleMessage(message) {
         sendResult(message.id, {});
         break;
 
-      case "tools/list":
+      case "tools/list": {
+        const params = message.params ?? {};
+        if (Object.hasOwn(params, "cursor") && typeof params.cursor !== "string") {
+          sendError(message.id, -32602, "cursor must be a string");
+          break;
+        }
         try {
-          sendResult(message.id, await affinity.listTools(message.params || {}));
+          sendResult(message.id, await affinity.listTools(params));
         } catch (err) {
-          if (message.params?.cursor) throw err;
+          if (Object.hasOwn(params, "cursor")) throw err;
           console.error(`Affinity discovery unavailable; using fallback tools: ${err.message}`);
           sendResult(message.id, { tools: STATIC_TOOLS });
         }
         break;
+      }
 
       case "tools/call":
-        if (!message.params?.name) throw new Error("Missing tool name");
+        if (!isObject(message.params) || typeof message.params.name !== "string" ||
+            (Object.hasOwn(message.params, "arguments") && !isObject(message.params.arguments))) {
+          sendError(message.id, -32602, "tools/call requires a string name and object arguments");
+          break;
+        }
         sendResult(
           message.id,
-          await affinity.callTool(message.params.name, message.params.arguments || {}),
+          await affinity.callTool(message.params.name, message.params.arguments ?? {}),
         );
         break;
 

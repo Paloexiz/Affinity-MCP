@@ -29,8 +29,6 @@
 | Save task hints to your device's local memory | 开 | 在本地保存任务提示，让后续相似任务更快上手。 |
 | Share task hints with Affinity | 可选，由你自行决定 | 分享匿名任务提示，帮助改进 Affinity 知识库。 |
 
-不要只为了建立连接或编辑普通文档内容就打开网络和 Canva AI Studio 权限。
-
 ## 运行前提
 
 - 已打开 **Enable Affinity MCP** 的 Affinity by Canva，与 Agent 在同一台电脑上运行。
@@ -143,7 +141,21 @@ codex plugin add affinity-mcp@affinity-mcp
 node scripts/affinity-mcp-proxy.test.mjs
 ```
 
-检查覆盖两种stdio帧格式、分页、文字与图片透传、HTTP错误、可配置等待及非法/边界值、连接/endpoint/初始化失败、延迟POST与SSE竞态、迟到成功/错误不重复响应、异常SSE、断线不重放、重连、EOF退出、版本一致性及包含空格和中文路径下的Codex和Claude Code/ZCode共用启动配置。测试使用本地模拟服务，不修改Affinity by Canva文档。
+检查覆盖两种stdio帧格式、UTF-8字符内部拆分、同次输入多条消息、坏JSON后的恢复、通知无回包、分页、文字与图片透传、HTTP错误、可配置等待及非法/边界值、连接/endpoint/初始化失败、延迟POST与SSE竞态、迟到成功/错误不重复响应、异常SSE、断线不重放、重连、EOF退出、版本一致性及包含空格、中文和字面美元符号路径下的Codex和Claude Code/ZCode共用启动配置。安装连接检查也使用模拟服务验证，包括拒绝备用列表和进程清理；这些回归不连接真实Affinity应用。
+
+### 检查真实安装连接
+
+保持Affinity打开并启用MCP，然后显式运行：
+
+```shell
+node scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
+```
+
+将`<absolute-plugin-root>`替换为确定的插件安装目录绝对路径。Claude Code/ZCode的`.mcp.json`启动配置使用`--config shared`。检查器读取该副本的配置并启动对应代理，不自动猜缓存版本，也不修改安装文件。
+
+检查器初始化代理，跟随`tools/list`分页并读取SDK preamble，不执行脚本，也不改变文档、设置、hint或脚本库。发现降级、RPC/工具错误、无法识别的preamble或超时均判失败；进程清理完成后才报告通过。单次请求上限45秒，整次检查预算60秒，之后进行有界的进程清理。
+
+JSON摘要记录所选目录/配置、插件版本、代理SHA-256和Node版本。`applicationBuild`与`applicationPlatform`为`null`，因为这些调用没有取得应用身份。通过仅证明这份启动配置的连接与preamble读取，不证明宿主UI加载的副本或SDK文档操作有效。Affinity修改preamble文案后，可能需要更新内容断言。
 
 ## 结构依据与致谢
 

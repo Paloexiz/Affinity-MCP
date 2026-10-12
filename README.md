@@ -29,8 +29,6 @@ The screenshot shows the recommended configuration. Keep **Access files on your 
 | Save task hints to your device's local memory | On | Stores task hints locally so similar future tasks start with that context. |
 | Share task hints with Affinity | Optional — your choice | Shares anonymized task hints to help improve the Affinity knowledge base. |
 
-Do not enable network or Canva AI Studio permissions just to connect or to edit ordinary document content.
-
 ## Requirements
 
 - Affinity by Canva with **Enable Affinity MCP** on, running on the same computer as the agent.
@@ -143,7 +141,21 @@ SDK operations not listed here remain unverified. Permission-controlled features
 node scripts/affinity-mcp-proxy.test.mjs
 ```
 
-Tests cover newline/legacy framing, pagination, text/image forwarding, HTTP errors, configurable waits and invalid/boundary values, connect/endpoint/initialize failures, delayed POST/SSE races, late success/error without duplicate responses, malformed SSE, disconnect without replay, reconnection, EOF shutdown, release metadata and the Codex/shared Claude Code-ZCode launchers under paths containing spaces and Unicode. Tests use a local mock service and do not modify Affinity by Canva documents.
+Tests cover newline/legacy framing, UTF-8 splits inside a character, multiple messages in one input, malformed JSON recovery, notification silence, pagination, text/image forwarding, HTTP errors, configurable waits and invalid/boundary values, connect/endpoint/initialize failures, delayed POST/SSE races, late success/error without duplicate responses, malformed SSE, disconnect without replay, reconnection, EOF shutdown, release metadata and the Codex/shared Claude Code-ZCode launchers under paths containing spaces, Unicode and literal dollar signs. The installed-connection checker is also exercised against the mock service, including fallback rejection and process cleanup. These tests do not connect to the real Affinity app.
+
+### Check a real installed connection
+
+Keep Affinity open with MCP enabled, then explicitly run:
+
+```shell
+node scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
+```
+
+Replace `<absolute-plugin-root>` with the exact installed plugin directory. Use `--config shared` for the Claude Code/ZCode `.mcp.json` launcher. The checker reads that copy's configuration and starts its proxy; it does not choose a cache version automatically or change the installed files.
+
+It initializes the proxy, follows `tools/list` pagination and reads the SDK preamble. It does not execute scripts or change documents, settings, hints or the script library. Fallback discovery, RPC/tool errors, unrecognized preamble content and timeouts fail the check; cleanup must complete before it reports success. Requests have a 45-second limit within a 60-second overall budget, followed by bounded process cleanup.
+
+The JSON summary records the selected directory/configuration, plugin version, proxy SHA-256 and Node version. `applicationBuild` and `applicationPlatform` are `null` because these calls do not establish the application's identity. A pass verifies only this launch configuration's connection and preamble, not which copy a host UI loaded or whether SDK document operations work. Preamble wording changes may require updating the content checks.
 
 ## Sources and attribution
 

@@ -1,8 +1,14 @@
+# Development resources are tracked on develop; main ships the Plugin
+/docs/
+/scripts/
+/.codex/
+/.github/
+/AGENTS.md
+
 # Local agent state and internal notes
 /.serena/
 .mimosa/
 /.scratch/
-/docs/agents/issue-tracker.md
 
 # Node dependencies, coverage and package-manager logs
 node_modules/

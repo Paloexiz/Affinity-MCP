@@ -8,6 +8,8 @@ Select your Language: English | [简体中文](README.zh-cn.md)
 
 A standalone plugin for **Codex, ZCode and Claude Code**, connecting to Affinity by Canva's local MCP server. One repository contains one plugin; manifests live at the root and runtime scripts ship inside `skills/affinity-mcp/`.
 
+`main` is the user-facing installation branch. Use `develop` for maintenance: it retains development instructions, technical docs, tests and documentation hooks. These development resources are excluded from `main`; the Skill, references and runtime scripts remain part of the Plugin.
+
 Independent community project maintained by [Paloexiz](https://github.com/Paloexiz), not an official OpenAI, Z.ai, Anthropic, Canva or Affinity release.
 
 ## Affinity by Canva settings
@@ -139,15 +141,7 @@ The entries below describe operation-specific limits. Unless a build is stated, 
 
 SDK operations not listed here remain unverified. Permission-controlled features must first be enabled in Affinity by Canva.
 
-## Validation
-
-```shell
-node scripts/affinity-mcp-proxy.test.mjs
-```
-
-Tests cover newline/legacy framing, UTF-8 splits inside a character, multiple messages in one input, malformed JSON recovery, notification silence, pagination, text/image forwarding, HTTP errors, configurable waits and invalid/boundary values, connect/endpoint/initialize failures, delayed POST/SSE races, late success/error without duplicate responses, malformed SSE, disconnect without replay, reconnection, EOF shutdown, release metadata and the Codex/shared Claude Code-ZCode launchers under paths containing spaces, Unicode and literal dollar signs. The installed-connection checker is also exercised against the mock service, including fallback rejection and process cleanup. These tests do not connect to the real Affinity app.
-
-### Check a real installed connection
+## Check a real installed connection
 
 Keep Affinity open with MCP enabled, then explicitly run:
 

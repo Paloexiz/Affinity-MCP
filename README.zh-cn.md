@@ -8,6 +8,8 @@
 
 连接 **Codex、ZCode 和 Claude Code** 与 Affinity by Canva 本地 MCP 服务的独立插件。一个仓库只维护一个插件，清单放在根目录，运行脚本随 `skills/affinity-mcp/` 分发。
 
+`main` 用于用户安装；仓库维护在 `develop` 进行，该分支保留开发指引、技术文档、测试和文档 hooks。`main` 排除这些开发资料，仍完整分发 Skill、references 和运行脚本。
+
 由 [Paloexiz](https://github.com/Paloexiz) 维护的社区项目，并非 OpenAI、Z.ai、Anthropic、Canva 或 Affinity 官方产品。
 
 ## Affinity by Canva 设置
@@ -139,15 +141,7 @@ codex plugin add affinity-mcp@affinity-mcp
 
 没有列出的 SDK 操作仍视为尚未验证；受权限控制的功能需先在 Affinity by Canva 中授权。
 
-## 验证
-
-```shell
-node scripts/affinity-mcp-proxy.test.mjs
-```
-
-检查覆盖两种stdio帧格式、UTF-8字符内部拆分、同次输入多条消息、坏JSON后的恢复、通知无回包、分页、文字与图片透传、HTTP错误、可配置等待及非法/边界值、连接/endpoint/初始化失败、延迟POST与SSE竞态、迟到成功/错误不重复响应、异常SSE、断线不重放、重连、EOF退出、版本一致性及包含空格、中文和字面美元符号路径下的Codex和Claude Code/ZCode共用启动配置。安装连接检查也使用模拟服务验证，包括拒绝备用列表和进程清理；这些回归不连接真实Affinity应用。
-
-### 检查真实安装连接
+## 检查真实安装连接
 
 保持Affinity打开并启用MCP，然后显式运行：
 

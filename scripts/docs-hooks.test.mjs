@@ -12,6 +12,7 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const input = (event, extra = {}) => ({session_id:'test-session',turn_id:'test-turn',hook_event_name:event,...extra});
 const ticket = createHash('sha256').update('test-session\0test-turn').digest('hex').slice(0,32);
 const context = value => value.hookSpecificOutput?.additionalContext || '';
+const stored = (root, id = ticket) => JSON.parse(fs.readFileSync(path.join(root,'.scratch/docs-hooks',`${id}.json`),'utf8'));
 const write = (root, name, value) => { fs.mkdirSync(path.dirname(path.join(root,name)),{recursive:true}); fs.writeFileSync(path.join(root,name),value,'utf8'); };
 test('Skill runtime scripts require architecture review while other Skill code retains SDK review',()=>{
   for(const name of ['affinity-mcp-proxy.mjs','affinity-mcp-smoke.mjs']) assert.deepEqual(relatedDocs(`skills/affinity-mcp/scripts/${name}`),['docs/architecture.md']);
@@ -263,12 +264,171 @@ test('privacy-only edits are checked at Stop without any source changes',t=>{
   assert.deepEqual(handleHook(root,input('Stop',{stop_hook_active:true})),{});
 });
 
-test('late/missing events do not claim successful verification; ticket path traversal rejected',t=>{
+test('late events retain manual limits without spending Stop budget; invalid tickets are rejected',t=>{
   const root=fixture(t);
   assert.match(context(handleHook(root,input('PostToolUse'))),/缺少操作前/);
   assert.throws(()=>recordReview(root,ticket,'Checked current changes and documentation.',true),/No valid/);
+  handleHook(root,input('PreToolUse'));
+  const stop=handleHook(root,input('Stop'));
+  assert.equal(stop.decision,undefined);
+  assert.match(stop.systemMessage,/缺少操作前/);
+  assert.equal(stored(root).missingBaseline,true);
+  assert.equal(stored(root).stopBlocked,false);
   assert.throws(()=>recordReview(root,'../escape','Checked current changes and documentation.',true),/Invalid review ticket/);
   assert.match(handleHook(root,{hook_event_name:'Stop'}).systemMessage,/缺少/);
+});
+
+test('late source changes require manual checking while privacy can still continue once',t=>{
+  const root=fixture(t);
+  handleHook(root,input('PostToolUse'));
+  handleHook(root,input('PreToolUse'));
+  write(root,'scripts/sample.mjs','export const version = 2;');
+  const notice=context(handleHook(root,input('PostToolUse')));
+  assert.match(notice,/scripts\/sample.mjs/);
+  assert.match(notice,/docs\/architecture.md/);
+  assert.match(notice,/人工/);
+  assert.doesNotMatch(notice,/review --ticket/);
+  assert.deepEqual(handleHook(root,input('PostToolUse')),{});
+  assert.throws(()=>recordReview(root,ticket,'Manually checked current sources and documentation.',true),/No valid/);
+  assert.equal(handleHook(root,input('Stop')).decision,undefined);
+  assert.equal(stored(root).stopBlocked,false);
+  write(root,'docs/private.md','private.owner@private-company.test');
+  assert.equal(handleHook(root,input('Stop')).decision,'block');
+  assert.equal(handleHook(root,input('Stop')).decision,undefined);
+  fs.unlinkSync(path.join(root,'docs/private.md'));
+  const repaired=handleHook(root,input('Stop',{stop_hook_active:true}));
+  assert.equal(repaired.decision,undefined);
+  assert.match(repaired.systemMessage,/缺少操作前/);
+  assert.doesNotMatch(repaired.systemMessage,/review --ticket/);
+});
+
+test('pre-event context exceptions preserve the real baseline and recover normal review',async t=>{
+  for(const event of ['UserPromptSubmit','PreToolUse']) for(const failure of ['missing','oversized']) await t.test(`${event}: ${failure}`,sub=>{
+    const root=fixture(sub);
+    const original=fs.readFileSync(path.join(root,'scripts/sample.mjs'));
+    if(failure==='missing') fs.unlinkSync(path.join(root,'docs/hooks.md'));
+    else write(root,'docs/hooks.md','# Synthetic context\n'+'x'.repeat(60001));
+    const output=handleHook(root,input(event));
+    assert.match(context(output),/正文未能成功提供/);
+    assert.ok(!JSON.stringify(output).includes(root));
+    const saved=stored(root);
+    assert.equal(saved.baseline.sources['scripts/sample.mjs'],createHash('sha256').update(original).digest('hex'));
+    assert.equal(saved.contextProvided,false);
+    assert.equal(saved.missingBaseline,undefined);
+    write(root,'scripts/sample.mjs','export const version = 2;');
+    write(root,'docs/hooks.md','# Restored context\n');
+    assert.match(context(handleHook(root,input('PreToolUse'))),/Restored context/);
+    assert.equal(stored(root).baseline.sources['scripts/sample.mjs'],saved.baseline.sources['scripts/sample.mjs']);
+    assert.equal(stored(root).contextProvided,true);
+    assert.match(context(handleHook(root,input('PostToolUse'))),/scripts\/sample.mjs/);
+    write(root,'docs/architecture.md','# Updated source behavior\n');
+    assert.equal(recordReview(root,ticket,'Updated the architecture after restoring failed context.').reviewed,true);
+    assert.deepEqual(handleHook(root,input('Stop')),{});
+  });
+});
+
+test('UTF-8 and privacy refusals keep the baseline without claiming context was supplied',t=>{
+  for(const content of [Buffer.from([255]),'private.owner@private-company.test']){
+    const root=fixture(t);
+    write(root,'docs/hooks.md',content);
+    assert.match(context(handleHook(root,input('PreToolUse'))),/隐私检查未通过/);
+    assert.equal(stored(root).contextProvided,false);
+    assert.equal(stored(root).missingBaseline,undefined);
+    write(root,'docs/hooks.md','# Restored public context\n');
+    assert.match(context(handleHook(root,input('PreToolUse'))),/Restored public context/);
+    assert.equal(stored(root).contextProvided,true);
+  }
+});
+
+test('context handling does not swallow corrupt, busy or failing state persistence',t=>{
+  const root=fixture(t);
+  handleHook(root,input('PreToolUse'));
+  const file=path.join(root,'.scratch/docs-hooks',`${ticket}.json`);
+  const original=fs.readFileSync(file,'utf8');
+  fs.writeFileSync(file,'{broken','utf8');
+  assert.throws(()=>handleHook(root,input('PreToolUse')),SyntaxError);
+  assert.equal(fs.readFileSync(file,'utf8'),'{broken');
+  fs.writeFileSync(file,original,'utf8');
+  fs.mkdirSync(`${file}.lock`);
+  assert.throws(()=>handleHook(root,input('PreToolUse')),/Hook state is busy/);
+  assert.equal(fs.readFileSync(file,'utf8'),original);
+  fs.rmdirSync(`${file}.lock`);
+  const conflict=path.join(root,'.scratch/docs-hooks',`${ticket}-${process.pid}.tmp`);
+  fs.mkdirSync(conflict);
+  assert.throws(()=>handleHook(root,input('PreToolUse')));
+  assert.equal(fs.readFileSync(file,'utf8'),original);
+  assert.equal(fs.existsSync(`${file}.lock`),false);
+});
+
+test('a first Stop repairs context once, preserves steered history and isolates the next turn',t=>{
+  const root=fixture(t);
+  assert.equal(handleHook(root,input('Stop')).decision,'block');
+  const original=stored(root);
+  assert.equal(original.missingBaseline,true);
+  assert.equal(original.contextProvided,false);
+  assert.equal(original.stopBlocked,true);
+  handleHook(root,input('UserPromptSubmit'));
+  assert.deepEqual(stored(root).baseline,original.baseline);
+  assert.equal(stored(root).missingBaseline,true);
+  assert.equal(stored(root).contextProvided,true);
+  assert.equal(handleHook(root,input('Stop',{stop_hook_active:true})).decision,undefined);
+  write(root,'scripts/sample.mjs','export const version = 2;');
+  handleHook(root,input('UserPromptSubmit'));
+  const notice=context(handleHook(root,input('PostToolUse')));
+  assert.match(notice,/人工/);
+  assert.doesNotMatch(notice,/review --ticket/);
+  assert.equal(stored(root).stopBlocked,true);
+  const next={turn_id:'next-turn'};
+  const nextTicket=createHash('sha256').update('test-session\0next-turn').digest('hex').slice(0,32);
+  handleHook(root,input('UserPromptSubmit',next));
+  assert.equal(stored(root,nextTicket).missingBaseline,undefined);
+  assert.equal(stored(root,nextTicket).stopBlocked,false);
+  assert.deepEqual(handleHook(root,input('Stop',next)),{});
+});
+
+test('repeated failed context on a steered prompt cannot replace an established baseline',t=>{
+  const root=fixture(t);
+  fs.unlinkSync(path.join(root,'docs/hooks.md'));
+  handleHook(root,input('PreToolUse'));
+  const original=stored(root).baseline;
+  write(root,'scripts/sample.mjs','export const version = 2;');
+  assert.match(context(handleHook(root,input('UserPromptSubmit'))),/正文未能成功提供/);
+  assert.deepEqual(stored(root).baseline,original);
+  assert.equal(stored(root).missingBaseline,undefined);
+  write(root,'docs/hooks.md','# Restored context\n');
+  handleHook(root,input('PreToolUse'));
+  assert.match(context(handleHook(root,input('PostToolUse'))),/review --ticket/);
+  write(root,'docs/architecture.md','# Updated behavior\n');
+  assert.equal(recordReview(root,ticket,'Updated docs while preserving the steered pre-edit baseline.').reviewed,true);
+  assert.deepEqual(handleHook(root,input('Stop')),{});
+});
+
+test('a real launcher missing before edits recovers without inventing an earlier baseline',t=>{
+  const root=fixture(t);
+  const config=JSON.parse(fs.readFileSync(path.join(repo,'.codex/hooks.json'),'utf8'));
+  const windows=process.platform==='win32';
+  const invoke=event=>{
+    const hook=config.hooks[event][0].hooks[0];
+    const command=windows?hook.commandWindows:hook.command;
+    const result=spawnSync(windows?'powershell.exe':'/bin/sh',windows?['-NoLogo','-NoProfile','-NonInteractive','-Command',command]:['-c',command],{
+      cwd:path.join(root,'scripts'),input:JSON.stringify(input(event)),encoding:'utf8',timeout:15000,windowsHide:true,
+    });
+    assert.equal(result.status,0);
+    assert.equal(result.stderr,'');
+    assert.ok(!result.stdout.includes(root));
+    return JSON.parse(result.stdout.trim());
+  };
+  assert.match(invoke('PreToolUse').systemMessage,/Node hook startup failed/);
+  assert.equal(fs.existsSync(path.join(root,'.scratch/docs-hooks',`${ticket}.json`)),false);
+  write(root,'scripts/docs-hooks.mjs',fs.readFileSync(path.join(repo,'scripts/docs-hooks.mjs'),'utf8'));
+  assert.match(context(invoke('PostToolUse')),/缺少操作前/);
+  assert.match(context(invoke('PreToolUse')),/Repository technical context/);
+  const stop=invoke('Stop');
+  assert.equal(stop.decision,undefined);
+  assert.match(stop.systemMessage,/缺少操作前/);
+  assert.equal(stored(root).missingBaseline,true);
+  assert.equal(stored(root).stopBlocked,false);
+  assert.throws(()=>recordReview(root,ticket,'Checked recovered launcher and related documentation.',true),/No valid/);
 });
 
 test('direct CLI executes through equivalent paths and imported modules stay silent',t=>{

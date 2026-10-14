@@ -78,7 +78,9 @@ codex plugin marketplace upgrade affinity-mcp
 codex plugin add affinity-mcp@affinity-mcp
 ```
 
-现有任务仍使用旧 Skill 或工具配置时，打开新任务。Claude Code 依次运行 `claude plugin marketplace update affinity-mcp` 和 `claude plugin update affinity-mcp@affinity-mcp`，然后重启会话。发版时同步更新两份插件清单、Claude Code/ZCode 共用市场条目及代理报告的版本号。
+现有任务仍使用旧 Skill 或工具配置时，打开新任务。Claude Code 依次运行 `claude plugin marketplace update affinity-mcp` 和 `claude plugin update affinity-mcp@affinity-mcp`，然后重启会话。每次开发或正式交付都须同步两份插件清单、Claude Code/ZCode 共用市场条目及代理报告的版本号。
+
+版本渠道编号和 CHANGELOG 约定见[版本规则](docs/versioning.md)。
 
 ## 使用与限制
 

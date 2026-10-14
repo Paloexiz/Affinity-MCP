@@ -31,7 +31,7 @@ const codexLaunch = codex.mcpServers["affinity-by-canva"];
 const sharedLaunch = readJson(".mcp.json").mcpServers["affinity-by-canva"];
 // Exercise literal replacement characters as well as spaces and Unicode.
 const scratch = mkdtempSync(join(tmpdir(), "ai-agent-affinity plugin-中文-$&-$'-$`-${literal}-"));
-const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
+const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "CHANGELOG.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
 for (const name of pluginFiles) {
   cpSync(join(root, name), join(scratch, name), { recursive: true });
 }
@@ -327,6 +327,7 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     const callsBeforeDiscovery = calls.length;
     const first = (await rpc("tools/list")).result;
     assert.equal(calls.slice(callsBeforeDiscovery).find(call => call.method === "initialize").params.protocolVersion, env.AFFINITY_MCP_PROTOCOL_VERSION, "Affinity negotiation uses its independent configured version");
+    assert.equal(calls.slice(callsBeforeDiscovery).find(call => call.method === "initialize").params.clientInfo.version, codex.version, "Upstream clientInfo reports the complete plugin version, including its development suffix");
     assert.equal(first.nextCursor, "page2");
     assert.equal((await rpc("tools/list", { cursor: first.nextCursor })).result.tools[0].name, "second");
     assert.equal((await rpc("tools/list", { cursor: "" })).result.tools[0].name, "second", "An empty string cursor is a valid opaque cursor");

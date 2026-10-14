@@ -1,25 +1,38 @@
-name: Docs hooks
+name: Repository checks
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - 'docs/**'
       - 'AGENTS.md'
+      - 'README*.md'
+      - 'CHANGELOG.md'
+      - '.codex-plugin/plugin.json'
+      - '.claude-plugin/*.json'
       - '.gitignore'
       - '.codex/hooks.json'
       - 'scripts/docs-hooks*'
+      - 'scripts/check-version*'
+      - 'scripts/affinity-mcp-proxy.test.mjs'
       - 'skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs'
       - 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'
       - '.github/workflows/docs-hooks.yml'
   pull_request:
+    branches: [develop]
     paths:
       - 'docs/**'
       - 'AGENTS.md'
+      - 'README*.md'
+      - 'CHANGELOG.md'
+      - '.codex-plugin/plugin.json'
+      - '.claude-plugin/*.json'
       - '.gitignore'
       - '.codex/hooks.json'
       - 'scripts/docs-hooks*'
+      - 'scripts/check-version*'
+      - 'scripts/affinity-mcp-proxy.test.mjs'
       - 'skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs'
       - 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'
       - '.github/workflows/docs-hooks.yml'
@@ -45,3 +58,5 @@ jobs:
           package-manager-cache: false
       - run: node scripts/docs-hooks.mjs check
       - run: node --test scripts/docs-hooks.test.mjs
+      - run: node scripts/check-version.mjs --channel development
+      - run: node --test scripts/check-version.test.mjs

@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.4.0-dev.1`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
+实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.4.1-dev.1`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -30,6 +30,7 @@ flowchart LR
 | [`.mcp.json`](../.mcp.json) | Claude Code / ZCode 共用 stdio 启动配置 | 不把 60 秒客户端配置传入代理的内部计时器 |
 | [`skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) | stdin 解析、请求路由、SSE 连接、响应关联、错误转发 | 不校验目标文档、不回滚 SDK 操作、不保存操作结果 |
 | [`scripts/affinity-mcp-proxy.test.mjs`](../scripts/affinity-mcp-proxy.test.mjs) | 模拟服务上的进程边界和打包配置回归 | 不证明真实 SDK 操作有效 |
+| [`scripts/check-version.mjs`](../scripts/check-version.mjs) 与[回归](../scripts/check-version.test.mjs) | 显式渠道下的版本格式、现行声明同步及可选 Git 基准增量检查 | 不决定产品影响级别，不发布版本，不验证宿主缓存或安装渠道切换 |
 | [`skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs) | 显式指定安装副本后的在线发现及preamble连接检查 | 不自动找缓存版本，不验证宿主UI加载的副本或SDK文档操作 |
 | [`skills/affinity-mcp/`](../skills/affinity-mcp/SKILL.md) | 操作入口、授权边界、样本与结果验收指导 | 不替代应用当前版本的运行证据 |
 | `docs/` 中的公共技术文档与根目录 `AGENTS.md` | 架构、版本记录、脱敏技术摘要及维护约定 | 随仓库维护；不能引用被 Git 忽略的内容，本地专用说明与插件交付范围分别核对 |
@@ -37,7 +38,7 @@ flowchart LR
 
 这是单上下文的小型仓库；文档按职责分开，代码仍是一个代理脚本。[领域约定](agents/domain.md)。
 
-运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。
+运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试、版本检查与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。正式交付树按版本规则保留安装内容及根 CHANGELOG，开发维护资源留在 `develop`；这是交付范围要求，不代表当前 `main` 已集成开发树的新文件。渠道与交付边界见[版本规则](versioning.md)。
 
 ## 连接和一次请求
 
@@ -126,7 +127,11 @@ SSE 按 LF、CRLF 或裸 CR 分行；CR 立即结束一行，跨分片紧随其�
 
 仓库开发参与平台包括 Windows、macOS、Linux；维护工具不得依赖个人机器路径或只提供单一平台命令。仓库 [文档 hooks](hooks.md) 使用跨平台 Node.js 实现及独立的 PowerShell/POSIX 启动入口，其三平台测试与 Affinity SDK 的应用平台证据分别记录。
 
-现有测试命令为 `node scripts/affinity-mcp-proxy.test.mjs`。本地模拟服务与真实子进程覆盖两种帧格式、UTF-8字符内部拆分、同次输入多条消息、坏JSON恢复、通知无回包、分页、文本/图像透传、HTTP503、配置默认/上下界/非法值、连接/endpoint/初始化与通知等待、延迟POST/SSE竞态、迟到成功与错误不重复响应、异常SSE、断开不重放及后续重连、EOF、版本一致性和含空格、中文和字面美元符号的安装路径。安装目录身份按解析符号链接后的真实路径比较。关闭后检查完整响应集合与残留缓冲，避免遗漏迟到或额外回包。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
+版本检查使用 Node.js 内置模块，无额外依赖。静态模式核对三清单、代理两处声明，开发渠道另核对文档四处身份及 CHANGELOG 的三级现行版本标题：待交付候选位于“未发布”，已交付版本位于日期分组，均要求恰有一个匹配条目；已交付开发版本和正式候选还核对所属日期的日历有效性，不确认真实发布事件。为只读核验已发布旧树，保留旧式日志标题的稳定版本检查；当前开发日志使用日期分组和中文分类。静态模式不调用 Git；显式 `--from` / `--stable` 的增量模式要求 Git 2.45+，另解析本地 commit、核对基准声明并检查数字递增。Git 通过参数数组和全局 `--no-lazy-fetch` 调用，部分克隆缺对象时失败，不隐式取得远端对象；旧 Git 不支持选项也直接失败。失败不输出原始错误，不自动 fetch、升级 Git 或更改引用。CI 固定开发渠道，只做静态检查和合成回归；交付增量需要维护者先确认基准，不能由静态结果推断。
+
+测试覆盖数值序号超过 9、跳号/倒退、目标切换重置、缺失或不一致基准和单处版本遗漏；无远端的临时仓库通过实际 CLI 验证未提交稳定候选的静态与增量检查，以及缺失、错版本、重复或无效日期的日志条目失败。历史基准只允许旧根目录或新 Skill 目录的一个代理入口，零个或两个入口均失败；当前文件系统仍只读取新入口。两种历史布局均校验全部五处身份，并通过真实部分克隆检查缺 blob 时失败、零 fetch、pack 与本地对象集合不变。这些检查不替代业务影响判断、实际交付证据或真实安装验收。[检查方法](versioning.md#两类检查)。
+
+现有测试命令为 `node scripts/affinity-mcp-proxy.test.mjs`。本地模拟服务与真实子进程覆盖两种帧格式、UTF-8字符内部拆分、同次输入多条消息、坏JSON恢复、通知无回包、分页、文本/图像透传、HTTP503、配置默认/上下界/非法值、连接/endpoint/初始化与通知等待、延迟POST/SSE竞态、迟到成功与错误不重复响应、异常SSE、断开不重放及后续重连、EOF、两段握手版本与清单一致性和含空格、中文和字面美元符号的安装路径。安装目录身份按解析符号链接后的真实路径比较。关闭后检查完整响应集合与残留缓冲，避免遗漏迟到或额外回包。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
 
 上游边界回归还覆盖同 ID 的 ping/未知请求、通知静默、回复 POST 延迟与失败、旧连接回复结束后的重连，以及缺失/冲突结果和非法 error 形状；扩展错误字段继续透传为上游错误诊断。[测试实现](../scripts/affinity-mcp-proxy.test.mjs)。
 

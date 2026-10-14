@@ -19,11 +19,13 @@
 | `UserPromptSubmit` | 建立本轮实际文件内容基线，并提供上述文档正文 | 同一轮的追加消息不重置基线 |
 | `PreToolUse` | 若开始事件缺失，在第一次工具执行前补基线与文档上下文 | 同一轮只注入一次；不解析命令文本猜测是否写文件 |
 | `PostToolUse` | 比较实际文件内容；有新实现变化时提醒相关文档；直接扫描包含被 Git 忽略文件的 `docs/` | 同一实现状态只提醒一次；文档修改不形成新的同步待办 |
-| `Stop` | 检查文档复核记录和隐私结果；未完成时要求继续处理一次 | 每轮最多自动续跑一次，也遵守 `stop_hook_active`；再次未完成则明确提示未完成项，不无限续跑 |
+| `Stop` | 正文未提供、隐私问题或有效基线下的源码未复核时，要求继续处理一次；仅历史基线缺口时给人工核验提示 | 每轮最多自动续跑一次，也遵守 `stop_hook_active`；纯历史提示不消耗续跑额度，不无限续跑 |
 
 `PreToolUse`/`PostToolUse` 匹配所有支持的本地工具路径，所以 shell、`apply_patch` 和 MCP 替换都能通过文件内容比较识别。并非所有宿主工具都必然发出 hook 事件；结束检查会再次扫描。宿主覆盖和 Stop 输出语义见[官方 Hooks 说明](https://developers.openai.com/codex/hooks)。
 
 文档正文注入上限为 60,000 字符；超过上限或入口缺失会明确告警，不把截断内容标成已读取。实际理解内容和判断更新是否准确仍由 Agent 完成，hooks 不能证明模型真正理解了文档。
+
+在 `UserPromptSubmit`/`PreToolUse` 已成功取得文件快照之后，正文读取或总字符上限检查异常只中断本次注入：保留真实前置基线，正文仍标记为未提供，并在后续前置事件重试。固定告警不包含异常原文、正文或本机路径。快照、Git 清单、锁、状态读取和持久化本身失败仍明确报告不完整，不承诺保存成功；`SessionStart` 不建立轮次基线。非法 UTF-8 和隐私发现走拒绝注入的检查路径，不等同于正文异常导致基线丢失。
 
 仅支持正文注入的事件设置 `additionalContextLimit`；`Stop` 返回续跑理由，不配置该无效字段。
 
@@ -53,6 +55,8 @@ node scripts/docs-hooks.mjs review --ticket <ticket> --reason "说明本次实�
 
 原始输入缺少轮次身份、第一次收到的事件已在操作后、Git/状态文件不可读时，会明确报告无法完整验证；不会把当时的快照冒充操作前基线。
 
+首次成功建档已经晚于操作时，缺失的历史基线无法由后续正文注入或人工检查补回。该票据不能执行自动 `review`；后续源码变化只提示人工核对，列出的文件仅覆盖晚到快照之后观察到的变化，不代表本轮全部变更。Agent 应检查全部实际变更及相关文档，并在最终答复说明自动验证不完整。只有此类历史缺口时，Stop 不自动续跑；正文或隐私问题仍按一次续跑上限处理。
+
 启动器的 Git 根目录定位和脚本内的文件清单查询都捕获错误输出，失败只返回固定提示；不把可能含个人路径的 Git 原始错误转发给宿主，也不在根目录定位失败后继续启动 Node。两种 shell 入口都适用。
 
 启动器同样捕获 Node 的输出：脚本缺失、语法错误或异常退出时丢弃原始输出并返回固定 JSON 提示；成功时才转发 hook 的 JSON。这样在脚本自身的错误处理尚未加载时，也不会输出本机路径或异常堆栈。
@@ -73,7 +77,7 @@ node scripts/docs-hooks.mjs review --ticket <ticket> --reason "说明本次实�
 
 如果进程被强制终止并留下锁，后续等待最多 5 秒便明确告警。确认该任务和 hooks 均未运行后，才能清理对应过期状态/锁；不要在运行中删除。状态无法写入时不伪装为已检查。
 
-Stop 的一次续跑限额避免无法修复的文档问题阻塞会话。若仍有隐私问题或未复核变更，Agent 必须在最终答复说明未完成项。它不是强制保密或不可绕过的安全边界，不自动提交、推送或修改用户文件。
+Stop 只为仍可处理的正文、隐私或有效基线文档复核问题使用一次续跑额度；无法补回的历史基线限制保留人工告警。若仍有隐私问题、未复核变更或基线缺口，Agent 必须在最终答复说明未完成项。它不是强制保密或不可绕过的安全边界，不自动提交、推送或修改用户文件。
 
 ## 验证
 
@@ -84,8 +88,14 @@ node scripts/docs-hooks.mjs check
 
 测试在可清理的临时 Git 仓库验证：开始事件、实际文件变更、已有脏状态、仅文档修改、删除/新增、复核失效、显式无更新理由、Stop 限额、忽略目录内隐私、悬空文档链接、输出不泄漏、以及真实启动命令在含空格/中文的子目录运行。测试要能创建临时 Git 元数据；受限沙箱拒绝时需在允许的本地测试环境运行，不应改动仓库或全局 Git 权限。
 
+生命周期组合覆盖晚到事件后补正文与人工收尾、缺基线后源码变化及混合隐私问题、正文异常后的原快照保存与恢复复核、追加提示不重置前态或续跑额度、独立新轮次，以及真实启动器前置脚本缺失后恢复。启动器恢复时只能记录后来事件，不能据此补造更早基线。状态损坏、锁忙和持久化失败另作失败边界检查；这些合成序列不证明宿主实际加载、恢复或压缩事件已经验收。
+
 直接 CLI 另验证正常检查的 JSON 输出、隐私发现及未知 mode 的非零退出；Windows 同时使用普通和 namespaced 入口路径。模块导入只输出测试 sentinel，不读取 hook stdin 或生成状态，原有 PowerShell/POSIX 启动器回归继续保留。[测试实现](../scripts/docs-hooks.test.mjs)。
 
-[三平台回归配置](../.github/workflows/docs-hooks.yml)在相关文档、忽略规则、hooks 文件或两个 Skill 运行脚本的 PR 及 `main` 推送时触发，也可手动运行。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
+[三平台回归配置](../.github/workflows/docs-hooks.yml)在 `develop` 推送或目标为 `develop` 的 PR 中，相关文档、版本清单、CHANGELOG、忽略规则、hooks、版本检查器、代理测试或两个 Skill 运行脚本发生变化时触发；分支和路径过滤须同时满足。[GitHub 触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)将 PR 的分支过滤应用于目标分支。生产 `main` 不包含维护 workflow，开发检查由 `develop` 的 push/PR 承担。
+
+配置保留 `workflow_dispatch`，但[手动触发](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow?tool=cli)有默认分支存在 workflow 的前提；`--ref develop` 只选择运行分支，不承诺绕过该前提。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
+
+同一 workflow 另以显式 `--channel development` 运行版本静态检查和校验器回归，不依赖 checkout 的分支名，也不自动取得生产基准。静态模式不调用 Git；版本增量及其回归要求 Git 2.45+，以 `--no-lazy-fetch` 禁止部分克隆按需下载缺失对象，缺对象或旧 Git 不支持该选项时明确失败。回归只在临时仓库通过本地 `file://` 克隆验证这个边界。交付前的版本增量核验使用维护者已确认的 Git 提交单独运行，见[版本检查](versioning.md#两类检查)。这些命令不改变 hooks 生命周期、信任或启用状态。
 
 各平台的通过结论必须来自对应环境的实际运行结果，CI 配置存在不代表测试已通过。启用后还需观察真实生命周期是否触发；手动模拟和 hook 信任状态都不能替代此项检查。本机执行结果与启用记录按[维护规则](maintaining.md)仅在本机保存。

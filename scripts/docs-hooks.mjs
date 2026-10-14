@@ -186,9 +186,11 @@ function reviewNeeded(state, current) {
   return state.review?.sourceFingerprint === fingerprint(current.sources) ? [] : changed;
 }
 
-function reminder(ticket, changed) {
+function reminder(ticket, changed, missingBaseline) {
   const docs = [...new Set(changed.flatMap(relatedDocs))];
-  return `仓库实现已变化：${changed.slice(0, 20).join(', ')}。请及时核对并更新相关文档：${docs.join(', ')}。` +
+  const notice = `仓库实现已变化：${changed.slice(0, 20).join(', ')}。请及时核对并更新相关文档：${docs.join(', ')}。`;
+  if (missingBaseline) return notice + '\n此清单仅覆盖晚到快照之后观察到的变化；请人工核对本轮全部实际变更及相关文档，并在最终答复说明缺少操作前基线，不能声称自动验证完整通过。';
+  return notice +
     `\n完成后执行 node scripts/docs-hooks.mjs review --ticket ${ticket} --reason "本次变更与文档核对说明"。` +
     '\n确实不影响文档时，添加 --no-doc-change 并具体说明原因；仅编辑文档不会产生新的同步待办。';
 }
@@ -209,7 +211,9 @@ export function handleHook(root, input) {
     let output = {};
     if (event === 'UserPromptSubmit' || event === 'PreToolUse') {
       if (!state.contextProvided) {
-        const result = context(root);
+        let result;
+        try { result = context(root); }
+        catch { result = { provided: false, text: '文档正文未能成功提供。请检查必要文档入口及60000字符上限；后续前置事件会重试，不能将此提示视为已阅读正文。' }; }
         output = inject(event, result.text);
         state.contextProvided = result.provided;
       }
@@ -220,14 +224,15 @@ export function handleHook(root, input) {
       if (!state.contextProvided) problems.push('文档正文尚未成功提供。请先处理文档问题；下一次工具调用前会重试注入，不能将警告视为已阅读正文。');
       if (state.missingBaseline) problems.push('缺少操作前的变更基线。本轮自动同步验证不完整，请人工核对全部变更并报告此限制。');
       if (privacy.length) problems.push(`docs 隐私检查失败；清理敏感内容，不在回复中复制原文：\n${describeFindings(privacy)}`);
-      if (changed.length) problems.push(reminder(ticketFor(input), changed));
+      if (changed.length) problems.push(reminder(ticketFor(input), changed, state.missingBaseline));
+      const actionable = !state.contextProvided || privacy.length > 0 || (!state.missingBaseline && changed.length > 0);
       if (event === 'PostToolUse') {
         const notice = hash(JSON.stringify({ changed: changed.length ? fingerprint(current.sources) : '', privacy, missing: !!state.missingBaseline, contextMissing: !state.contextProvided }));
         if (problems.length && notice !== state.notified) { output = inject(event, problems.join('\n\n')); state.notified = notice; }
       } else if (problems.length) {
         // At most one automatic continuation per turn, including when another Stop hook continued it.
-        if (!state.stopBlocked && !input.stop_hook_active) { state.stopBlocked = true; output = { decision: 'block', reason: problems.join('\n\n') }; }
-        else output = { systemMessage: `文档检查仍未完成；为避免循环不再次自动续跑。最终答复必须说明未完成项。\n${problems.join('\n\n')}` };
+        if (actionable && !state.stopBlocked && !input.stop_hook_active) { state.stopBlocked = true; output = { decision: 'block', reason: problems.join('\n\n') }; }
+        else output = { systemMessage: `文档检查仍未完成；最终答复必须说明未完成项。\n${problems.join('\n\n')}` };
       }
     }
     return { state, output };

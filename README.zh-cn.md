@@ -8,8 +8,6 @@
 
 连接 **Codex、ZCode 和 Claude Code** 与 Affinity by Canva 本地 MCP 服务的独立插件。一个仓库只维护一个插件，清单放在根目录，运行脚本随 `skills/affinity-mcp/` 分发。
 
-`main` 用于用户安装；仓库维护在 `develop` 进行，该分支保留开发指引、技术文档、测试和文档 hooks。`main` 排除这些开发资料，仍完整分发 Skill、references 和运行脚本。
-
 由 [Paloexiz](https://github.com/Paloexiz) 维护的社区项目，并非 OpenAI、Z.ai、Anthropic、Canva 或 Affinity 官方产品。
 
 ## Affinity by Canva 设置
@@ -80,7 +78,9 @@ codex plugin marketplace upgrade affinity-mcp
 codex plugin add affinity-mcp@affinity-mcp
 ```
 
-现有任务仍使用旧 Skill 或工具配置时，打开新任务。Claude Code 依次运行 `claude plugin marketplace update affinity-mcp` 和 `claude plugin update affinity-mcp@affinity-mcp`，然后重启会话。发版时同步更新两份插件清单、Claude Code/ZCode 共用市场条目及代理报告的版本号。
+现有任务仍使用旧 Skill 或工具配置时，打开新任务。Claude Code 依次运行 `claude plugin marketplace update affinity-mcp` 和 `claude plugin update affinity-mcp@affinity-mcp`，然后重启会话。每次开发或正式交付都须同步两份插件清单、Claude Code/ZCode 共用市场条目及代理报告的版本号。
+
+版本渠道编号和 CHANGELOG 约定见[版本规则](https://github.com/Paloexiz/Affinity-MCP/blob/develop/docs/versioning.md)。
 
 ## 使用与限制
 

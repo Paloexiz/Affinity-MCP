@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.4.2`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
+实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.4.3`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -28,6 +28,7 @@ flowchart LR
 | [`.codex-plugin/plugin.json`](../.codex-plugin/plugin.json) | Codex 插件元数据、Skill 路径、内联 MCP 启动配置 | 不控制 Affinity 权限 |
 | [`.claude-plugin/`](../.claude-plugin/plugin.json) 与 [市场索引](../.claude-plugin/marketplace.json) | Claude Code / ZCode 共用插件描述与版本 | 不保证客户端实际已刷新缓存 |
 | [`.mcp.json`](../.mcp.json) | Claude Code / ZCode 共用 stdio 启动配置 | 不把 60 秒客户端配置传入代理的内部计时器 |
+| [隐私政策](../PRIVACY.zh-cn.md)与[服务条款](../TERMS.zh-cn.md)及英文版 | 随安装树提供的数据处理说明、使用约定及公开联系入口；Codex 清单、Claude Code 清单和 ZCode 市场条目各声明对应的 HTTPS 政策链接 | 不替代第三方政策，不增加 MIT 软件许可限制；清单 URL 的线上可用性须在发布后另行核验 |
 | [`skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) | stdin 解析、请求路由、SSE 连接、响应关联、错误转发 | 不校验目标文档、不回滚 SDK 操作、不保存操作结果 |
 | [`scripts/affinity-mcp-proxy.test.mjs`](../scripts/affinity-mcp-proxy.test.mjs) | 模拟服务上的进程边界和打包配置回归 | 不证明真实 SDK 操作有效 |
 | [`scripts/check-version.mjs`](../scripts/check-version.mjs) 与[回归](../scripts/check-version.test.mjs) | 显式渠道下的版本格式、现行声明同步及可选 Git 基准增量检查 | 不决定产品影响级别，不发布版本，不验证宿主缓存或安装渠道切换 |
@@ -37,6 +38,16 @@ flowchart LR
 | 本地内部归档 | 原始问题、个人工作材料和实验原始输出 | 保持忽略，不作为 docs 的内容依赖或证据引用 |
 
 这是单上下文的小型仓库；文档按职责分开，代码仍是一个代理脚本。[领域约定](agents/domain.md)。
+
+政策链接按宿主约定分开放置，指向同一套随包文件：
+
+| 宿主 | 政策字段与位置 | 规范与边界 |
+| --- | --- | --- |
+| Codex | `.codex-plugin/plugin.json` 的 `interface.privacyPolicyURL`、`interface.termsOfServiceURL`；支持入口为 `interface.supportURL` | [官方清单字段](https://developers.openai.com/plugins/deploy/submission#listing-metadata)；实际展示由宿主或目录决定。 |
+| Claude Code | `.claude-plugin/plugin.json` 顶层的 `privacyPolicyUrl`、`termsOfServiceUrl`、`supportUrl` | [Anthropic 目录字段](https://code.claude.com/docs/en/plugins/manifest-reference#directory-listing-fields)供目录展示，Claude Code 运行时忽略；仅放在插件清单中。`2.1.281` 起校验器认可这些字段，旧版会告警并使严格校验失败。 |
+| ZCode | `.claude-plugin/marketplace.json` 的插件条目中使用 `privacyPolicy`、`termsOfService` | ZCode 在目录层读取展示信息，其[解析实现](https://github.com/zai-org/zcode/blob/aac4755666d09fdcd70272fcf063c077a639015f/apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts#L2293)及[目录层决策](https://github.com/zai-org/zcode/blob/aac4755666d09fdcd70272fcf063c077a639015f/docs/adr/0001-store-listing-in-marketplace-catalog.md)与插件清单字段分开；README 继续提供通用入口。 |
+
+共用市场保留 ZCode 的图标、翻译和政策扩展。Claude Code 将这些目录扩展视为未知字段并忽略，普通校验可带告警通过，`--strict` 会将告警视为失败；不要把这一结果解释为政策文件缺失或运行时不兼容。[未知字段与校验规则](https://code.claude.com/docs/en/plugins/manifest-reference#unrecognized-fields)。
 
 运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试、版本检查与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。正式交付先在 `develop` 转正并推送，再从该确切提交向 `main` 同步安装内容及根 CHANGELOG；开发维护资源留在 `develop`。渠道与交付边界见[版本规则](versioning.md)。
 

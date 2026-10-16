@@ -10,6 +10,12 @@ A standalone plugin for **Codex, ZCode and Claude Code**, connecting to Affinity
 
 Independent community project maintained by [Paloexiz](https://github.com/Paloexiz), not an official OpenAI, Z.ai, Anthropic, Canva or Affinity release.
 
+## Privacy and terms
+
+Read the [Privacy Policy](PRIVACY.md) and [Terms of Service](TERMS.md). The proxy connects locally by default, but document content and previews returned to your AI client may be sent to its model provider. The software remains licensed under [MIT](LICENSE). Contact: [project Issues](https://github.com/Paloexiz/Affinity-MCP/issues) (public; redact sensitive information).
+
+The same policies cover Codex, Claude Code and ZCode. Policy links are declared in the Codex listing, the Claude Code manifest for Anthropic's directory, and the ZCode marketplace entry. Where your client or directory does not show them, use the links above or the copies included with the plugin.
+
 ## Affinity by Canva settings
 
 Open **Settings → Model Context Protocol** in Affinity by Canva. **Enable Affinity MCP** is the only switch required to connect; the default endpoint is `http://localhost:6767/sse`.

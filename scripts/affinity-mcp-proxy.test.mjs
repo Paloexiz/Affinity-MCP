@@ -22,6 +22,13 @@ assert.equal(claudeMarket.plugins[0].name, codex.name);
 assert.equal(claude.name, codex.name);
 assert.equal(claude.version, codex.version);
 assert.equal(claudeMarket.plugins[0].version, codex.version);
+for (const key of ["support", "privacyPolicy", "termsOfService"]) {
+  const url = codex.interface[`${key}URL`];
+  assert.equal(new URL(url).protocol, "https:");
+  assert.equal(claude[`${key}Url`], url);
+}
+assert.equal(claudeMarket.plugins[0].privacyPolicy, claude.privacyPolicyUrl);
+assert.equal(claudeMarket.plugins[0].termsOfService, claude.termsOfServiceUrl);
 // ZCode uses this same index and requires an HTTPS icon URL.
 assert.equal(new URL(claudeMarket.plugins[0].icon).protocol, "https:");
 assert.ok(claudeMarket.plugins[0].description_i18n["zh-CN"]);
@@ -31,7 +38,7 @@ const codexLaunch = codex.mcpServers["affinity-by-canva"];
 const sharedLaunch = readJson(".mcp.json").mcpServers["affinity-by-canva"];
 // Exercise literal replacement characters as well as spaces and Unicode.
 const scratch = mkdtempSync(join(tmpdir(), "affinity-mcp-test-affinity plugin-中文-$&-$'-$`-${literal}-"));
-const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "CHANGELOG.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
+const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "PRIVACY.md", "PRIVACY.zh-cn.md", "TERMS.md", "TERMS.zh-cn.md", "CHANGELOG.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
 for (const name of pluginFiles) {
   cpSync(join(root, name), join(scratch, name), { recursive: true });
 }

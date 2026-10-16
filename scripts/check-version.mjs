@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -110,7 +110,7 @@ export function checkRepository(root, { channel, from, stable } = {}) {
   for (const ref of [from, stable]) if (ref !== undefined && (typeof ref !== "string" || !ref.trim())) fail("Git baseline must be a nonempty commit reference.");
   const read = path => readText(root, path);
   const declarations = packageDeclarations(read);
-  if (channel === "development") {
+  if (channel === "development" || existsSync(join(root, "docs"))) {
     declarations.push(
       ["docs entry", matchOne(read("docs/README.md"), /当前仓库清单为插件 `([^`]+)`/g, "docs entry")],
       ["architecture", matchOne(read("docs/architecture.md"), /插件标识 `([^`]+)`/g, "architecture")],
@@ -120,8 +120,9 @@ export function checkRepository(root, { channel, from, stable } = {}) {
   }
   const changelog = read("CHANGELOG.md");
   const unreleasedHeading = /^## (?:未发布|\[Unreleased\])[ \t]*\r?$/gm;
-  if ([...changelog.matchAll(unreleasedHeading)].length !== 1) fail("CHANGELOG requires one Unreleased section.");
-  const unreleased = changelog.split(unreleasedHeading)[1].split(/^##(?:\s|$)/m)[0];
+  const unreleasedCount = [...changelog.matchAll(unreleasedHeading)].length;
+  if (unreleasedCount > 1) fail("CHANGELOG permits at most one Unreleased section.");
+  const unreleased = unreleasedCount ? changelog.split(unreleasedHeading)[1].split(/^##(?:\s|$)/m)[0] : "";
   const version = consistentVersion(declarations, channel);
   const pending = [...unreleased.matchAll(/^### ([^\s]+)[ \t]*\r?$/gm)];
   if (channel === "development" && pending.length) {

@@ -98,6 +98,22 @@ test("static checks reject a single missed declaration at every current identity
   assert.equal(checkRepository(root, { channel: "development" }).mode, "static", "Historical SDK versions are not replaced or compared");
 });
 
+test("stable preparation validates development docs while production trees omit them", t => {
+  const root = fixture(t);
+  const clean = files("0.1.16");
+  write(root, clean);
+  assert.equal(checkRepository(root, { channel: "stable" }).version, "0.1.16");
+  for (const [path, content] of Object.entries(clean).filter(([path]) => path.startsWith("docs/"))) {
+    write(root, clean);
+    write(root, { [path]: content.replace("0.1.16", "0.1.16-dev.1") });
+    assert.throws(() => checkRepository(root, { channel: "stable" }), /Version mismatch/, path);
+  }
+  rmSync(join(root, "docs"), { recursive: true });
+  assert.equal(checkRepository(root, { channel: "stable" }).version, "0.1.16");
+  write(root, { "docs/README.md": clean["docs/README.md"] });
+  assert.throws(() => checkRepository(root, { channel: "stable" }), /Cannot read required file/);
+});
+
 test("static mode needs no Git and CLI requires an explicit channel", t => {
   const root = fixture(t);
   write(root, files("0.1.16-dev.1"));
@@ -136,6 +152,7 @@ test("unpublished stable candidates pass both CLI modes and invalid changelog me
     missing: "# Affinity MCP 更新日志\n\n## 未发布\n\n- Sample fix.\n",
     wrongVersion: candidate["CHANGELOG.md"].replace("### 0.1.16", "### 0.1.17"),
     duplicate: candidate["CHANGELOG.md"] + "\n## 2099-12-31\n\n### 0.1.16\n\n- Duplicate entry.\n",
+    crossGroupDuplicate: candidate["CHANGELOG.md"].replace("## 未发布", "## 未发布\n\n### 0.1.16"),
     invalidDate: candidate["CHANGELOG.md"].replace("2099-12-31", "2099-02-30"),
   };
   for (const [name, changelog] of Object.entries(invalid)) {
@@ -208,6 +225,29 @@ test("delivered development snapshots use one dated entry without inventing a pe
   ]) {
     write(root, { "CHANGELOG.md": changelog });
     assert.throws(() => checkRepository(root, { channel: "development" }), /requires exactly one/);
+  }
+});
+
+test("dated releases omit the Unreleased heading while retaining version and date validation", t => {
+  const root = fixture(t);
+  for (const [channel, version] of [["development", "0.1.16-dev.1"], ["stable", "0.1.16"]]) {
+    write(root, files(version));
+    const dated = `# Affinity MCP 更新日志\n\n## 2026-10-16\n\n### ${version}\n\n#### 变更\n\n- Delivered changes.\n`;
+    for (const changelog of [dated, dated.replaceAll("\n", "\r\n")]) {
+      write(root, { "CHANGELOG.md": changelog });
+      assert.equal(checkRepository(root, { channel }).version, version);
+    }
+    const result = spawnSync(process.execPath, [cli, "--root", root, "--channel", channel], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).version, version);
+    for (const changelog of [
+      dated.replace("2026-10-16", "2026-02-30"),
+      dated.replace("## 2026-10-16\n", ""),
+      dated + `\n## 2026-10-17\n\n### ${version}\n`,
+    ]) {
+      write(root, { "CHANGELOG.md": changelog });
+      assert.throws(() => checkRepository(root, { channel }), /requires exactly one/);
+    }
   }
 });
 

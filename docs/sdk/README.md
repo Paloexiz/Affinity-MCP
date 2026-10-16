@@ -7,8 +7,8 @@
 
 | 维度 | 已知值 | 依据与限制 |
 | --- | --- | --- |
-| 仓库插件版本 | `0.4.2-dev.1` | [Codex 清单](../../.codex-plugin/plugin.json)、[共用插件清单](../../.claude-plugin/plugin.json)、[市场条目](../../.claude-plugin/marketplace.json)；这是开发候选的静态仓库值，渠道规则见[版本说明](../versioning.md) |
-| 代理报告版本 | `0.4.2-dev.1` | [代理源码](../../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) 中的 `clientInfo.version` 与 `serverInfo.version`；静态声明，不是运行时握手证据 |
+| 仓库插件版本 | `0.4.2` | [Codex 清单](../../.codex-plugin/plugin.json)、[共用插件清单](../../.claude-plugin/plugin.json)、[市场条目](../../.claude-plugin/marketplace.json)；这是正式版本格式的静态仓库值，交付规则见[版本说明](../versioning.md) |
+| 代理报告版本 | `0.4.2` | [代理源码](../../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) 中的 `clientInfo.version` 与 `serverInfo.version`；静态声明，不是运行时握手证据 |
 | MCP 协议默认值 | `2025-11-25` | [配置](../../.mcp.json)与[代理源码](../../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)；不是 SDK 版本或协议全面兼容认证 |
 | 历史能力基线 | `3.2.3.4646` | [3.2.3.4646 记录](3.2.3.4646.md)所列固定提交来源，截至 2026-09-11；历史转录，没有独立复验结果 |
 | 样本构建 | `Affinity 3.3.0.4850 Win32 (Sep 11 2026)` | [脱敏证据摘要](evidence/2026-10-08.md) A-01，观察于 2026-10-08；括号内是应用自报字符串，不作为发布日期 |

@@ -58,5 +58,10 @@ jobs:
           package-manager-cache: false
       - run: node scripts/docs-hooks.mjs check
       - run: node --test scripts/docs-hooks.test.mjs
-      - run: node scripts/check-version.mjs --channel development
+      - name: Check snapshot version
+        run: >
+          node --input-type=module -e "import { readFileSync } from 'node:fs';
+          import { checkRepository } from './scripts/check-version.mjs';
+          const version = JSON.parse(readFileSync('.codex-plugin/plugin.json', 'utf8')).version;
+          console.log(JSON.stringify(checkRepository(process.cwd(), { channel: typeof version === 'string' && version.includes('-dev.') ? 'development' : 'stable' }), null, 2));"
       - run: node --test scripts/check-version.test.mjs

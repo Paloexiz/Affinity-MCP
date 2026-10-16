@@ -7,6 +7,7 @@
 | 需要解决的问题 | 阅读入口 |
 | --- | --- |
 | 安装插件、启用 MCP、连接客户端 | [中文 README](../README.zh-cn.md) / [English README](../README.md) |
+| 了解数据处理、使用约定及联系维护者 | [隐私政策](../PRIVACY.zh-cn.md) / [服务条款](../TERMS.zh-cn.md) |
 | 开发/正式版本、批次递增及交付检查 | [版本规则](versioning.md) |
 | 查看未发布变化和历史源码版本 | [CHANGELOG](../CHANGELOG.md) |
 | 理解职责、数据流、连接生命周期与故障归属 | [架构说明](architecture.md) |
@@ -19,7 +20,7 @@
 
 ## 阅读这些记录时
 
-- 插件版本、MCP 协议日期、Affinity 应用构建号是三个不同维度。当前仓库清单为插件 `0.4.2`，采用正式版本格式，不能由此推断已提交或发布；已记录的应用样本为 `3.3.0.4850 Win32`，观察日期为 2026-10-08。它不等于“官方最新版”。具体来源见[版本身份表](sdk/README.md#version-identity)。
+- 插件版本、MCP 协议日期、Affinity 应用构建号是三个不同维度。当前仓库清单为插件 `0.4.3`，采用正式版本格式，不能由此推断已提交或发布；已记录的应用样本为 `3.3.0.4850 Win32`，观察日期为 2026-10-08。它不等于“官方最新版”。具体来源见[版本身份表](sdk/README.md#version-identity)。
 - SDK 能力以具体操作、对象和后置状态为单位。函数存在、调用无异常、文本正确、视觉正确与文件保存成功分别需要证据。
 - 版本页中的“样本通过”指该页注明日期的既有实验；[脱敏证据摘要](sdk/evidence/2026-10-08.md)的结论只适用于记录的样本与观察日期。
 - 随包 [Skill](../skills/affinity-mcp/SKILL.md) 和 [SDK reference](../skills/affinity-mcp/references/sdk-verified.md#version-boundaries) 区分历史记录与3.3样本，未注明新证据的旧案例需在目标构建复验。仓库内容更新不证明已安装副本或实时 preamble 已刷新。

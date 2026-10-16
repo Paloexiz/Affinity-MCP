@@ -1,6 +1,6 @@
 {
   "name": "affinity-mcp",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Connect to Affinity by Canva's local MCP server for SDK scripting and document previews.",
   "author": {
     "name": "Paloexiz",
@@ -29,6 +29,9 @@
     "developerName": "Paloexiz",
     "category": "Productivity",
     "websiteURL": "https://github.com/Paloexiz/Affinity-MCP",
+    "supportURL": "https://github.com/Paloexiz/Affinity-MCP/issues",
+    "privacyPolicyURL": "https://github.com/Paloexiz/Affinity-MCP/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/Paloexiz/Affinity-MCP/blob/main/TERMS.md",
     "capabilities": [
       "MCP",
       "Local",

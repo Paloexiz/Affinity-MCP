@@ -10,6 +10,12 @@
 
 由 [Paloexiz](https://github.com/Paloexiz) 维护的社区项目，并非 OpenAI、Z.ai、Anthropic、Canva 或 Affinity 官方产品。
 
+## 隐私与条款
+
+使用前请阅读[隐私政策](PRIVACY.zh-cn.md)和[服务条款](TERMS.zh-cn.md)。代理默认在本机连接，但返回 AI 客户端的文档内容和预览可能发送至其模型提供者。软件继续采用 [MIT 许可](LICENSE)。联系入口：[项目 Issues](https://github.com/Paloexiz/Affinity-MCP/issues)（公开渠道，请先脱敏）。
+
+同一套政策适用于 Codex、Claude Code 和 ZCode。Codex 清单、面向 Anthropic 目录的 Claude Code 清单，以及 ZCode 市场条目均声明政策链接；客户端或目录未展示链接时，可使用上方入口或插件内附带的文件。
+
 ## Affinity by Canva 设置
 
 打开 Affinity by Canva 的 **设置 → Model Context Protocol**。**Enable Affinity MCP** 是唯一必需的开关，默认地址为 `http://localhost:6767/sse`。

@@ -11,7 +11,7 @@ const cli = fileURLToPath(new URL("./check-version.mjs", import.meta.url));
 const proxyPath = "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs";
 const legacyProxyPath = "scripts/affinity-mcp-proxy.mjs";
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), "ai-agent-version-中文-"));
+  const root = mkdtempSync(join(tmpdir(), "affinity-mcp-test-version-中文-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   return root;
 }
@@ -45,7 +45,7 @@ function git(root, args) {
 function commit(root, version, layout = proxyPath) {
   write(root, files(version, layout));
   git(root, ["add", "."]);
-  git(root, ["-c", "core.hooksPath=.git/ai-agent-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic version snapshot"]);
+  git(root, ["-c", "core.hooksPath=.git/affinity-mcp-test-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic version snapshot"]);
   return git(root, ["rev-parse", "HEAD"]);
 }
 
@@ -229,7 +229,7 @@ test("increment mode resolves explicit snapshots and rejects missing or inconsis
   assert.equal(missing.stderr.includes("fatal:"), false);
   write(root, { ".claude-plugin/plugin.json": JSON.stringify({ name: "affinity-mcp", version: "0.1.14" }) });
   git(root, ["add", "."]);
-  git(root, ["-c", "core.hooksPath=.git/ai-agent-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic inconsistent snapshot"]);
+  git(root, ["-c", "core.hooksPath=.git/affinity-mcp-test-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic inconsistent snapshot"]);
   const inconsistent = git(root, ["rev-parse", "HEAD"]);
   write(root, files("0.1.16-dev.1"));
   assert.throws(() => checkRepository(root, { ...options, from: inconsistent }), /Version mismatch/);
@@ -237,11 +237,11 @@ test("increment mode resolves explicit snapshots and rejects missing or inconsis
 
 test("partial clones fail on missing baseline blobs without fetching or adding local objects", t => {
   for (const layout of [proxyPath, legacyProxyPath]) {
-  const root = mkdtempSync(join(tmpdir(), "ai-agent-version-partial-"));
+  const root = mkdtempSync(join(tmpdir(), "affinity-mcp-test-version-partial-"));
   try {
     const seed = join(root, "seed");
     const clone = join(root, "clone");
-    const tracePath = join(root, "ai-agent-git-trace.log");
+    const tracePath = join(root, "affinity-mcp-test-git-trace.log");
     mkdirSync(seed);
     git(seed, ["init", "--quiet"]);
     git(seed, ["config", "uploadpack.allowFilter", "true"]);
@@ -305,7 +305,7 @@ test("legacy baselines support uncommitted stable CLI candidates and still enfor
         write(root, clean);
         write(root, { [path]: clean[path].slice(0, occurrence.index) + "0.2.0" + clean[path].slice(occurrence.index + "0.3.0".length) });
         git(root, ["add", "."]);
-        git(root, ["-c", "core.hooksPath=.git/ai-agent-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic mismatched identity"]);
+        git(root, ["-c", "core.hooksPath=.git/affinity-mcp-test-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic mismatched identity"]);
         const inconsistent = git(root, ["rev-parse", "HEAD"]);
         rmSync(join(root, layout));
         write(root, files("0.4.0"));
@@ -323,7 +323,7 @@ test("zero or two historical proxy paths fail and current files still require th
     if (ambiguous) write(root, { [legacyProxyPath]: files("0.3.0")[proxyPath] });
     else rmSync(join(root, proxyPath));
     git(root, ["add", "."]);
-    git(root, ["-c", "core.hooksPath=.git/ai-agent-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic unsupported layout"]);
+    git(root, ["-c", "core.hooksPath=.git/affinity-mcp-test-no-hooks", "-c", "user.name=Version test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "Synthetic unsupported layout"]);
     const baseline = git(root, ["rev-parse", "HEAD"]);
     write(root, files("0.4.0"));
     const result = spawnSync(process.execPath, [cli, "--root", root, "--channel", "stable", "--from", baseline], { encoding: "utf8" });

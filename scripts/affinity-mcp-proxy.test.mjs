@@ -30,7 +30,7 @@ assert.equal(codexMarket.plugins[0].source.path, "./");
 const codexLaunch = codex.mcpServers["affinity-by-canva"];
 const sharedLaunch = readJson(".mcp.json").mcpServers["affinity-by-canva"];
 // Exercise literal replacement characters as well as spaces and Unicode.
-const scratch = mkdtempSync(join(tmpdir(), "ai-agent-affinity plugin-中文-$&-$'-$`-${literal}-"));
+const scratch = mkdtempSync(join(tmpdir(), "affinity-mcp-test-affinity plugin-中文-$&-$'-$`-${literal}-"));
 const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "CHANGELOG.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
 for (const name of pluginFiles) {
   cpSync(join(root, name), join(scratch, name), { recursive: true });
@@ -784,7 +784,7 @@ try {
     assert.deepEqual(calls.slice(before).map(c => c.method), ["initialize", "notifications/initialized", "tools/list", "tools/list", "tools/call"]);
     assert.equal(calls.at(-1).params.name, "read_sdk_documentation_topic");
   }
-  const legacyRoot = join(scratch, "ai-agent-legacy-plugin");
+  const legacyRoot = join(scratch, "affinity-mcp-test-legacy-plugin");
   for (const name of pluginFiles) {
     cpSync(join(scratch, name), join(legacyRoot, name), { recursive: true });
   }
@@ -805,7 +805,7 @@ try {
     assert.equal(checked.status, "PASS");
     assert.deepEqual(calls.slice(before).map(c => c.method), ["initialize", "notifications/initialized", "tools/list", "tools/list", "tools/call"]);
   }
-  const skillOnly = join(scratch, "ai-agent-skill-only");
+  const skillOnly = join(scratch, "affinity-mcp-test-skill-only");
   cpSync(join(scratch, "skills/affinity-mcp"), skillOnly, { recursive: true });
   const beforeRejectedInstall = calls.length;
   for (const config of ["codex", "shared"]) await assert.rejects(checkInstalledConnection(skillOnly, config), /Cannot read .*plugin\.json/);
@@ -832,7 +832,7 @@ try {
   }
   console.log("PASS upstream initialization: invalid fields/version, concurrent rejection, no submission, recovery and both-config smoke refusal");
   const preambleProxy = join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
-  const preambleExitFile = join(scratch, "ai-agent-preamble-exit.json");
+  const preambleExitFile = join(scratch, "affinity-mcp-test-preamble-exit.json");
   try {
     writeFileSync(preambleProxy, readFileSync(preambleProxy, "utf8") +
       "\nimport { writeFileSync as writePreambleExit } from 'node:fs';\n" +
@@ -932,7 +932,7 @@ try {
     upstreamMode = "normal";
   }
   const proxyCopy = join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
-  const pidFile = join(scratch, "ai-agent-child-pid.txt");
+  const pidFile = join(scratch, "affinity-mcp-test-child-pid.txt");
   writeFileSync(proxyCopy, readFileSync(proxyCopy, "utf8") +
     "\nimport { writeFileSync as writePid } from 'node:fs';\n" +
     "writePid(" + JSON.stringify(pidFile) + ", String(process.pid));\n" +

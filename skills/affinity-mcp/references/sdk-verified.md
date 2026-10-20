@@ -9,6 +9,8 @@ Unless explicitly marked 3.3 below, entries retain the historical 3.2-era refere
 
 Separate **3.3.1.4940 MacOS** batch/undo/rectangle samples (**2026-10-19**) and editable-text/embedded-bitmap poster previews with native Margin/Bleed (**2026-10-20**) are bounded in [execution efficiency](scripting-pitfalls.md#execution-efficiency), [single-call preview](scripting-pitfalls.md#single-call-preview) and [native geometry](page-geometry.md#read-and-apply-the-correct-native-setting). Default renders omitted outer Bleed in the poster; only its verified complete-selection PNG covered the full Bleed. These samples do not upgrade unrelated historical cases below.
 
+Separate **3.3.1.4940 MacOS** single-line text samples (**2026-10-20**) distinguish [optical modes, UI hanging rules and punctuation-sensitive alignment](#optical-alignment-and-punctuation). They do not establish multiline reflow, rule-table SDK access or general font/glyph mapping.
+
 Mandatory preamble reading does not make every preamble/hint claim correct. Prefer the current public wrapper, verify exact native imports/ranges when needed, and compare the requested result with actual post-state. An `ALWAYS add hint` suggestion does not override user authorization. The 3.3 samples used `app.userDesktopPath`; Collection `.first` / `.at(0)` worked while `[0]` did not. A missing `DocumentApi.getDocumentProperties` entry does not prove all native property reads are absent. Spread prerequisites vary by command; use [the operation-specific notes](scripting-pitfalls.md#documents-and-spreads), not a blanket switch before every edit.
 
 ## Nodes and text
@@ -37,22 +39,35 @@ document.executeCommand(DocumentCommand.createSetText(selection, 'Replacement'))
 <a id="text-tool-choice-and-refit"></a>
 ## Text tool choice and refit
 
-Prefer **Artistic Text** for new text, including ordinary multiline paragraphs. Keep a paragraph or continuous, jointly positioned copy in one editable object; use internal line/paragraph breaks and character formatting instead of splitting it into separate lines or words. Separate objects are appropriate for independent labels, columns or deliberate independent transforms, not simply because the copy has multiple lines. Artistic Text supports multiple lines; its natural width follows its longest line, and scaling it changes the glyph size. A three-line artistic object with mixed font-height runs and a same-length edit inside one run was verified on 3.3.0.4850 Win32; arbitrary cross-run replacements remain unverified.
+[Affinity's current typography guidance](https://www.affinity.studio/typography-software) associates artistic text with headlines and frame text with long-form layouts. Choose from the actual layout constraints, not a universal Artistic Text preference or a word/line-count cutoff:
 
-Choose **Frame Text** for a specific fixed-width reflow, column, linked-flow or fixed-container requirement, or when explicitly requested. This preference does not authorize converting existing objects. After changing text:
+| Required behavior | Tool choice |
+| --- | --- |
+| Structured body paragraphs, stable paragraph edges, fixed-width reflow, columns, linked flow or a fixed container | **Frame Text**. For Chinese body alignment, also verify the [punctuation rules and intended body boundary](#optical-alignment-and-punctuation). |
+| Display heading, wordmark or label placed at its natural width, or intentionally scaled as a design object, without a conflicting frame constraint | **Artistic Text**. A short title alone is not a reason to bypass frame requirements. |
+| Even a short heading/caption must align inside a fixed column/container or reflow when its width changes | **Frame Text**. Use that fixed container as the paragraph reference. |
+| Deliberately line-broken display copy positioned as one natural-width object, without automatic fixed-width reflow | **Artistic Text can be used**, including multiple lines. |
+
+Follow an explicit tool requirement. If it conflicts with the layout requirements, explain the conflict and clarify before editing; do not silently substitute tools. When no tool is specified, choose the matching constraint and state the reason briefly. Determine the required width/container from the brief and existing layout; clarify only when missing constraints materially affect the result. This creation policy does not authorize converting existing objects. Keep each semantic block together as editable text in one object or an intentional linked story; use internal breaks and character formatting instead of line/word/character fragments or padding spaces. Separate objects need an independent semantic, column or transform requirement.
+
+Artistic Text supports paragraphs; its natural width follows its longest line and object resizing changes glyph size. Frame Text supports structured paragraphs and flowing text. These concepts are described in the official **Publisher V2** [Artistic text](https://affinity.help/publisher2/en-US.lproj/pages/Text/artText.html) and [Frame text](https://affinity.help/publisher2/en-US.lproj/pages/Text/frameText.html) help; their UI details do not prove a 3.3 SDK route. A three-line artistic object with mixed font-height runs and a same-length edit inside one run was verified on **3.3.0.4850 Win32**; arbitrary cross-run replacements remain unverified.
+
+After creating or changing text:
 
 1. Preserve the agreed font sizes and content. Read full text, line breaks, character/paragraph attribute runs, frame dimensions and text render/UI scale matrices before editing; plain string equality alone does not prove formatting survived.
 2. Establish the permitted container constraints. For a fixed-width column, hold the agreed width and allow height changes within the available area; for a fixed-size card/cell, preserve both dimensions and adjust internal layout only within the brief. Artistic headings normally retain their natural content bounds.
 3. When frame dimensions may change, establish width first, allow reflow, then measure the resulting line layout and required height. Include insets, first-baseline/Initial Advance, leading and neighboring objects; do not fit to glyph ink alone or assume the old height is suitable after editing.
-4. Use only a documented, sample-verified frame-resize route that preserves glyph sizes and text scales. UI frame-handle resizing and scaling the entire text object have different semantics; a generic transform plus a box ratio is not an established auto-fit recipe. No automatic frame-fit method is verified here. If the available SDK cannot reliably resize/reflow or expose the needed measurement, stop that operation, identify the unmet width/height or overflow constraint, and request the specific UI adjustment or another authorized layout choice. Do not claim a completed fit or silently shrink type, delete copy, or split it into fragments.
-5. Re-read text and intended character/paragraph attributes, font-height runs, text scale matrix components, frame/content geometry and overflow/clipping. Verify all copy and the final line are visible without unintended overlap; a complete Story can still overflow or be clipped. `canHideOverflow` is a capability getter, not an overflow-state toggle. Fixed frames need not shrink to their contents for accurate content alignment; use the measured content boundary instead.
+4. Use only a documented, sample-verified frame-resize route that preserves glyph sizes and text scales. The **V2 UI** distinguishes ordinary frame handles that reflow text from the separate handle that scales the text too ([official fitting help](https://affinity.help/publisher2/en-US.lproj/pages/Text/fittingFrameText.html)); a generic SDK transform plus a box ratio is not an established auto-fit recipe. No automatic frame-fit method is verified here. If the available SDK cannot reliably resize/reflow or expose the needed measurement, stop that operation, identify the unmet width/height or overflow constraint, and request the specific UI adjustment or another authorized layout choice. Do not claim a completed fit or silently shrink type, delete copy, or split it into fragments.
+5. Re-read text and intended character/paragraph attributes, font-height runs, text scale matrix components, frame/content geometry and overflow/clipping. Verify all copy and the final line are visible without unintended overlap; a complete Story can still overflow or be clipped. `canHideOverflow` is a capability getter, not an overflow-state toggle. Fixed frames need not shrink to their contents for alignment; measure the [agreed alignment target](#text-alignment-workflow), keeping complete ink and a body excluding punctuation distinct.
 
 Native vertical frame Align has no verified read/write entry in the inspected 3.3 SDK surfaces. UI supports vertical alignment, but moving or tightening a frame does not set that native mode. Initial Advance is vertical first-baseline spacing; FirstLineIndent is horizontal indentation. Keep those, insets, leading and baseline-grid constraints distinct.
 
 <a id="text-alignment-workflow"></a>
 ## Text alignment workflow
 
-Verified on Affinity **3.3.0.4850 Win32** with two unlinked, multiline `FrameTextNode` objects: native paragraph `Centre` followed by horizontal translation aligned the text blocks while preserving text, font-height runs, text scale matrices, frame width/height and vertical position. This covers horizontal centering, not native vertical frame alignment or automatic frame fitting.
+First determine the alignment target: object/frame bounds, all glyph ink including punctuation, a Chinese body excluding punctuation, an artistic-text anchor, or the paragraph reference within a fixed frame. Use the brief and object context; ask only about unresolved material ambiguity. These targets are different. For hanging or body-only alignment, use [Optical alignment and punctuation](#optical-alignment-and-punctuation) before positioning; moving an object by its full bounds can undo the desired hanging effect.
+
+The recipe below was verified on Affinity **3.3.0.4850 Win32** with two unlinked, multiline `FrameTextNode` objects: native paragraph `Centre` followed by horizontal translation aligned the complete text blocks while preserving text, font-height runs, text scale matrices, frame width/height and vertical position. It measures **all glyph ink, including punctuation**; it is not a recipe for centering a body that excludes punctuation, native vertical frame alignment or automatic frame fitting.
 
 1. Confirm the target document UUID, spread and text nodes. Unless the user explicitly asks to align frame bounds, use text content as the alignment object. Clarify an ambiguous reference (each other, page or key object) and whether multiline paragraphs should be centered internally. Offer the combined case when needed: paragraph centering and block alignment are not mutually exclusive. Preserve paragraph style if the user explicitly requests only moving the blocks.
 2. When multiline centered layout is intended, apply native paragraph `Centre` to each target's explicit text sub-selection first. For the verified unlinked-frame case:
@@ -70,7 +85,7 @@ Verified on Affinity **3.3.0.4850 Win32** with two unlinked, multiline `FrameTex
    ```
 
    Read `story.getParagraphAttRunsFrom(0)` and check `paragraphAtts.alignXType.value === 1` for the intended paragraphs before positioning. Linked frames require separately verified story/paragraph ranges; do not assume their ranges start at zero or affect only one frame.
-3. After paragraph formatting, measure glyph geometry in spread coordinates:
+3. For the whole-ink target covered by this recipe, measure glyph geometry in spread coordinates after paragraph formatting:
 
    ```js
    const glyphBox = textNode.curvesInterface.polyPolyCurves
@@ -82,6 +97,38 @@ Verified on Affinity **3.3.0.4850 Win32** with two unlinked, multiline `FrameTex
 5. Read back paragraph modes and content centers, plus unchanged text, font-height runs, frame y/width/height and text scale matrix components (compare values, not object identity). Render to check that short and long lines are centered within each paragraph and that the blocks share the requested axis. Checking only the combined outer bounds misses paragraphs left-aligned inside an otherwise centered block.
 
 Native paragraph centering uses typographic spacing; it does not guarantee identical optical centers for every glyph's ink. The inspected `GroupTransformData` exposes object align/distribute settings but no glyph-bounds switch; do not substitute native object alignment for content alignment without verifying its boundary semantics. Native vertical frame Align remains an unexposed entry point in the inspected SDK surfaces; moving a frame does not set that mode. Revalidate linked or overflowing text, text on paths, clipping, effects and color fonts before applying this recipe to those cases. No timing benchmark establishes that glyph-outline measurement is faster than an already verified exact-visible query.
+
+<a id="optical-alignment-and-punctuation"></a>
+## Optical alignment and punctuation
+
+Frame Text provides a stable container/paragraph reference for structured copy; it does **not** automatically correct Chinese punctuation. Artistic Text also supports optical effects. The official **V2** [optical alignment help](https://affinity.help/publisher2/en-US.lproj/pages/Text/opticalAlignment.html) distinguishes Manual character rules from Font-provided behavior; check again when the font changes.
+
+On **3.3.1.4940 MacOS, 2026-10-20**, two batches of 84 single-line Art/Frame objects used `PingFangSC-Regular` and `STSongti-SC-Regular`, glyph height 24 document pixels at 96 DPI. `GlyphAtts.opticalAlignmentType` exposes a getter/setter; detached attribute-object writes were checked separately from actual document formatting. The document route below passed mode readback and rendering with `None=0`, `Manual=1`, `Font=2` ([SDK getter](https://sdk.affinity.studio/33001/js/apis/GlyphAttsApi/getOpticalAlignmentType.html), [setter](https://sdk.affinity.studio/33001/js/apis/GlyphAttsApi/setOpticalAlignmentType.html), [delta](https://sdk.affinity.studio/33001/js/apis/StoryDeltaApi/createOpticalAlignmentTypeDelta.html), [enum](https://sdk.affinity.studio/33001/js/enums/OpticalAlignmentType.html)):
+
+```js
+const { Selection, TextSelection } = require('/selections.js');
+const { DocumentCommand } = require('/commands.js');
+const { StoryDelta, OpticalAlignmentType } = require('/storydelta.js');
+// doc and textNode are already identified, authorized and scope-checked.
+const selection = Selection.create(doc, textNode);
+selection.addSubSelectionForNode(textNode,
+  TextSelection.create(textNode.storyRange));
+doc.executeCommand(DocumentCommand.createFormatText(selection,
+  StoryDelta.createOpticalAlignmentType(OpticalAlignmentType.Manual)));
+```
+
+Read `story.getGlyphAttRunsFrom(0)` and each `glyphAtts.opticalAlignmentType`, then measure/render the intended effect. This applies a **mode**, not character rules; linked/partial story ranges require their own checks.
+
+The inspected wrappers, related native modules/prototypes and official symbol inventories did not expose custom-character/left/right-percentage rule-table access. This is an inspected SDK entry gap, not an MCP protocol restriction. When the result depends on such rules, use an available UI check/edit within the task's authorization, or report the specific gap; do not invent a setter or treat Manual readback as proof of rule coverage.
+
+In the limited sample, uncustomized Manual improved quotes but did not resolve `「」（）。，`; Font varied with font and operation. UI rules at 100% left/right made the tested Chinese-body offsets zero relative to the same-font unpunctuated baseline for fixed-anchor Art and fixed-frame paragraph Left/Right/Centre. **Custom** was a label for that UI-configured Manual group, not another enum; 100% was a controlled test parameter, not a universal recommendation. Repositioning Art by `getSpreadVisibleBox(false)` still left body offsets in None/Manual/Custom. Selecting Frame or measuring complete glyph ink cannot substitute for the intended body alignment.
+
+For punctuation-sensitive work:
+
+1. Determine the required paragraph/container reference and which characters belong to the aligned body. Check the actual font, optical mode, character rules and left/right hanging values; do not assume all installations/styles share the tested rules.
+2. Apply paragraph layout and required optical rules before positioning. Retain the chosen paragraph/anchor reference; do not then recenter by bounds containing punctuation when the target excludes it.
+3. Verify the intended body's edge/center and render it, using a same-font unpunctuated control where testing hanging. The sample's zero relative offset does not remove font side bearings or guarantee alignment to arbitrary objects. Its one-outline-per-codepoint mapping was checked only for those simple strings, not a general body-filtering algorithm. If reliable body measurements or required rule settings are unavailable, report the unmet target and use an authorized UI route rather than claim completion from full-ink bounds.
+4. Recheck affected text/runs, font size/text scale, frame geometry, line layout and visibility after edits or font changes. Other fonts/sizes, multiline reflow, linked flow, rule copying and save/print behavior remain unverified by these samples.
 
 ## Structure and geometry
 

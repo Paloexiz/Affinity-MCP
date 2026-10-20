@@ -4,6 +4,13 @@ English | [简体中文](CHANGELOG.zh-cn.md)
 
 ## 2026-10-20
 
+### 0.5.3
+
+#### Changed
+
+- Choose text tools by paragraph, reflow, container and alignment needs instead of preferring Artistic Text for all new copy.
+- Distinguish Chinese-body alignment from whole-glyph centering, and optical mode changes from custom hanging-rule configuration.
+
 ### 0.5.2
 
 No user-visible changes.

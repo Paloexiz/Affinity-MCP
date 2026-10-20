@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.5.0`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
+实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.5.1`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -35,7 +35,8 @@ flowchart LR
 | [`skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs) | 显式指定安装副本后的在线发现及preamble连接检查 | 不自动找缓存版本，不验证宿主UI加载的副本或SDK文档操作 |
 | [`skills/affinity-mcp/`](../skills/affinity-mcp/SKILL.md) | 操作入口、授权边界、样本与结果验收指导 | 不替代应用当前版本的运行证据 |
 | [`inspection-preview.mjs`](../skills/affinity-mcp/scripts/inspection-preview.mjs) | 使用已导出 PNG 和同次核验的几何生成独立 SVG 检查图，标出完整 Bleed、Trim 与启用的 Margin，以棋盘底显示原图透明区域；仅使用 Node 内置模块 | 不连接 Affinity、不写工程或修改代理；不是原生辅助线开关或自动印前验收，SVG 的本地图像渲染与宿主交付另行验证 |
-| `docs/` 中的公共技术文档与根目录 `AGENTS.md` | 架构、版本记录、脱敏技术摘要及维护约定 | 随仓库维护；不能引用被 Git 忽略的内容，本地专用说明与插件交付范围分别核对 |
+| `docs/` 中的公共技术文档与根目录 `AGENTS.md` | 架构、版本记录、脱敏技术摘要及维护约定 | 仅在开发分支维护，不进入生产安装树；不能引用被 Git 忽略的内容 |
+| `assets/sdk-evidence/` | 开发文档和检查图回归使用的公开合成图片、几何夹具 | 不属于运行依赖，不进入 `main` 或生产安装包 |
 | 本地内部归档 | 原始问题、个人工作材料和实验原始输出 | 保持忽略，不作为 docs 的内容依赖或证据引用 |
 
 这是单上下文的小型仓库；文档按职责分开，代码仍是一个代理脚本。[领域约定](agents/domain.md)。
@@ -50,7 +51,7 @@ flowchart LR
 
 共用市场保留 ZCode 的图标、翻译和政策扩展。Claude Code 将这些目录扩展视为未知字段并忽略，普通校验可带告警通过，`--strict` 会将告警视为失败；不要把这一结果解释为政策文件缺失或运行时不兼容。[未知字段与校验规则](https://code.claude.com/docs/en/plugins/manifest-reference#unrecognized-fields)。
 
-运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试、版本检查与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。正式交付先在 `develop` 转正并推送，再从该确切提交向 `main` 同步安装内容及根中英文 CHANGELOG；开发维护资源留在 `develop`。渠道与交付边界见[版本规则](versioning.md)。
+运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试、版本检查与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。正式交付先在 `develop` 转正并推送，再从该确切提交按[生产文件允许清单](versioning.md#production-content)向 `main` 同步；开发维护资源留在 `develop`，不能整体复制资源目录。渠道与交付边界见[版本规则](versioning.md)。
 
 ## 连接和一次请求
 

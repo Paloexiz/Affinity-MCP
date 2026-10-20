@@ -23,6 +23,34 @@
 
 选择“下一目标 core + dev.N”，便于看出候选属于哪个正式目标，并保持候选与正式版本的 SemVer 关系。固定在低 core 上无限增加开发序号会长期低于后来正式版，使渠道切换的版本判断更难解释，因此不采用。开发和正式仍沿用相同插件标识与市场名称；这不是两个可同时安装的独立产品。
 
+<a id="production-content"></a>
+## main 分支保留范围
+
+`main` 是完整 Plugin 的生产分发树，按下表的**具体文件允许清单**同步。目录名称不代表其中所有文件都可发布；尤其不能整体复制 `assets/` 或 `skills/`。新增运行依赖或用户资料前，先在 `develop` 更新本节并核对其用途及引用，再进入正式交付流程。
+
+| 用途 | 允许保留的文件 |
+| --- | --- |
+| Plugin 与市场入口 | `.agents/plugins/marketplace.json`、`.codex-plugin/plugin.json`、`.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json`、`.mcp.json` |
+| Agent 使用入口与 references | `skills/affinity-mcp/SKILL.md`；`skills/affinity-mcp/references/` 下的 `sdk-verified.md`、`scripting-pitfalls.md`、`page-geometry.md`、`inspection-preview.md` |
+| 随包运行工具 | `skills/affinity-mcp/scripts/` 下的 `affinity-mcp-proxy.mjs`、`affinity-mcp-smoke.mjs`、`inspection-preview.mjs` |
+| 用户说明与版本摘要 | 根目录的 `README.md`、`README.zh-cn.md`、`CHANGELOG.md`、`CHANGELOG.zh-cn.md`、`PRIVACY.md`、`PRIVACY.zh-cn.md`、`TERMS.md`、`TERMS.zh-cn.md` |
+| 许可与署名 | 根目录的 `LICENSE`、`LICENSE.upstream`、`NOTICE` |
+| 安装及用户说明直接使用的资源 | `assets/affinity-mcp-icon.svg`、`assets/affinity-mcp-settings.png` |
+| 生产 Git 规则 | 根目录的 `.gitattributes`、生产专用 `.gitignore`；不复制开发工具配置 |
+
+`docs/`、根 `scripts/`、项目 hooks/CI 配置、`AGENTS.md`、测试、夹具和验证证据仅留在 `develop`。`assets/sdk-evidence/` 即使是公开脱敏合成资料，也属于开发证据，不进入 `main`；“可公开”“被 Git 跟踪”或“位于 assets”都不是分发依据。缓存、备份、原始记录、依赖安装目录及本地 Agent 状态也不进入生产树。随包 Skill/references 是 Agent 实际使用的资料，与这些开发文档分别判断。
+
+所有文档、源码和发布范围修改先在 `develop` 完成。生产候选只从已核对的开发提交提取允许文件，并保留规定的生产 README 链接适配及 Git 规则；不在 `main` 编写开发文档或另行修正功能。
+
+当前中英文 README 指向 `docs/versioning.md` 的相对链接，在生产副本中替换为指向本次已核对开发提交中同一文件的 HTTPS 固定链接；`develop` 保留原相对链接。不能为了保留相对链接而把 `docs/` 复制进生产树。
+
+同步验收须同时满足：
+
+1. 使用 `git ls-tree -r --name-only <production-commit>` 核对**完整文件集合**与上表一致；提交前另核对候选工作树及新增文件，不能只看本次新增文件或认为 `.gitignore` 会移除已经跟踪的文件。
+2. 清除生产候选中历史遗留的排除项，并核对删除范围只涉及开发资料。开发分支的文档、夹具及测试引用保持完整。
+3. 在仅含允许文件的生产候选上，核对清单、运行资源、用户文档和 Skill/references 的全部本地引用均能解析；不得依赖 `docs/`、测试夹具或开发 checkout 才能安装、阅读或运行。安装副本也按同一清单核对。
+4. tag、GitHub Release 及其附件只能绑定通过上述验收的生产提交；开发分支完整源码压缩包不充当生产安装包。记录允许清单不表示已有远端生产树已完成清理。
+
 ## 每批修改怎样编号
 
 1. 开始一批开发交付前，确认上一开发交付和当前正式基准的提交及版本；不能仅凭本地分支名称或缓存的远端引用推断它们是最新状态。
@@ -93,10 +121,10 @@ node scripts/check-version.mjs --channel stable --from <confirmed-production-com
 1. 先明确本次授权的正式目标和成功判据，例如用户可安装的远端 `main` 引用及对应制品。GitHub Release 是否为目标由本次授权决定，不是既定前提。交付报告记录目标引用、提交、制品身份及首次正式交付事件，不能仅凭版本号、日志日期或检查成功宣布发布。
 2. **先在 `develop` 转正。** 移除候选的 `-dev.N` 后缀，同步三清单、代理两处声明和现行文档，选择计划首次交付的 UTC 日期，将当前未发布内容和已交付开发批次的累计产品变化同步整理为两份 CHANGELOG 中该日期下的正式版本条目，保留历史条目。删除已转为正式版的未发布开发标题、空的 `Unreleased` /“未发布”分组及只对草稿成立的临时状态声明；候选状态放在交付报告中，稳定制品不写入将来会失真的“尚未发布”标记。
 3. 验证转正后的确切文件内容：在 `develop` 候选工作树完成[正式格式的静态与增量检查](#两类检查)、适用测试及独立审查，随后按授权组织提交，版本号及所有现行版本声明统一放在本批最后一个 commit 中。后续内容变化须重新完成受影响的检查与复核。**先提交并推送 `develop`**，回读远端确切 SHA、版本和交付日期，并核对 CI；这一步完成后才能同步 `main`。
-4. **从已推送的 `develop` 提交同步 `main`。** 使用上一步的确切 SHA，复制该版本的安装树及同一套根中英文 CHANGELOG；仅保留生产 README 的有效文档链接、去除依赖开发测试目录的说明，并保留生产忽略规则。开发维护目录、AGENTS、项目 hooks 和 CI 仍只在 `develop`。不在 `main` 首次转正、不再次修改版本或 CHANGELOG，也不只合并历史关系。核对实际生产文件、版本、测试和审查结果后，提交并推送 `main`，回读远端 SHA 与文件内容。
+4. **从已推送的 `develop` 提交同步 `main`。** 使用上一步的确切 SHA，按 [main 分支保留范围](#production-content)逐文件提取安装内容及同一套根中英文 CHANGELOG，移除候选中的开发资料遗留项；不得递归复制整个资源目录。仅保留生产 README 的有效文档链接、去除依赖开发测试目录的说明，并保留生产忽略规则。不在 `main` 首次转正、不再次修改版本或 CHANGELOG，也不只合并历史关系。核对完整生产文件集合、引用、版本、测试和审查结果后，提交并推送 `main`，回读远端 SHA 与文件内容。
 5. 首次正式交付须发生在准备的 UTC 日期；只有全部正式目标及 `develop` 转正快照均未交付时，延期跨日才可重新准备、检查和审查。`develop` 转正快照一经推送，该版本的生产内容与日期即冻结，`main` 同步相同内容；后续发现的问题进入新版本。任一正式目标已提供本版后，日期保持首次正式交付日，不随宿主后续同步而修改。结果不明时先只读核验，分别报告各目标状态，不能把命令失败视为未交付。
 6. 按已授权范围创建 tag 或 GitHub Release，并绑定已核对的生产提交；若使用 GitHub Release，正式版本不勾选预发布标记，发布说明与双语 CHANGELOG 对应。启用不可变 Release 时，先建立草稿并补齐附件，再发布。回读 tag 指向、Release 状态及附件身份；市场可见性和实际安装副本另行核对，安装文件一致不等于宿主已刷新或在线连接通过。[GitHub 发布流程](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)。
 
 历史缺证据时把版本置于英文 `Date unverified` / 中文“日期待核实”分组，链接已确认提交，不拿计划日期或 Git 作者/提交时间代替发布日期，不创建不存在的标签链接。
 
-正式交付要求生产 `main` 只包含用户安装树及根中英文 CHANGELOG；维护用 `docs/`、根 `scripts/`、AGENTS、项目 hooks 和 CI 留在 `develop`。这是后续交付要求，不宣称现有 `main` 已包含尚未集成的新文件。正式交付时按安装范围选择累计产品改动并核对依赖、署名和用户文档，不机械合并整个开发树。检查、提交、推送、tag、GitHub Release、市场可见版本及已安装副本是不同状态，逐项以实际证据报告。版本已交付后不得改写同版本内容；后续修正进入新版本，不自动删除旧 tag 或强推历史。
+正式交付以 [main 分支保留范围](#production-content)为准，不机械合并整个开发树。检查、提交、推送、tag、GitHub Release、市场可见版本及已安装副本是不同状态，逐项以实际证据报告。版本已交付后不得改写同版本内容；后续修正进入新版本，不自动删除旧 tag 或强推历史。

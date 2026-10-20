@@ -4,6 +4,12 @@ English | [简体中文](CHANGELOG.zh-cn.md)
 
 ## 2026-10-20
 
+### 0.5.1
+
+#### Changed
+
+- Limit production distribution to an explicit runtime and user-documentation file allowlist, excluding development documentation, tests, fixtures and SDK evidence, including assets/sdk-evidence. Require full-tree and local-reference checks before synchronizing main; runtime Skill references and required user resources remain in the distribution.
+
 ### 0.5.0
 
 #### Changed

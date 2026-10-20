@@ -86,7 +86,7 @@ codex plugin add affinity-mcp@affinity-mcp
 
 Open a new task if the current task retains old tools or Skill content. For Claude Code, run `claude plugin marketplace update affinity-mcp` followed by `claude plugin update affinity-mcp@affinity-mcp`, then restart the session. Every development or stable delivery must use the same version in both plugin manifests, the shared Claude Code/ZCode marketplace entry and the proxy's reported version.
 
-See the [versioning rules](https://github.com/Paloexiz/Affinity-MCP/blob/6f44284f6f0cd9e93794ca3f89d2551a39b7576e/docs/versioning.md) for channel numbering and CHANGELOG conventions.
+See the [changelog](CHANGELOG.md) ([简体中文](CHANGELOG.zh-cn.md)) for release notes and the [versioning rules](https://github.com/Paloexiz/Affinity-MCP/blob/69c44145e929808dd369acc84570d9f1346ef5c7/docs/versioning.md) for channel numbering and changelog conventions.
 
 ## Use and limits
 

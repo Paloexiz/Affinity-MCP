@@ -1,104 +1,120 @@
-# Affinity MCP 更新日志
+# Affinity MCP Changelog
+
+English | [简体中文](CHANGELOG.zh-cn.md)
+
+## 2026-10-20
+
+### 0.5.0
+
+#### Changed
+
+- Separate first connections, continuous tasks, unknown behavior and recovery in the Skill entry point. Reuse confirmed information and combine necessary reads, authorized operations and immediate readback when no intervening decision is needed.
+- Require end-to-end gains on the same task before adopting a performance optimization. Expanded creation samples were sensitive to execution order and did not establish a stable speedup. Timing includes imports, target binding and the complete preview, separates preparation, cleanup and waits between rounds, and retains guidance on shared-selection moves, collection snapshots and undo boundaries.
+- Provide a single-call complete PNG preview branch for verified small synthetic tasks. Retain object checks and authorized temporary-file cleanup, and require the host to deliver the complete image. Poster samples showed that default previews omit outer Bleed; add a bounded recipe that checks the complete selection and actual bleed extent. Matched PNG comparisons support reduced total time for that scope, without claiming faster batch insertion, a default speedup for arbitrary documents or prepress acceptance.
+- Check and preserve the project's Bleed, Margin and applicable overrides before choosing content positions for posters, covers, flyers and layout revisions. Verify essential content and full-bleed backgrounds separately.
+- Add a separate inspection preview that outlines Trim and enabled Margins on a verified complete-Bleed PNG using geometry in the same coordinate system. Keep the clean original. The bundled local SVG helper does not change the document or proxy and rejects mismatched image/geometry records and unknown Margin state. Guides assist visual checks; essential content still requires actual-boundary verification.
+- Show a transparency checkerboard beneath the source image so a solid backdrop cannot conceal incomplete bleed coverage. Add a negative fixture with text extending beyond the Margin guide and a transparent gap, a matched control, independent blind readings and six paired total-time samples including guide rendering, without claiming a general detection rate or a speedup from adding guides.
+- Provide release notes in English and Simplified Chinese, with version checks comparing dates, versions, categories and entry counts across both languages.
 
 ## 2026-10-16
 
 ### 0.4.3
 
-#### 新增
+#### Added
 
-- 提供中英文隐私政策与服务条款，说明本地代理、AI 客户端、日志、可选分享及文件操作的边界，保留 MIT 许可授权。
-- 中英文 README 提供三端通用政策和公开联系入口；Codex 与 Claude Code 插件清单、ZCode 市场条目按各自字段声明政策链接，政策文件随安装树保留。
+- Add English and Chinese privacy policies and terms of service covering the local proxy, AI clients, logs, optional sharing and file operations, while preserving the MIT license grant.
+- Link shared policies and public contact information from both READMEs. Declare policy links using the respective fields in the Codex and Claude Code plugin manifests and the ZCode marketplace entry, and retain the policy files in the installation tree.
 
 ### 0.4.2
 
-#### 变更
+#### Changed
 
-- 没有待交付内容时省略“未发布”分组，版本记录直接按交付日期展示。
-- 正式版本先在开发分支转正并推送，再将同一版本的生产内容同步到主分支。
-- 版本检查与 CI 支持开发分支的正式版本快照，同时核对维护文档中的版本声明。
+- Omit the Unreleased section when no delivery is pending, grouping version entries directly by delivery date.
+- Finalize and push stable versions on the development branch before synchronizing the same version's production content to the main branch.
+- Support stable snapshots on the development branch in version checks and CI, including version declarations in maintenance documentation.
 
 ### 0.4.2-dev.1
 
-#### 变更
+#### Changed
 
-- 回归测试的临时路径按项目用途命名，保留空格、中文及特殊字符的路径覆盖。
+- Name temporary regression-test paths by project purpose while retaining coverage for spaces, Chinese characters and special characters.
 
 ## 2026-10-15
 
 ### 0.4.1
 
-#### 变更
+#### Changed
 
-- 更新中英文安装与更新说明，版本规则链接至专门文档，移除分支维护背景说明。
+- Update English and Chinese installation and update instructions, link version rules to their dedicated document, and remove branch-maintenance background information.
 
 ## 2026-10-14
 
 ### 0.4.1-dev.1
 
-#### 变更
+#### Changed
 
-- 版本记录按已核实的交付日期分组，并区分开发批次和正式版本。
-- 开发交付使用下一正式目标的 `-dev.N` 版本，`main` 保留正式版本；同一批修改和复审共用一个开发编号，纯维护交付不强迫生产升版。
+- Group version entries by verified delivery date and distinguish development batches from stable releases.
+- Use the next stable target's `-dev.N` version for development deliveries and retain stable versions on `main`. Changes and reviews within one batch share a development number; maintenance-only deliveries do not force a production version bump.
 
-#### 修复
+#### Fixed
 
-- 版本增量检查在部分克隆缺少基准对象时明确失败，不自动下载远端对象；增量模式要求 Git 2.45+，静态检查仍无需 Git。
-- 仓库文档 hooks 在正文暂时无法读取时保留已取得的前置基线，恢复后仍可核对本轮变更。
-- 缺少前置基线时给出人工核验提示，不再要求无法完成的自动复核，也不因单纯的历史基线缺口触发续跑。
-- 版本增量检查支持已确认的旧代理布局基准；歧义入口或缺失对象明确失败，仍不自动获取远端对象。
+- Fail version increment checks when baseline objects are missing in a partial clone, without downloading remote objects automatically. Increment mode requires Git 2.45+; static checks still work without Git.
+- Preserve an established pre-edit baseline when repository documentation hooks temporarily cannot read their context, allowing changes in the same turn to be checked after recovery.
+- Request manual verification when the pre-edit baseline is missing instead of requiring an impossible automatic review, and do not trigger continuation solely for a historical baseline gap.
+- Support confirmed baselines using the legacy proxy layout in version increment checks. Ambiguous entry points and missing objects fail explicitly, without fetching remote objects automatically.
 
 ## 2026-10-13
 
 ### 0.4.0
 
-#### 变更
+#### Changed
 
-- 代理与连接检查脚本随 Skill 目录一起打包，完整 Plugin 清单负责注册 MCP；单独安装 Skill 不会注册服务。[对应迁移](https://github.com/Paloexiz/Affinity-MCP/commit/b920c33ae554bafd14c5ccd6d4bfe6beff271824)。
-- 生产分支只保留安装所需内容和本日志；开发维护资源留在开发分支。
-- 源码版本从 `0.1.0` 起按产品影响和渠道重新编号；开发快照 `0.4.0-dev.1` 对应这个正式目标。旧 clone、固定提交链接和插件缓存不会自动切换到新历史，需要核对所选来源和加载副本。
+- Bundle the proxy and connection-check scripts inside the Skill directory. Complete Plugin manifests register MCP; installing the Skill alone does not register the service. [Migration](https://github.com/Paloexiz/Affinity-MCP/commit/b920c33ae554bafd14c5ccd6d4bfe6beff271824).
+- Keep only installation content and this changelog on the production branch; development maintenance resources remain on the development branch.
+- Renumber source versions from `0.1.0` according to product impact and channel. The `0.4.0-dev.1` development snapshot corresponds to this stable target. Existing clones, pinned commit links and plugin caches do not switch to the rewritten history automatically; verify the selected source and loaded copy.
 
-#### 修复
+#### Fixed
 
-- SSE 解析识别无冒号的 `event` 与 `data` 字段，分别重置事件类型和追加数据换行。[对应修复](https://github.com/Paloexiz/Affinity-MCP/commit/e24fd3e54d74c3615512cb884adea4c918844ea2)。
+- Recognize colonless SSE `event` and `data` fields, resetting the event type and appending a data newline respectively. [Fix](https://github.com/Paloexiz/Affinity-MCP/commit/e24fd3e54d74c3615512cb884adea4c918844ea2).
 
 ## 2026-10-12
 
 ### 0.4.0-dev.1
 
-#### 变更
+#### Changed
 
-- 代理与连接检查脚本迁入 Skill 目录，运行资源随完整 Plugin 安装一起交付。[对应迁移](https://github.com/Paloexiz/Affinity-MCP/commit/b920c33ae554bafd14c5ccd6d4bfe6beff271824)。
+- Move the proxy and connection-check scripts into the Skill directory so runtime resources ship with the complete Plugin installation. [Migration](https://github.com/Paloexiz/Affinity-MCP/commit/b920c33ae554bafd14c5ccd6d4bfe6beff271824).
 
-#### 修复
+#### Fixed
 
-- SSE 解析识别无冒号的 `event` 与 `data` 字段。[对应修复](https://github.com/Paloexiz/Affinity-MCP/commit/e24fd3e54d74c3615512cb884adea4c918844ea2)。
+- Recognize colonless SSE `event` and `data` fields. [Fix](https://github.com/Paloexiz/Affinity-MCP/commit/e24fd3e54d74c3615512cb884adea4c918844ea2).
 
 ### 0.3.0
 
-#### 新增
+#### Added
 
-- 提供显式选择已安装 Plugin 副本的连接检查，核对版本、在线工具发现和 SDK preamble。[源码快照](https://github.com/Paloexiz/Affinity-MCP/commit/89ce753d13c097db5f54a1e51826a085c2196f22)。
+- Add a connection check that explicitly selects an installed Plugin copy and verifies its version, online tool discovery and SDK preamble. [Source snapshot](https://github.com/Paloexiz/Affinity-MCP/commit/89ce753d13c097db5f54a1e51826a085c2196f22).
 
-#### 修复
+#### Fixed
 
-- 加强代理的输入校验、上游握手及超时/断线诊断，区分尚未提交和结果未知，避免把发现降级当作真实在线连接。[对应修复](https://github.com/Paloexiz/Affinity-MCP/commit/f2bd45c15db119e2c8f15764ddef55ad7396dcfd)。
+- Strengthen proxy input validation, upstream handshakes and timeout/disconnection diagnostics. Distinguish unsubmitted requests from unknown outcomes, and avoid treating discovery fallback as proof of a live connection. [Fix](https://github.com/Paloexiz/Affinity-MCP/commit/f2bd45c15db119e2c8f15764ddef55ad7396dcfd).
 
 ## 2026-10-09
 
 ### 0.2.0
 
-#### 新增
+#### Added
 
-- 提供 `AFFINITY_MCP_REQUEST_TIMEOUT_MS` 环境变量及结构化错误诊断。
+- Add the `AFFINITY_MCP_REQUEST_TIMEOUT_MS` environment variable and structured error diagnostics.
 
-#### 变更
+#### Changed
 
-- 加强 MCP 工作流程与 SDK 指引中的操作边界和验证要求。[源码快照](https://github.com/Paloexiz/Affinity-MCP/commit/3091aedf842aee0f77fd046b543dad1531054ff6)。
+- Strengthen operational boundaries and verification requirements in the MCP workflow and SDK guidance. [Source snapshot](https://github.com/Paloexiz/Affinity-MCP/commit/3091aedf842aee0f77fd046b543dad1531054ff6).
 
 ## 2026-09-15
 
 ### 0.1.0
 
-#### 新增
+#### Added
 
-- 初始源码包含插件清单、本地 MCP 代理及 Affinity 操作 Skill。[源码快照](https://github.com/Paloexiz/Affinity-MCP/commit/340979020824c3d33f92b32f0a1a6c7640875a00)。
+- Initial source includes plugin manifests, a local MCP proxy and an Affinity operation Skill. [Source snapshot](https://github.com/Paloexiz/Affinity-MCP/commit/340979020824c3d33f92b32f0a1a6c7640875a00).

@@ -5,10 +5,50 @@ Read this before long scripted sessions and whenever a preview, a tool result or
 ## Tool results and previews
 
 - **[server]** A render is capped at 1024 px on its longest side. Fine type and small geometry are not resolvable in a render; read values with the SDK instead of measuring a preview.
-- **[host]** An image result is inlined only up to about 200 KiB of base64; larger results are written to a local artifact file instead (the client reports `inlineLimit=200 KiB`). Where that file goes, and any crop or zoom tooling around it, is host behaviour—do not build a workflow that depends on a host path.
-- **[host]** A single tool result is truncated at roughly 50,000 bytes (the client reports strategy `truncate`). Aggregate inside the script—counts, ranges and short summaries rather than full dumps.
+- **[host]** One historical client inlined images only up to about 200 KiB of Base64, then wrote a local artifact (`inlineLimit=200 KiB`). This is not a universal limit; the 2026-10-20 Codex/functions poster sample forwarded a complete PNG with more than 260,000 Base64 characters. Verify the actual client's handling; do not depend on an artifact path.
+- **[host]** One historical client truncated tool text at roughly 50,000 bytes (`truncate`); the poster sample's larger complete payload passed in its host context. Aggregate unnecessary dumps and verify completeness rather than assuming either observation defines another client's limit.
 - **[server]** `list_library_scripts` can return `isError: false` with empty text, so an empty script library and a failed read are indistinguishable. Treat that result as unknown rather than as proof that no scripts exist.
 - **[server]** `list_sdk_documentation` can fail with `Listing failed` while another client is using the local server; the server appears to serve one session at a time. Retry once and surface the failure to the user instead of concluding that the connection is broken.
+
+<a id="execution-efficiency"></a>
+## Execution efficiency and undo boundaries
+
+Combine necessary target inspection, an already authorized operation and its immediate readback in one script when no user decision or sample approval must intervene. Keep the UUID guard before the write and the required visual check afterwards. A known continuous task does not need repeated SDK discovery or hints; refresh only after the triggers in [session recovery](#session-recovery). Combining calls does not authorize a larger edit or removing checks.
+
+Choose an optimization by a representative task's request-to-verified-preview time, retaining the same state checks and visual scope. Adopt it for speed only when that full task improves; fewer commands, shorter output or faster SDK timing alone do not meet this gate. If it does not improve, keep the working path rather than dropping verification or shrinking the preview.
+
+For the same transform on independent targets, `Selection.create(doc, nodes)` allows a single transform command. Verify target membership, the common coordinate system and protected state before selecting this path, then apply the full-task performance gate above.
+
+`AddChildNodesCommandBuilder` can organize compatible insertions into one intended command/undo boundary; obtain inserted nodes from `command.newNodes` and follow the [identity checks](page-geometry.md#target-scope-and-coordinates). Treat this as a command/undo choice, not a default speed optimization; changing an existing single-script insertion path still requires a demonstrated full-task gain. `CompoundCommandBuilder` can group different verified commands into one intended operation. Keep dependencies and sample gates explicit; do not replace ordered writes with concurrent MCP calls or force unrelated operations into one large batch.
+
+Choose the batch boundary for the requested undo behavior as well as the workload. Verify undo, redo and another undo against retained target and protected values on a representative sample. State which values were compared; a membership/transform check does not establish every property, command type or history state.
+
+One script is not necessarily one undo step. Do not derive a rollback count solely from API-call count or a `history.position` difference: history may coalesce, branch or be limited. Establish the intended boundary on a representative sample, capture target and protected state, and verify the actual restored values. Stop at an ambiguous boundary rather than undoing earlier user work or using an opposite translation as a general rollback. The controlled sample does not explain failures on other histories.
+
+For repeated reads from a stable generator-backed collection, consider one `Array.from(collection)` and reuse the array within that read phase; profile the task rather than assuming this is faster for every lookup pattern. A single lookup does not require materializing the entire collection. Refresh membership after insertion, deletion, reparenting, undo/redo or a context change. An array of wrappers is not a snapshot of their mutable properties: copy the actual values needed for comparison. Compare nodes through a documented identity route such as `isSameNode`, not wrapper-object equality.
+
+Fewer SDK commands or less enumeration work does not guarantee a faster request-to-preview result. Start task timing before imports and target binding, and finish after the required preview and comparison; measure preparation, SDK work, tool round trips and rendering separately. Keep the same host entry point, counterbalance trial order, and report results by order and block as well as uncertainty; a pooled median alone does not establish stable gain. A restored object snapshot does not establish application idleness: record reset/undo costs separately, and use independent disposable documents to check for carry-over from a previous trial. An extra readiness read is not an idle guarantee, and moving a wait outside the task timer is not a speed improvement. A prescribed workflow or direct Plugin driver does not prove an autonomous Agent using a revised Skill is faster; fresh-proxy tests are not cold-application tests.
+
+When returning a compact summary, still compare every required target and protected value inside the script and return failed checks explicitly. A smaller result is useful for output limits but is not itself evidence of faster execution; preserve any baseline values needed for later recovery outside transient script state.
+
+<a id="single-call-preview"></a>
+### Single-call preview for a covered small spread
+
+On **3.3.1.4940 MacOS**, observed **2026-10-19**, a fixed 12-pair Codex/functions experiment used the same batch500 edit on independent 800 × 600, 96 DPI rectangle samples. Returning a complete native PNG from the edit script shortened creation-to-image handoff compared with a separate `render_spread` call; both execution orders supported the gain. This tests the preview path, not a batching speed claim or autonomous Agent use of this Skill.
+
+Use this branch only when a representative sample confirms the same full visual scope, required state checks and actual task benefit; the host must support explicit native image forwarding, the complete Base64 result must fit its output limit, and temporary Desktop file access must already be authorized. Keep the normal render path for unverified scenes or clients.
+
+1. Guard the intended UUID/current spread and retain target/protected values and selection. Choose a unique task-owned path under `Application.userDesktopPath`; reject an existing output before writing.
+2. After the authorized edit and full readback, use synchronous `Document.export` with `FileExportOptions.createWithPresetName('PNG')` and `FileExportArea.createForCurrentSpread()`. Require the returned export path to match, then read `File.readAll(path).toString('base64')`. In `finally`, remove only the owned output and verify it is absent; compare the retained state fields and selection again.
+3. Parse the complete image payload and explicitly forward it as native `image/png` content. Text containing Base64 does not display itself. Hand off the image before later work; a buffered `image()` call alone is not delivery. Keep required image validation and the representative undo/cleanup checks; record which checks are inside the task timer and which are later acceptance checks.
+
+This sample covered 510 names/six matrix components, the protected ten nodes, all 500 selected targets, every PNG pixel and actual one-step undo to the ten-node/ten-selection baseline. It does not establish arbitrary export geometry, Bleed/Margin, transparency, colour/metadata equivalence to JPEG, large-image output limits or other platforms. On an export/output failure, reconcile the already edited state before choosing a separate render; do not replay the edit or enable permissions automatically.
+
+**Poster scope, observed 2026-10-20 on 3.3.1.4940 MacOS:** a 600 × 800 artboard with four editable text blocks, an embedded raster and enabled native Margin/Bleed exposed a scope gap: default `render_spread`, `render_selection` and PNG/CurrentSpread omitted outside-Trim Bleed. A preview does not prove Bleed inclusion or Margin state. Read the [native geometry guidance](page-geometry.md#read-and-apply-the-correct-native-setting).
+
+For that specific poster, `FileExportArea.createForSelection(doc.selection)` included the full 620 × 824 Bleed when the verified selection contained every poster content node and a background whose bounds exactly matched the native Bleed extents. `createForSelectionArea` was not equivalent. Do not replace CurrentSpread blindly: verify exact membership, visibility/clipping, coordinate space, outer bounds and the decoded output. Preserve selection and all required checks; never add a covering object or change document settings solely to force a desired export size.
+
+A separate 12-pair comparison used the **same full-selection PNG** in both arms: create/configure/content then another export script, versus one create/configure/content/export script. Blank-document request to explicit image handoff medians were 4714.5 → 2638 ms; all pairs and both order strata supported a reduction, with all PNG pixels and actual content-undo/cleanup checked. This is a bounded recipe for a validated complete selection, not a general includeBleed flag, a universal speed guarantee, print-ready acceptance or a frontend-paint measurement. Keep the unique owned path, complete payload parsing, native image forwarding, `finally` deletion and post-export state/selection checks above. Outside this verified geometry, retain the working preview path and report any Bleed visibility gap.
 
 ## Documents and spreads
 
@@ -16,6 +56,7 @@ Read this before long scripted sessions and whenever a preview, a tool result or
 - **[server]** No MCP tool switches the active document; open the intended document before running a script that only makes sense for it.
 - **[SDK]** Setting the current spread is required for some command-class operations on nodes of another spread, not for all of them: `createSetVisibility` (`Document.setVisible`) fails with a bare `COMMAND_FAILED` until the spread is current, while `setEditable`, `Document.applyTransform` and `AddChildNodesCommandBuilder` work without switching. Match the exact error to the operation before assuming a cause.
 - **[SDK]** Do not set the spread that is already current: it clears the selection.
+- **[SDK]** When a command requires a spread switch, use `DocumentCommand.createSetCurrentSpread` through `Document.executeCommand`, after confirming the target spread and current state.
 
 <a id="session-recovery"></a>
 ## Session recovery before further writes
@@ -52,6 +93,7 @@ For an uncertain submitted operation, compare actual text/runs, geometry, hierar
 ## Saving and state
 
 - **[SDK]** `Document.save()` and `Document.saveAs(path)` return `undefined`; there is no success value. A successful save leaves `isDirty` and `needsSaving` false—use those flags as the save check.
+- **[SDK]** An untitled document can have `isDirty === false` while `needsSaving === true`; a clean flag alone does not establish that the document has been saved.
 - **[SDK]** `isDirty` does not mean "content equals the saved file": undoing the whole history of an unsaved document leaves it true. Do not use it to prove the content state.
 
 ## Visibility and export
@@ -70,5 +112,5 @@ Treat these as unconfirmed; verify before relying on them.
 - A new document's `width`/`height` options can disagree with the created spread: read `currentSpread.getSpreadExtents()` after creating a document rather than trusting the requested orientation.
 - A Layout document (no artboards) may expose no SDK readback for page margins, and its page boxes can disagree with the finished size measured in the print workflow. Do not use page boxes or assumed defaults as the finished-size evidence for a Layout document.
 - A translucent overlay can leave an export mixing rasterized and sharp vector regions; transparent-capable presets are the commonly reported workaround.
-- Whether previews include the bleed area is not established; do not read a preview's proportions as evidence either way.
+- General Bleed inclusion remains unestablished. The 3.3.1.4940 MacOS poster above omitted outer Bleed in default spread/selection renders and PNG/CurrentSpread, while an exact complete-selection PNG included it; verify the actual target's scope and pixels.
 - `execute_script` can return no output for a script that runs normally.

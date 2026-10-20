@@ -8,7 +8,7 @@ on:
       - 'docs/**'
       - 'AGENTS.md'
       - 'README*.md'
-      - 'CHANGELOG.md'
+      - 'CHANGELOG*.md'
       - '.codex-plugin/plugin.json'
       - '.claude-plugin/*.json'
       - '.gitignore'
@@ -16,6 +16,10 @@ on:
       - 'scripts/docs-hooks*'
       - 'scripts/check-version*'
       - 'scripts/affinity-mcp-proxy.test.mjs'
+      - 'scripts/inspection-preview.test.mjs'
+      - 'skills/affinity-mcp/scripts/inspection-preview.mjs'
+      - 'assets/sdk-evidence/poster-*.png'
+      - 'assets/sdk-evidence/poster-inspection*-geometry.json'
       - 'skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs'
       - 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'
       - '.github/workflows/docs-hooks.yml'
@@ -25,7 +29,7 @@ on:
       - 'docs/**'
       - 'AGENTS.md'
       - 'README*.md'
-      - 'CHANGELOG.md'
+      - 'CHANGELOG*.md'
       - '.codex-plugin/plugin.json'
       - '.claude-plugin/*.json'
       - '.gitignore'
@@ -33,6 +37,10 @@ on:
       - 'scripts/docs-hooks*'
       - 'scripts/check-version*'
       - 'scripts/affinity-mcp-proxy.test.mjs'
+      - 'scripts/inspection-preview.test.mjs'
+      - 'skills/affinity-mcp/scripts/inspection-preview.mjs'
+      - 'assets/sdk-evidence/poster-*.png'
+      - 'assets/sdk-evidence/poster-inspection*-geometry.json'
       - 'skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs'
       - 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'
       - '.github/workflows/docs-hooks.yml'
@@ -65,3 +73,4 @@ jobs:
           const version = JSON.parse(readFileSync('.codex-plugin/plugin.json', 'utf8')).version;
           console.log(JSON.stringify(checkRepository(process.cwd(), { channel: typeof version === 'string' && version.includes('-dev.') ? 'development' : 'stable' }), null, 2));"
       - run: node --test scripts/check-version.test.mjs
+      - run: node --test scripts/inspection-preview.test.mjs

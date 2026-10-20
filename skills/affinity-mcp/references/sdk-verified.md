@@ -7,6 +7,8 @@ Cases below are operation-specific records, not whole-module guarantees. Read th
 
 Unless explicitly marked 3.3 below, entries retain the historical 3.2-era reference observations; their original per-case build/platform metadata is incomplete. They are lookup leads for a different build, not inherited test passes. The 3.2.3.4646 Windows close failure is historical. The 2026-10-08 samples specifically used **3.3.0.4850 Win32**; an independent SDK version was not obtained. Plugin version and application build are separate.
 
+Separate **3.3.1.4940 MacOS** batch/undo/rectangle samples (**2026-10-19**) and editable-text/embedded-bitmap poster previews with native Margin/Bleed (**2026-10-20**) are bounded in [execution efficiency](scripting-pitfalls.md#execution-efficiency), [single-call preview](scripting-pitfalls.md#single-call-preview) and [native geometry](page-geometry.md#read-and-apply-the-correct-native-setting). Default renders omitted outer Bleed in the poster; only its verified complete-selection PNG covered the full Bleed. These samples do not upgrade unrelated historical cases below.
+
 Mandatory preamble reading does not make every preamble/hint claim correct. Prefer the current public wrapper, verify exact native imports/ranges when needed, and compare the requested result with actual post-state. An `ALWAYS add hint` suggestion does not override user authorization. The 3.3 samples used `app.userDesktopPath`; Collection `.first` / `.at(0)` worked while `[0]` did not. A missing `DocumentApi.getDocumentProperties` entry does not prove all native property reads are absent. Spread prerequisites vary by command; use [the operation-specific notes](scripting-pitfalls.md#documents-and-spreads), not a blanket switch before every edit.
 
 ## Nodes and text
@@ -87,7 +89,7 @@ Native paragraph centering uses typographic spacing; it does not guarantee ident
 - `setSpreadSizeWithAnchor` and `setSpreadDocumentProperties` resize a spread and its properties; verified with `SpatialAnchor.TopLeft` and `reflowPages = false`, with `getSpreadExtents()` confirming the result. Other property combinations are untested.
 - All `PageBoundingBoxType` variants can return the same box. Read trim, bleed and page boxes separately and check them against the print requirement.
 - `createAddArtboard` creates a real artboard and its margin readback works; see [Page geometry](page-geometry.md) for the enabled/nonzero/zero distinction and local coordinates. Ordinary non-artboard shapes return `DISPOSED` for that properties path.
-- Adding an artboard moves the spread and export-preview geometry to the artboard area, and deleting it alone does not restore the previous spread size—roll back through history instead. Do not substitute artboards for Layout pages.
+- Check `isArtboardEnabled` before using an ordinary shape's artboard-properties path. Adding an artboard moves the spread and export-preview geometry to the artboard area, and deleting it alone does not restore the previous spread size—use a verified history boundary instead. Do not substitute artboards for Layout pages.
 - Use the document's unit converter instead of assuming getters agree (`Document.viewdpi` against the converter's `viewDpi`). Guide placement with unequal document/view DPI is untested. Application version metadata, `DrawingScale` (1:100 and 11 metric defaults) and `Collection` map/filter/reverse/reduce are readable.
 
 ## Raster, fills and files
@@ -109,10 +111,14 @@ Native paragraph centering uses typographic spacing; it does not guarantee ident
 
 ## Lifecycle, documents and export
 
+- `Document.createFromOptions()` with `NewDocumentOptions` creates a new document, including one with multiple spreads; it does not add pages to an existing document. Read actual geometry after creation. Inserting pages into an existing document and multi-page stitching remain unverified.
+- The historical `ExportScale.createWithWidthHeight(600, 800)` case returned a `Square` scale with multiplier 600 and size 800, not a WidthHeight scale. Do not use that factory as a recipe; read `.size` for Width/Height/Square scales and do not interpret inactive `.width`/`.height` fields as dimensions. This relocated observation was not rerun on the Mac batch sample.
+
 - On 3.3.0.4850 Win32, synchronous `Document.close()` closed modified, unsaved disposable samples, confirmed by re-enumeration. Async/promises close, business documents and save prompts remain unverified. Confirm authorization and the sample identity before closing; do not extrapolate this result to discarding user work.
 
 - `save`, `saveAs`, `saveAsync`, `saveAsAsync` and the package variants write files and clear the save-state getters afterwards. `executeCommandAsync` completes callbacks.
 - Sync `Document.export` with PNG/CurrentSpread and async `exportAsync` with PNG/CurrentPage produce rendered images. Other scopes, presets and bleed behaviour are unverified. `exportMacro` writes the current macro.
+- The **3.3.1.4940 MacOS** small-spread sample separately verified synchronous PNG/CurrentSpread export, `File.readAll(...).toString('base64')`, owned temporary-file cleanup and explicit host image handoff in the edit call. Apply the [single-call preview gates](scripting-pitfalls.md#single-call-preview); this does not extend the async, print or arbitrary-document cases.
 - `ExportConfig` appears only once a slice exists on the node (for example one created in the UI); `ExportableInterface` on its own can report a null config and no public factory was found. Change a size with `format.replaceSize(index, size)` and the format list with the append/replace/delete methods, write the format back through `config.replaceFormat`, and apply the config with `DocumentCommand.createSetExportConfig(selection, config)`. A fresh read can still return the old value until it is written back.
 - `DocumentProperties.create()` returns detached defaults, not a snapshot of the document—set only the fields you intend to change. Setting a single field through `setDocumentProperties` (for example units Millimetre → Inch) applies without changing DPI, view DPI or extents.
 - Sub-selection counts (such as CurveEdge or CurveNode ranges) are not visible-vertex counts. Repeated same-kind commands coalesce into fewer history entries, so check the actual history and refuse an ambiguous rollback rather than inferring undo counts from API calls.

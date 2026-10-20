@@ -119,7 +119,7 @@ export function checkRepository(root, { channel, from, stable } = {}) {
     );
   }
   const changelog = read("CHANGELOG.md");
-  const unreleasedHeading = /^## (?:未发布|\[Unreleased\])[ \t]*\r?$/gm;
+  const unreleasedHeading = /^## (?:Unreleased|未发布|\[Unreleased\])[ \t]*\r?$/gm;
   const unreleasedCount = [...changelog.matchAll(unreleasedHeading)].length;
   if (unreleasedCount > 1) fail("CHANGELOG permits at most one Unreleased section.");
   const unreleased = unreleasedCount ? changelog.split(unreleasedHeading)[1].split(/^##(?:\s|$)/m)[0] : "";
@@ -144,6 +144,18 @@ export function checkRepository(root, { channel, from, stable } = {}) {
     const date = entries[0]?.[1];
     if (entries.length !== 1 || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
       fail(`${channel === "stable" ? "Stable candidate" : "Delivered development version"} requires exactly one matching CHANGELOG entry with a valid YYYY-MM-DD date.`);
+    }
+  }
+  if (existsSync(join(root, "CHANGELOG.zh-cn.md"))) {
+    const headings = {
+      "## 未发布": "## Unreleased", "## [Unreleased]": "## Unreleased", "## 日期待核实": "## Date unverified",
+      "#### 新增": "#### Added", "#### 变更": "#### Changed", "#### 修复": "#### Fixed",
+      "#### 废弃": "#### Deprecated", "#### 移除": "#### Removed", "#### 安全": "#### Security",
+    };
+    const structure = text => text.split(/\r?\n/).map(line => line.trimEnd())
+      .filter(line => /^#{2,4} |^- /.test(line)).map(line => line.startsWith("- ") ? "-" : headings[line] ?? line);
+    if (JSON.stringify(structure(changelog)) !== JSON.stringify(structure(read("CHANGELOG.zh-cn.md")))) {
+      fail("Bilingual CHANGELOG dates, versions, categories and entry counts must match.");
     }
   }
   if ((stable && !from) || (from && channel === "development" && !stable) || (stable && channel === "stable")) {

@@ -38,7 +38,7 @@ const codexLaunch = codex.mcpServers["affinity-by-canva"];
 const sharedLaunch = readJson(".mcp.json").mcpServers["affinity-by-canva"];
 // Exercise literal replacement characters as well as spaces and Unicode.
 const scratch = mkdtempSync(join(tmpdir(), "affinity-mcp-test-affinity plugin-中文-$&-$'-$`-${literal}-"));
-const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "PRIVACY.md", "PRIVACY.zh-cn.md", "TERMS.md", "TERMS.zh-cn.md", "CHANGELOG.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
+const pluginFiles = [".codex-plugin", ".claude-plugin", ".agents/plugins", ".mcp.json", "skills", "assets", "README.md", "README.zh-cn.md", "PRIVACY.md", "PRIVACY.zh-cn.md", "TERMS.md", "TERMS.zh-cn.md", "CHANGELOG.md", "CHANGELOG.zh-cn.md", "LICENSE", "LICENSE.upstream", "NOTICE"];
 for (const name of pluginFiles) {
   cpSync(join(root, name), join(scratch, name), { recursive: true });
 }

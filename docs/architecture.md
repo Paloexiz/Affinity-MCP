@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.4.3`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
+实现依据为仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和清单，插件标识 `0.5.0`；工作树改动不代表已发布新版本。SDK操作的构建差异单独记录在[SDK索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -34,6 +34,7 @@ flowchart LR
 | [`scripts/check-version.mjs`](../scripts/check-version.mjs) 与[回归](../scripts/check-version.test.mjs) | 显式渠道下的版本格式、现行声明同步及可选 Git 基准增量检查 | 不决定产品影响级别，不发布版本，不验证宿主缓存或安装渠道切换 |
 | [`skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs) | 显式指定安装副本后的在线发现及preamble连接检查 | 不自动找缓存版本，不验证宿主UI加载的副本或SDK文档操作 |
 | [`skills/affinity-mcp/`](../skills/affinity-mcp/SKILL.md) | 操作入口、授权边界、样本与结果验收指导 | 不替代应用当前版本的运行证据 |
+| [`inspection-preview.mjs`](../skills/affinity-mcp/scripts/inspection-preview.mjs) | 使用已导出 PNG 和同次核验的几何生成独立 SVG 检查图，标出完整 Bleed、Trim 与启用的 Margin，以棋盘底显示原图透明区域；仅使用 Node 内置模块 | 不连接 Affinity、不写工程或修改代理；不是原生辅助线开关或自动印前验收，SVG 的本地图像渲染与宿主交付另行验证 |
 | `docs/` 中的公共技术文档与根目录 `AGENTS.md` | 架构、版本记录、脱敏技术摘要及维护约定 | 随仓库维护；不能引用被 Git 忽略的内容，本地专用说明与插件交付范围分别核对 |
 | 本地内部归档 | 原始问题、个人工作材料和实验原始输出 | 保持忽略，不作为 docs 的内容依赖或证据引用 |
 
@@ -49,7 +50,7 @@ flowchart LR
 
 共用市场保留 ZCode 的图标、翻译和政策扩展。Claude Code 将这些目录扩展视为未知字段并忽略，普通校验可带告警通过，`--strict` 会将告警视为失败；不要把这一结果解释为政策文件缺失或运行时不兼容。[未知字段与校验规则](https://code.claude.com/docs/en/plugins/manifest-reference#unrecognized-fields)。
 
-运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试、版本检查与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。正式交付先在 `develop` 转正并推送，再从该确切提交向 `main` 同步安装内容及根 CHANGELOG；开发维护资源留在 `develop`。渠道与交付边界见[版本规则](versioning.md)。
+运行代理和连接检查器位于 `skills/affinity-mcp/scripts/`；根 `scripts/` 保留代理测试、版本检查与文档 hooks 等仓库维护工具。仅支持完整 Plugin 安装；Skill 包含运行资源，MCP 注册与启动仍由 Plugin 清单负责，单独安装 Skill 不会注册服务。[安装说明](../README.zh-cn.md#安装)、[Skill 入口](../skills/affinity-mcp/SKILL.md)。正式交付先在 `develop` 转正并推送，再从该确切提交向 `main` 同步安装内容及根中英文 CHANGELOG；开发维护资源留在 `develop`。渠道与交付边界见[版本规则](versioning.md)。
 
 ## 连接和一次请求
 
@@ -138,9 +139,11 @@ SSE 按 LF、CRLF 或裸 CR 分行；CR 立即结束一行，跨分片紧随其�
 
 仓库开发参与平台包括 Windows、macOS、Linux；维护工具不得依赖个人机器路径或只提供单一平台命令。仓库 [文档 hooks](hooks.md) 使用跨平台 Node.js 实现及独立的 PowerShell/POSIX 启动入口，其三平台测试与 Affinity SDK 的应用平台证据分别记录。
 
-版本检查使用 Node.js 内置模块，无额外依赖。静态模式核对三清单、代理两处声明；开发渠道要求完整的文档四处身份，正式格式的开发树只要存在 `docs/` 也要求同样的完整同步，生产树可以省略该目录。CHANGELOG 的三级现行版本标题必须恰有一个匹配条目：待交付候选位于“未发布”，已交付版本位于日期分组；已交付开发版本和正式候选还核对所属日期的日历有效性，不确认真实发布事件。为只读核验已发布旧树，保留旧式日志标题的稳定版本检查；当前日志使用日期分组和中文分类。静态模式不调用 Git；显式 `--from` / `--stable` 的增量模式要求 Git 2.45+，另解析本地 commit、核对基准声明并检查数字递增。Git 通过参数数组和全局 `--no-lazy-fetch` 调用，部分克隆缺对象时失败，不隐式取得远端对象；旧 Git 不支持选项也直接失败。失败不输出原始错误，不自动 fetch、升级 Git 或更改引用。CI 根据清单格式显式选择开发或正式检查，只做静态检查和合成回归；交付增量需要维护者先确认基准，不能由静态结果推断。
+版本检查使用 Node.js 内置模块，无额外依赖。静态模式核对三清单、代理两处声明；开发渠道要求完整的文档四处身份，正式格式的开发树只要存在 `docs/` 也要求同样的完整同步，生产树可以省略该目录。CHANGELOG 的三级现行版本标题必须恰有一个匹配条目：待交付候选位于“未发布”，已交付版本位于日期分组；已交付开发版本和正式候选还核对所属日期的日历有效性，不确认真实发布事件。为只读核验已发布旧树，保留旧式日志标题的稳定版本检查；当前日志使用日期分组和对应语言的分类。静态模式不调用 Git；显式 `--from` / `--stable` 的增量模式要求 Git 2.45+，另解析本地 commit、核对基准声明并检查数字递增。Git 通过参数数组和全局 `--no-lazy-fetch` 调用，部分克隆缺对象时失败，不隐式取得远端对象；旧 Git 不支持选项也直接失败。失败不输出原始错误，不自动 fetch、升级 Git 或更改引用。CI 根据清单格式显式选择开发或正式检查，只做静态检查和合成回归；交付增量需要维护者先确认基准，不能由静态结果推断。
 
-没有待交付内容时省略“未发布”分组；检查器仍兼容历史空分组，并拒绝重复分组。回归在开发和正式渠道验证省略该分组的 LF/CRLF 日志及实际 CLI，继续拒绝缺失日期、无效日期和重复版本条目。
+没有待交付内容时省略英文 `Unreleased` / 中文“未发布”分组；检查器仍兼容历史空分组、中文标题和旧式 `[Unreleased]`，并拒绝重复分组。回归在开发和正式渠道验证省略该分组的 LF/CRLF 日志及实际 CLI，继续拒绝缺失日期、无效日期和重复版本条目。
+
+根 `CHANGELOG.md` 使用英文，`CHANGELOG.zh-cn.md` 使用简体中文。中文日志存在时，版本检查器另对照两份日志的日期、版本、分类和条目数量结构，任一差异明确失败；不比较翻译语义，也不因历史快照仅有一份日志而拒绝只读核验。双语回归覆盖两种渠道、CRLF 中文日志及版本、历史日期、分类和条目遗漏。安装夹具随完整插件保留两份日志。
 
 正式格式回归另覆盖开发树文档声明不一致、缺少部分必需文档，以及生产树整体省略 `docs/`。这使 `develop` 转正阶段与随后同步的生产树复用同一正式检查，不放宽版本、日期或增量约束。
 

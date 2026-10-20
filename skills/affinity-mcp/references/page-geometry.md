@@ -1,6 +1,12 @@
 # Page geometry and print verification
 
-Use this reference for native Affinity layout, dimensions, Margins, Bleed, folding or print export. It describes the checks to perform, not a prevalidated script or a fixed print specification.
+Use this reference for posters, flyers, covers, new layouts or redesigns as well as native Affinity dimensions, Margins, Bleed, folding and print export. Read the existing project's geometry before composing artwork even when the user did not name these settings. This describes the checks to perform, not a prevalidated script or a fixed print specification.
+
+## Poster and artwork preflight
+
+Identify the intended page/artboard and read its actual trim, per-side Bleed and Margins, enabled/use state and applicable overrides or master inheritance. Preserve the project's settings unless changes are authorized; hidden guides do not mean disabled margins. For a new document, use the agreed brief/print requirements and verify the created state rather than importing another project's defaults. If required native readback is unavailable, report that exact setting as unknown instead of silently assuming zero or claiming the layout is print-ready.
+
+Use configured enabled Margins as the initial placement guide for essential copy, logos and codes; respect the agreed print-safety requirement and any explicitly approved exceptions. Margins are not a clipping boundary. Extend backgrounds or imagery intended to print to the trim edge through the configured Bleed, while keeping essential content separate. Record the verified trim, safe-content area and outer bleed area before choosing positions; check them again after layout changes. Do not disable margins or remove bleed merely to make the composition fit.
 
 ## Establish the geometry before changing it
 
@@ -44,14 +50,14 @@ Read the live SDK preamble and relevant topics before scripting. Discover topics
 Treat the following names as **static lookup leads**; confirm each against the live SDK and the actual document:
 
 - `NewDocumentOptions.margins` and `marginsEnabled`: creation options, not evidence of the current document's state.
-- `DocumentProperties.margin`, `includeMargins` and `bleed`: distinct document properties.
+- `DocumentProperties.margin`, `includeMargins` and `bleed`: distinct lookup leads. The 2026-10-20 wrapper marks `margin` and `includeMargins` deprecated and stores them only on the options object; they are not a native margin-state setter/readback. `bleed` remains native on the property object, but a route from the active document to that object was not found in the inspected surface.
 - `SpreadDocumentProperties` extends `ArtboardDocumentProperties`, inheriting `margin` and `useMargin`; it also exposes `useMasterMargin`. These property objects describe changes, not proof of the live spread's state.
-- For an actual `ArtboardInterface`, follow `artboardProperties.marginsInterface.useMargins` / `hasMargins`; `artboardProperties.getMarginBox(behaviour)` is the margin-box read lead. `/artboardproperties` exports `EffectiveMarginBehaviour`: read its enum values and semantics before choosing a member. Do not treat `hasMargins` as the enabled flag or assume an artboard path covers every Layout page/spread. Resolve the target's live interface and inheritance first.
+- For an actual `ArtboardInterface`, follow `artboardProperties.marginsInterface.margins`, `useMargins` and `hasMargins`. On 3.3.1.4940 MacOS, observed 2026-10-20, `ArtboardInterface.marginBox` computes its effective box in **spread coordinates** from `spreadBaseBox` and enabled margins. The older `artboardProperties.getMarginBox(behaviour)` / `EffectiveMarginBehaviour` recipe below is a separate historical lookup lead; do not assume the live wrapper exports it. `hasMargins` is not the enabled flag, and an artboard path does not cover every Layout page/spread or inheritance mode.
 - `getSpreadExtents({ includeSpread: true, includeBleed: false, includeChildren: false })` versus the same query with `includeBleed: true`: geometric corroboration, not a replacement for reading native settings.
 
 Verify each field's current semantics, units and accepted struct shape. Apply changes through the documented document command, then read the actual target again; reading a newly constructed options object only confirms your inputs. A script's literal `marginsDisabled: true` is also not a native-state readback, even if the tool succeeds. Avoid applying default-filled property objects that reset unrelated settings. If the SDK cannot read or change a required setting, report that exact gap rather than claiming success from matching geometry.
 
-Applying `ArtboardDocumentProperties` through `setArtboardDocumentProperties` and reading the native interfaces:
+Historical margin sample, with incomplete per-case build metadata: applying `ArtboardDocumentProperties` through `setArtboardDocumentProperties` and reading the then-available native interfaces:
 
 | Requested margin state | `useMargins` | `hasMargins` | `getMarginBox(PageBoxIfDisabled)` |
 | --- | --- | --- | --- |
@@ -59,7 +65,7 @@ Applying `ArtboardDocumentProperties` through `setArtboardDocumentProperties` an
 | Disabled, same supplied values | false | false | local `(0, 0)`, 600 × 700 |
 | Enabled, all zero | true | false | local `(0, 0)`, 600 × 700 |
 
-The returned margin box is **artboard-local**, not spread coordinates. `hasMargins` is not the enabled flag. Applying margins leaves the artboard's position and dimensions unchanged. This covers an actual artboard, not Layout spread/master inheritance or view visibility; an ordinary rectangle's artboard-properties path returns `DISPOSED`. The document unit converter converts between millimetres and pixels in both directions. Stored disabled margin distances cannot be read back.
+That historical `getMarginBox` result was **artboard-local**, unlike the spread-coordinate `ArtboardInterface.marginBox` above. `hasMargins` was not the enabled flag. Applying margins left the artboard's position and dimensions unchanged. This covered an actual artboard, not Layout spread/master inheritance or view visibility; an ordinary rectangle's artboard-properties path returned `DISPOSED`, and stored disabled distances were not readable in that sample. The historical converter case covered both millimetre/pixel directions; recheck the target wrapper and units.
 
 Handle Margin state explicitly:
 
@@ -111,14 +117,14 @@ Rollback must use known history boundaries or a verified state-restoration route
 
 ## Completion evidence
 
-For export implementation, `/document` exposes `Document.export(path, exportOptions, exportArea, size)`, `FileExportOptions.allPresetNames` / `createWithPresetName()`, and `FileExportArea.createForCurrentSpread()`, `createForCurrentPage()`, `createForArtboard()` and `createForSpreads()` / `createForPages()`. Sync PNG/CurrentSpread and async PNG/CurrentPage are verified; other scopes, presets and bleed behaviour are not. See [Behaviours and limits](sdk-verified.md). Inspect the chosen preset and live documentation; do not invent an `includeBleed` setter on `FileExportOptions`. A successful export call does not prove the scope or bleed is correct—inspect the produced files.
+For export implementation, `/document` exposes `Document.export(path, exportOptions, exportArea, size)`, `FileExportOptions.allPresetNames` / `createWithPresetName()`, and areas for spreads, pages, artboards, selections and selection areas. Historical sync PNG/CurrentSpread and async PNG/CurrentPage cases remain separate from the 2026-10-20 [complete-selection poster preview](scripting-pitfalls.md#single-call-preview). In that poster, default CurrentSpread omitted outer Bleed; `createForSelection` covered the exact native Bleed bounds only with the verified full content/background selection. `createForSelectionArea` was not equivalent. Other presets/scopes and arbitrary bleed geometry remain unverified. Inspect the live documentation and chosen preset; do not invent an `includeBleed` setter. A successful export does not prove correct scope—inspect the produced files and pixels.
 
 `isVisibleInExport` is read-only: assigning to it neither throws nor takes effect, so hide the node with `createSetVisibility` before exporting instead—capture and restore the previous visibility in the same script, read it back after restoring, tell the user that the document was changed temporarily, and do not save while a node is hidden. Hide nodes only when the user asked to exclude them, switch the spread first if the node is outside the current spread, and if a script times out or is interrupted restore visibility before anything is saved. A translucent overlay is associated with exports that mix rasterized and sharp vector regions; a transparent-capable export preset is believed to avoid it, but that is not established. See [Scripting practice and runtime limits](scripting-pitfalls.md).
 
 Before reporting a change complete:
 
 1. Read back actual geometry and native Margins values/enabled state and Bleed values for every affected scope, including effective inheritance. Distinguish defaults from overrides, and confirm that any temporary change (a lock or a hidden node) has been restored.
-2. Check all affected panels for content safety, overflow and background coverage, then inspect rendered spreads and necessary detail views. Export previews normally omit guides, so their absence cannot prove Margins were disabled.
+2. Check all affected panels for content safety, overflow and background coverage, then inspect rendered spreads and necessary detail views. Export previews normally omit guides, so their absence cannot prove Margins were disabled. For a verified rectangular scope, use the separate [inspection preview](inspection-preview.md) to show full Bleed, Trim and enabled Margin without adding objects to the project; keep the clean image and actual-bounds checks.
 3. If export is requested, verify the actual output at the requested page/spread scope. For PDF, inspect trim/bleed/media boxes as applicable and render the result; for raster, inspect pixels and resolution. Export boxes alone cannot prove the native document configuration.
 4. Save only within the requested workflow and verify save success. Report trim size, bleed, Margins state and export size separately, naming anything still unverified. A correct export does not substitute for a requested native-document edit.
 

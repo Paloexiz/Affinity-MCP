@@ -92,10 +92,12 @@ node scripts/docs-hooks.mjs check
 
 直接 CLI 另验证正常检查的 JSON 输出、隐私发现及未知 mode 的非零退出；Windows 同时使用普通和 namespaced 入口路径。模块导入只输出测试 sentinel，不读取 hook stdin 或生成状态，原有 PowerShell/POSIX 启动器回归继续保留。[测试实现](../scripts/docs-hooks.test.mjs)。
 
-[三平台回归配置](../.github/workflows/docs-hooks.yml)在 `develop` 推送或目标为 `develop` 的 PR 中，相关文档、版本清单、CHANGELOG、忽略规则、hooks、版本检查器、代理测试或两个 Skill 运行脚本发生变化时触发；分支和路径过滤须同时满足。[GitHub 触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)将 PR 的分支过滤应用于目标分支。生产 `main` 不包含维护 workflow，开发检查由 `develop` 的 push/PR 承担。
+[三平台回归配置](../.github/workflows/docs-hooks.yml)在 `develop` 推送或目标为 `develop` 的 PR 中，相关文档、版本清单、中英文 CHANGELOG（`CHANGELOG*.md`）、忽略规则、hooks、版本检查器、代理测试或两个 Skill 运行脚本发生变化时触发；分支和路径过滤须同时满足。[GitHub 触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)将 PR 的分支过滤应用于目标分支。生产 `main` 不包含维护 workflow，开发检查由 `develop` 的 push/PR 承担。
 
 配置保留 `workflow_dispatch`，但[手动触发](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow?tool=cli)有默认分支存在 workflow 的前提；`--ref develop` 只选择运行分支，不承诺绕过该前提。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
 
 同一 workflow 读取清单版本格式，向版本检查函数显式传入 `development` 或 `stable`，支持日常开发快照与 `develop` 转正后的正式快照，并运行校验器回归；不依赖 checkout 分支名，也不自动取得生产基准。正式格式检查会核对开发树现行文档身份，生产树可以整体省略 `docs/`。静态模式不调用 Git；版本增量及其回归要求 Git 2.45+，以 `--no-lazy-fetch` 禁止部分克隆按需下载缺失对象，缺对象或旧 Git 不支持该选项时明确失败。回归只在临时仓库通过本地 `file://` 克隆验证这个边界。正式交付先在 `develop` 转正、检查、审查、提交并推送，再同步 `main`，具体顺序见[版本与交付流程](versioning.md#changelog-与正式交付)。交付前的增量核验使用维护者已确认的 Git 提交单独运行。这些命令不改变 hooks 生命周期、信任或启用状态。
+
+同一 workflow 也在检查图工具、其无依赖测试或公开海报 PNG/几何夹具（含透明负例）变化时触发，并运行 `node --test scripts/inspection-preview.test.mjs`。该回归检查本地 SVG 生成的几何、文件绑定、透明源图保留与拒绝覆盖边界，不调用 Affinity、不依赖 SVG 渲染库，也不证明三个平台的实际视觉输出。
 
 各平台的通过结论必须来自对应环境的实际运行结果，CI 配置存在不代表测试已通过。启用后还需观察真实生命周期是否触发；手动模拟和 hook 信任状态都不能替代此项检查。本机执行结果与启用记录按[维护规则](maintaining.md)仅在本机保存。

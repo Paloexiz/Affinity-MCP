@@ -1,0 +1,31 @@
+{
+  "coordinateSpace": "spread-document-pixels",
+  "imageSha256": "c897aadcf99422c7ad3ba5d09657957cc26bcd43baecfb34457f65c597e363e3",
+  "exportBounds": {
+    "height": 824,
+    "width": 620,
+    "y": -10,
+    "x": -8
+  },
+  "bleedBounds": {
+    "height": 824,
+    "width": 620,
+    "y": -10,
+    "x": -8
+  },
+  "trimBounds": {
+    "height": 800,
+    "width": 600,
+    "y": 0,
+    "x": 0
+  },
+  "margin": {
+    "enabled": true,
+    "bounds": {
+      "height": 736,
+      "width": 544,
+      "y": 28,
+      "x": 24
+    }
+  }
+}

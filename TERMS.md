@@ -2,54 +2,52 @@
 
 **Language: English | [简体中文](TERMS.zh-cn.md)**
 
-These terms accompany Affinity MCP and explain use, support and risks. The project is maintained by [Paloexiz](https://github.com/Paloexiz) at [Paloexiz/Affinity-MCP](https://github.com/Paloexiz/Affinity-MCP). Contact the maintainer through [project Issues](https://github.com/Paloexiz/Affinity-MCP/issues). Read these terms before use, especially the file-operation risks in section 3 and liability provisions in section 6.
+These terms accompany the Affinity MCP plugin to define usage standards, technical support scope, and liability boundaries. The project is maintained by [Paloexiz](https://github.com/Paloexiz) at [Paloexiz/Affinity-MCP](https://github.com/Paloexiz/Affinity-MCP). Contact the maintainer through [GitHub Issues](https://github.com/Paloexiz/Affinity-MCP/issues). Please review these terms carefully, especially Section 3 concerning automation risks and Section 6 concerning limitations of liability.
 
-## 1. Project and open-source license
+## 1. Project nature and open-source license
 
-Affinity MCP is a community open-source plugin connecting AI clients to Affinity by Canva's local MCP service. It is not an official product of OpenAI, Z.ai, Anthropic, Canva or Affinity, and does not imply their endorsement or warranty.
+Affinity MCP is an open-source community plugin designed to connect AI clients to Affinity by Canva's local MCP service. It is not an official product of OpenAI, Z.ai, Anthropic, Canva, or Affinity, and carries no endorsement or warranty from those entities.
 
-The software and accompanying documentation are provided under the [MIT License](LICENSE). Upstream licensing and attribution appear in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). **These terms do not replace MIT or add license restrictions on using, copying, modifying, distributing or commercially exploiting the software. MIT controls any conflict concerning software licensing.** Third-party software, fonts, assets and services retain their own licenses or terms.
+The software and accompanying documentation are provided under the [MIT License](LICENSE). Upstream licensing and attribution are preserved in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). **These terms do not replace or restrict the freedoms granted by the MIT License to use, copy, modify, merge, publish, distribute, and commercially exploit the software; in the event of any conflict, the MIT License controls all software licensing matters.** Third-party software, fonts, assets, and network services remain subject to their respective licenses or terms.
 
-## 2. Permissions and authorization
+## 2. Usage standards and authorization boundaries
 
-You should have the legal authority to use the relevant software, services and content, including organizational authorization when acting for an organization. Minors must meet applicable legal and client requirements and obtain guardian consent where required.
+Users are responsible for ensuring that they possess the legal authority to use all relevant software, services, and document assets. If acting on behalf of an organization, ensure appropriate organizational authorization has been obtained. Minors must comply with applicable legal guidelines and platform age requirements.
 
-Operate only on documents, files and services you are authorized to access and modify. Follow applicable law, intellectual property rights and confidentiality obligations. Do not unlawfully obtain or disclose others' data, infringe third-party rights or bypass others' access controls. These describe lawful-use obligations and do not change the MIT grant.
+Only operate on documents, files, and services for which you possess authorized access and modification rights, and adhere strictly to applicable laws, intellectual property rights, and confidentiality obligations. Do not use this plugin to obtain unauthorized data, infringe on third-party rights, or bypass system access controls.
 
-Set appropriate permissions in your client and Affinity, and identify the agent's target documents and permitted operations. File writes, script networking, paid AI use, hint sharing and issue reports should remain within the relevant authorization. Skill instructions guide the agent; the proxy does not independently check your authority or whether each script matches your intent.
+Configure runtime permissions appropriately within your AI client and Affinity, establishing clear boundaries for assistant operations. Operations involving file writes, network calls, paid AI tools, hint sharing, or issue reporting must remain within the scope of explicit user authorization. Bundled Skill instructions guide the AI's operational logic; the local proxy service does not independently audit user authority or verify that every script aligns with user intent.
 
-## 3. Automation and file risks
+## 3. Automation and document operation risks
 
-**Scripts may modify, overwrite, delete, save or close documents, access files and send data over networks. Back up important files, check targets and scripts before running them, and inspect actual documents, previews and exports afterward.** AI-generated code and results may be wrong. A successful tool call does not establish correct content, layout or files.
+**Automated scripts possess the operational capability to modify, overwrite, delete, save, or close documents, access local files, and initiate network communications. Important documents must be backed up prior to executing automation; upon completion, actual documents, canvas previews, and exported files should be manually inspected.** Code and layouts generated by AI models may contain defects; a successful tool call does not guarantee the ultimate correctness of document contents, formatting, or exported files.
 
-**A timeout or disconnect does not mean cancellation. A script may already have executed; the proxy provides no transactional rollback and does not automatically replay submitted calls.** Inspect actual state before retrying to avoid duplicate changes or overwrites. SDK capabilities vary by application build, platform and object; recorded samples do not guarantee every version or operation.
+**A request timeout or disconnect does not imply that an operation was canceled. The script may have completed inside Affinity; the proxy provides no transactional rollback mechanisms and does not automatically retry submitted requests.** When a timeout occurs, inspect the document's actual state before retrying to prevent duplicate edits or unintended overwrites. Furthermore, Affinity SDK behavior varies across application builds, operating systems, and object states; sample test cases do not guarantee stability across all untested environments or edge cases.
 
-## 4. Data, works and third-party services
+## 4. Intellectual property, data, and third-party services
 
-Using the plugin does not transfer your rights in documents, scripts, inputs or outputs to the maintainer. These terms grant the maintainer no right to use your documents for advertising or model training. Check third-party asset and AI-output conditions separately.
+Users retain full ownership of their documents, scripts, prompts, and generated results. Using this plugin does not transfer any intellectual property rights to the maintainer, nor does it grant permission to use document contents for advertising or model training. Verify third-party compliance requirements for any assets or AI-generated materials utilized.
 
-See the [Privacy Policy](PRIVACY.md) for data flows, logs, optional sharing and privacy requests. Reading these terms, installing the plugin or enabling MCP is not blanket consent to disclose data to any third party. Any legally required notice and consent must be handled separately.
+For details regarding data flows, logging, and privacy practices, see the [Privacy Policy](PRIVACY.md).
 
-Affinity, AI clients, model services and GitHub are operated by their respective providers. Their availability, data practices, charges and allowances follow their own rules; the maintainer does not collect those third-party fees. The plugin is provided free under MIT. No hosted service, paid support, response time or service level is promised with it.
+Affinity, AI clients, model providers, and GitHub are operated independently by their respective entities. Their availability, billing structures, quotas, and data handling adhere to their own terms; the maintainer collects no third-party fees. This plugin is provided free of charge under the MIT License, with no commitment to cloud hosting, paid technical support, response time guarantees, or service level agreements (SLAs).
 
-## 5. Support and feedback
+## 5. Support and feedback channels
 
-Report problems or suggestions through [project Issues](https://github.com/Paloexiz/Affinity-MCP/issues). This channel is public. Redact material before posting and do not upload private documents, credentials, personal information or unauthorized third-party content. For private handling, first request contact without sensitive details, then agree on an appropriate channel.
+Issue reports and suggestions should be submitted via [GitHub Issues](https://github.com/Paloexiz/Affinity-MCP/issues). Because this is a public venue, do not share personal data, trade secrets, API credentials, or confidential materials. If private communication is necessary, establish contact in an Issue first so an appropriate channel can be arranged.
 
-Support and fixes depend on maintenance resources; implementation of requests is not guaranteed. Receiving feedback does not give the maintainer ownership of your existing works.
+Community support and bug fixes depend on available maintainer resources; implementation of specific requests is not guaranteed. Providing feedback grants the maintainer no proprietary rights in user works.
 
-## 6. Warranties and liability
+## 6. Disclaimer of warranties and limitation of liability
 
-**To the extent permitted by applicable law, the software is provided as is under MIT, without warranties of merchantability, fitness for a particular purpose or noninfringement, and subject to that license's liability limitations.** The project makes no additional promise of continuous availability, error-free operation, compatibility with every environment or the expected outcome of any script, AI output or export.
+**To the maximum extent permitted by applicable law, this software is provided under the MIT License on an "as is" basis, without warranties of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or noninfringement.** The project does not warrant that the software will operate uninterrupted, error-free, or compatible with all environments, nor that any script execution, AI generation, or file export will satisfy particular expectations.
 
-These provisions do not exclude or limit liability that applicable law prohibits excluding or limiting, including liability for personal injury, intentional misconduct or gross negligence where it cannot be excluded. They do not remove mandatory consumer, personal-information or other statutory rights.
+Nothing in these terms excludes or limits liability that cannot be excluded under applicable law (such as liability for gross negligence or willful misconduct), nor does it affect mandatory statutory or consumer rights.
 
-## 7. Updates and stopping use
+## 7. Updates and discontinuance
 
-Features, compatibility and these terms may change with plugin versions. Material changes will be described in the project changelog. Updated terms accompany the version containing them, subject to any notice or consent required by law, and do not retroactively add MIT license conditions to older versions.
+Plugin capabilities, system compatibility, and these terms may evolve with future releases; material changes will be documented in the release changelog. You may discontinue use or uninstall the plugin at any time. Uninstalling does not revert edits previously saved in Affinity, nor does it delete local documents, exports, scripts, or client history.
 
-You may disable or uninstall the plugin at any time. Uninstalling does not reverse completed Affinity edits or automatically delete documents, exports, library scripts, hints or client records. The maintainer may discontinue maintenance or distribution without revoking MIT rights already granted.
+## 8. Governing law and dispute resolution
 
-## 8. Law and disputes
-
-These terms impose no exclusive court, mandatory arbitration or class-action waiver and do not remove mandatory legal protections. Disputes follow the applicable law and procedures of the competent jurisdiction. You may first contact the maintainer through project Issues to seek a resolution, but doing so is not a prerequisite to legal remedies. An unenforceable provision does not affect other provisions that can lawfully apply.
+Disputes should preferably be resolved through good-faith discussion via GitHub Issues. If any provision of these terms is deemed invalid or unenforceable by a court of competent jurisdiction, the remaining provisions shall remain in full force and effect.

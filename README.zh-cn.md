@@ -2,177 +2,175 @@
   <img src="assets/affinity-mcp-icon.svg" width="112" height="112" alt="Affinity MCP">
 </p>
 
-# Affinity MCP
+<h1 align="center">Affinity MCP</h1>
 
-**语言选择：[English](README.md)  | 简体中文**
+<p align="center">让 AI 助手帮你操作 Affinity</p>
+<p align="center"><a href="README.md">English</a> | 简体中文</p>
+<p align="center">
+  <a href="#开始使用">开始使用</a> ·
+  <a href="#可以帮你做什么">可以帮你做什么</a> ·
+  <a href="#隐私与条款">隐私与条款</a>
+</p>
 
-连接 **Codex、ZCode 和 Claude Code** 与 Affinity by Canva 本地 MCP 服务的独立插件。一个仓库只维护一个插件，清单放在根目录，运行脚本随 `skills/affinity-mcp/` 分发。
+## 开始使用
 
-由 [Paloexiz](https://github.com/Paloexiz) 维护的社区项目，并非 OpenAI、Z.ai、Anthropic、Canva 或 Affinity 官方产品。
+准备好 **Affinity by Canva**、**Node.js 24.20+**，以及支持插件的 **Codex、ZCode 或 Claude Code**。Affinity 和 AI 助手需要在同一台电脑上运行。
 
-## 隐私与条款
+### 1. 启用 MCP
 
-使用前请阅读[隐私政策](PRIVACY.zh-cn.md)和[服务条款](TERMS.zh-cn.md)。代理默认在本机连接，但返回 AI 客户端的文档内容和预览可能发送至其模型提供者。软件继续采用 [MIT 许可](LICENSE)。联系入口：[项目 Issues](https://github.com/Paloexiz/Affinity-MCP/issues)（公开渠道，请先脱敏）。
+打开 Affinity 的 **设置 → Model Context Protocol**，开启 **Enable Affinity MCP**，即可启用本机连接。
 
-同一套政策适用于 Codex、Claude Code 和 ZCode。Codex 清单、面向 Anthropic 目录的 Claude Code 清单，以及 ZCode 市场条目均声明政策链接；客户端或目录未展示链接时，可使用上方入口或插件内附带的文件。
+<details>
+<summary>查看设置截图与可选权限</summary>
 
-## Affinity by Canva 设置
+![Affinity 的 Model Context Protocol 设置面板](assets/affinity-mcp-settings.png)
 
-打开 Affinity by Canva 的 **设置 → Model Context Protocol**。**Enable Affinity MCP** 是唯一必需的开关，默认地址为 `http://localhost:6767/sse`。
+默认地址是 `http://localhost:6767/sse`。其它开关按任务需要开启，不必为了连接全部打开。
 
-![Affinity by Canva 的 Model Context Protocol 设置面板](assets/affinity-mcp-settings.png)
+| 想做什么 | 对应开关与范围 |
+| --- | --- |
+| 打开、编辑或保存桌面文件 | **Access files on your Desktop**；只允许桌面范围，不是整盘访问。 |
+| 使用已有脚本 | **Use saved scripts**。 |
+| 保存脚本到面板 | **Save scripts to your scripting panel**。 |
+| 保存本地任务提示 | **Save task hints to your device's local memory**。 |
+| 让脚本发起 HTTP 请求 | **Access networks**；关闭它不影响 MCP 连接。 |
+| 使用 Canva AI | **Use Canva AI Studio features**；Premium 和 Ultra 工具会消耗套餐的月度 AI 额度。 |
+| 分享匿名任务提示 | **Share task hints with Affinity**；是否分享由你决定。 |
 
-图中是建议的配置：**Access files on your Desktop**、脚本面板相关开关和 **Save task hints to your device's local memory** 保持打开，这些能力才可用；**Access networks**、**Use Canva AI Studio features** 和 **Share task hints with Affinity** 属于可选项，是否打开由你按需要决定。
+</details>
 
-| 设置 | 建议值 | 作用 |
-| --- | --- | --- |
-| Enable Affinity MCP | 开（必需） | 提供本地 MCP 服务，Agent 通过它连接 Affinity by Canva。 |
-| Access files on your Desktop | 开 | 允许脚本在任务需要时打开、编辑和保存桌面上的文件；桌面以外的路径会被拒绝，因此不等于整盘访问。 |
-| Access networks | 默认关；脚本需要联网时再开 | 允许脚本通过 `network.js` 发起 HTTP 请求。与 MCP 传输相互独立，关闭时连接照常可用。 |
-| Use saved scripts | 开 | 允许 Agent 读取脚本面板中已有的脚本。 |
-| Save scripts to your scripting panel | 开 | 允许 Agent 把完成的脚本保存到脚本面板。 |
-| Use Canva AI Studio features | 默认关；需要 Canva AI 时再开 | 允许脚本使用 Canva AI Studio 能力；其中 Premium 和 Ultra 级 AI 工具会消耗 Canva 套餐的月度 AI 额度。与 MCP 连接无关。 |
-| Save task hints to your device's local memory | 开 | 在本地保存任务提示，让后续相似任务更快上手。 |
-| Share task hints with Affinity | 可选，由你自行决定 | 分享匿名任务提示，帮助改进 Affinity 知识库。 |
+<a id="安装"></a>
 
-## 运行前提
+### 2. 安装插件
 
-- 已打开 **Enable Affinity MCP** 的 Affinity by Canva，与 Agent 在同一台电脑上运行。
-- `PATH` 中以 `node` 可用的 Node.js **24.20 或更高**（建议 24.21 及以上）。插件代理用 `node` 连接 Affinity 本地服务；在 Windows 上，旧版本可能在进程退出时崩溃——观察到发生在客户端断开之后（libuv `UV_HANDLE_CLOSING` 断言、退出码 `3221226505`）。
-- 支持插件的 Codex、ZCode 或 Claude Code。
-
-## 安装
-
-仅支持安装完整 **Affinity MCP Plugin**。不支持单独复制 `skills/affinity-mcp/` 或通过技能安装器安装它；Skill 目录中的运行脚本由完整 Plugin 清单注册和启动 MCP，单独安装 Skill 不会注册该服务。
-
-如果客户端里已经存在其它提供 Affinity by Canva 工具的插件或 MCP 服务，先把它停用再安装本插件，否则两份会同时生效，Affinity 工具会出现重复。
-
-### Codex
-
-在插件市场界面添加 `Paloexiz/Affinity-MCP`，然后安装 **Affinity MCP**。也可以执行：
+**Codex**：在插件市场添加 `Paloexiz/Affinity-MCP`，安装 **Affinity MCP**。也可以在终端运行：
 
 ```shell
 codex plugin marketplace add Paloexiz/Affinity-MCP
 codex plugin add affinity-mcp@affinity-mcp
 ```
 
-Codex 读取 `.agents/plugins/marketplace.json`，唯一的插件来源为 `./`。启动配置直接写在 Codex 清单中，`cwd: "."` 由客户端解析为插件安装目录。
+<details>
+<summary>Claude Code</summary>
 
-### ZCode
-
-打开任意工作区，进入 **设置 → 插件 → 创建 → 添加插件市场**，填入 `Paloexiz/Affinity-MCP` 或本地仓库目录。在个人市场安装 **affinity-mcp**。Skill 和 MCP 服务会出现在各自的 Plugin 分组中。
-
-ZCode 直接加载与 Claude Code 相同的 `.claude-plugin/` 清单、`.mcp.json` 和 Skill。共用市场索引保留 HTTPS SVG 图标和中文说明，更新后刷新市场即可。
-
-### Claude Code
-
-添加当前仓库作为插件市场，然后安装：
+在终端添加市场并安装插件：
 
 ```shell
 claude plugin marketplace add https://github.com/Paloexiz/Affinity-MCP.git
 claude plugin install affinity-mcp@affinity-mcp
 ```
 
-Claude Code 读取 `.claude-plugin/plugin.json` 和单条 `.claude-plugin/marketplace.json`，自动加载共享 Skill 和根目录 `.mcp.json`，无需另行注册 MCP。本地开发可运行 `claude --plugin-dir /path/to/Affinity-MCP`，也可以将本地仓库路径添加为市场。
+</details>
 
-### 更新
+<details>
+<summary>ZCode</summary>
 
-在客户端刷新市场并更新或重新安装插件。Codex CLI 对应命令：
+打开任意工作区，进入 **设置 → 插件 → 创建 → 添加插件市场**，填入 `Paloexiz/Affinity-MCP`，然后在个人市场安装 **affinity-mcp**。也可以添加本地仓库目录。
+
+</details>
+
+请安装完整插件，MCP 服务会自动注册；单独安装 Skill 无法连接。
+
+### 3. 发送第一个请求
+
+在 AI 助手中说：
+
+> 连接 Affinity，列出打开的文档，先不要修改。
+
+## 可以帮你做什么
+
+<a id="目前支持的功能"></a>
+
+| 常见任务 | 可以交给助手的工作 |
+| --- | --- |
+| 编辑文字 | 创建艺术字或框架文本，修改内容、字体、字号和段落格式，链接文本框。 |
+| 整理图层 | 查看、选择、重命名、移动图层，调整锁定和可见性。 |
+| 调整版式 | 对齐对象、调整大小、设置页边距，处理基础形状、填充和描边。 |
+| 保存与导出 | 保存、重开原生文档，导出 PNG、JPEG、SVG、PDF 或 WebP。 |
+
+连接成功后，告诉助手要处理的文档、对象和期望结果。例如：
+
+> 把选中的文本框左对齐，保持字号不变。
+
+具体可做的操作取决于 Affinity 提供的接口、当前对象和权限，见[操作说明](skills/affinity-mcp/SKILL.md#supported-operations)和[已验证案例](skills/affinity-mcp/references/sdk-verified.md#version-boundaries)。
+
+<a id="不支持或尚未验证的功能"></a>
+
+### 使用前了解
+
+- **关闭前先保存。** 已测异步关闭路径会在无提示情况下丢弃未保存内容，不能依赖保存提示。
+- **取消文本框链接不等于恢复原文。** 已测双框场景中，合并全文留在源框，目标框变空。
+- **排版要看实际效果。** 中文标点、混合格式和溢出都需要检查；艺术字与框架文本应按排版需求选择。[文字与标点说明](skills/affinity-mcp/references/sdk-verified.md#text-tool-choice-and-refit)
+- **导出文件也要检查。** 基础格式导出通过不代表出血、多页、字体嵌入或自定义尺寸都已验证。[导出范围](skills/affinity-mcp/references/sdk-verified.md#verified-file-and-export-workflow)
+- **超时后先查看文档。** 操作可能已经执行，确认实际状态后再重试。
+
+<details>
+<summary>还有哪些限制？</summary>
+
+Affinity 界面的功能不一定都能通过 MCP 操作。自定义中文标点悬挂规则和文本框内垂直对齐尚无已验证的 SDK 设置路线；默认画笔创建和异步文件复制仍有失败记录。复杂文本链、高级选区及其它未测参数也不能视为已验证。
+
+完整说明及对应案例见 [SDK reference](skills/affinity-mcp/references/sdk-verified.md)；连接、权限和脚本问题见[排错说明](skills/affinity-mcp/references/scripting-pitfalls.md)。
+
+</details>
+
+## 常见问题
+
+| 遇到的问题 | 先检查什么 |
+| --- | --- |
+| 连接不上 | Affinity 是否打开、MCP 开关是否启用、`node` 是否在 `PATH` 中可用。`node --version` 需达到 24.20，建议 24.21+。工具列出不代表已连接。 |
+| 工具出现两份 | 停用其它重复提供 Affinity 工具的插件或 MCP 配置。 |
+| 更新后仍使用旧内容 | 刷新市场并更新插件，再打开新任务或重启会话。 |
+| 文件操作被拒绝 | 确认已开启桌面文件权限，且目标文件位于允许的桌面范围内。 |
+
+<details>
+<summary>怎样更新插件？</summary>
+
+在客户端刷新市场，再更新或重新安装。Codex CLI：
 
 ```shell
 codex plugin marketplace upgrade affinity-mcp
 codex plugin add affinity-mcp@affinity-mcp
 ```
 
-现有任务仍使用旧 Skill 或工具配置时，打开新任务。Claude Code 依次运行 `claude plugin marketplace update affinity-mcp` 和 `claude plugin update affinity-mcp@affinity-mcp`，然后重启会话。每次开发或正式交付都须同步两份插件清单、Claude Code/ZCode 共用市场条目及代理报告的版本号。
-
-版本变化见[中文更新日志](CHANGELOG.zh-cn.md)（[English](CHANGELOG.md)）；版本渠道编号和更新日志约定见[版本规则](docs/versioning.md)。
-
-## 使用与限制
-
-首次可以让 Agent：**读取 Affinity SDK preamble，然后列出打开的文档，不做修改。** 编写脚本前读取当前 SDK 文档；修改后检查实际状态，涉及视觉内容时渲染核对。
-
-代理转发 SDK 文档、脚本执行、渲染、脚本库及 SDK 提示等工具。它们是调用 Affinity SDK 的入口，没有自行实现每一个文档操作。
-
-[Skill](skills/affinity-mcp/SKILL.md#supported-operations) 记录支持的操作与限制，仅覆盖列出的具体用例。
-
-脚本超时或连接中断后可能已经执行，请先检查文档再决定是否重试。代理不会自动重放已提交的工具调用。离线返回的备用工具列表不能证明已连上 Affinity by Canva。
-
-在代理进程环境中设置 `AFFINITY_MCP_REQUEST_TIMEOUT_MS` 可调整上游请求/POST等待：默认 `30000`，允许 `100`～`300000` 毫秒整数。未设置时使用默认值；空字符串、非整数或越界值使代理退出并在stderr报错。上游initialize/initialized也使用此值。首次SSE建连仍为30秒、endpoint发现约5秒，各阶段不是统一的端到端deadline。客户端工具预算需覆盖预期等待及建连；共用配置的 `timeoutMs: 60000` 不会覆盖此环境设置。更改环境后需重启代理。
-
-传输/上游错误消息与JSON-RPC `error.data.phase` 区分 `connect`、`endpoint`、`post`、`response`、`sse`、`upstream`，并保留原因；已知请求方法时包含 `method`，本地输入校验和不支持的方法错误可以没有 `data`。工具调用已尝试提交时，`outcome: "unknown"` 表示结果未知，包括HTTP错误，须先读回再决定重试。`not_submitted` 表示本次请求的工具尚未提交（例如初始化失败），不证明先前操作未执行。SSE响应可在POST结束前完成请求；迟到成功/错误不补第二次响应或自动重放，SDK文字、图像与isError结果仍原样透传。
-
-## 目前支持的功能
-
-这些分类仅覆盖 [SDK reference](skills/affinity-mcp/references/sdk-verified.md#version-boundaries) 中记录的具体案例；构建和平台元数据不完整的历史案例须在目标环境复验。
-
-- [x] **连接 Affinity by Canva**：Codex、ZCode 和 Claude Code 可通过本地 MCP 调用 Affinity by Canva。
-- [x] **查询 SDK 资料**：列出和读取 SDK 文档、搜索提示，并在授权后保存本地提示。
-- [x] **执行与检查脚本**：在 Affinity by Canva 中运行 JavaScript，渲染当前画布或选区核对结果。
-- [x] **文档与页面操作**：读取打开的文档和保存状态，新建多页文档，调整或切换画布，并撤销或重做修改。
-- [x] **文字与排版**：创建文本框，写入和替换文字，并设置字体、字号、字距、对齐和缩进。
-- [x] **矢量与画板**：创建、移动和删除图层、容器、形状与画板，并处理几何、边界、名称、锁定和可见性。
-- [x] **选择与像素编辑**：选择图层或文字范围，读写位图像素，并使用矩形栅格选区处理像素。
-- [x] **填充与描边**：使用纯色、渐变、影线、描边和已有矢量画笔。
-- [x] **效果与图像处理**：使用已验证的图层阴影、透明度、混合模式、滤镜、调整和图像描摹。
-- [x] **页边距与文档属性**：读取和修改已验证的页边距、单位和画布属性。
-- [x] **保存与导出**：保存 Affinity 文档和打包副本，导出 PNG，并导出现有宏。
-- [x] **切片导出配置**：读取、修改和应用已有切片的 PNG 尺寸配置。
-- [x] **嵌入内容与图片框**：读取嵌入文档和图片框，并切换嵌入文档的页面或画板。
-- [x] **文件、网络与对话框**：在授权后访问桌面文件、发起本地网络请求、使用计时器并显示 SDK 对话框。
-- [x] **本地脚本库**：在授权后列出、读取和保存 Affinity by Canva 脚本。
-- [x] **断线恢复**：连接恢复后继续处理新请求，不自动重复已经提交的调用。
-
-## 不支持或尚未验证的功能
-
-以下条目按具体操作说明能力边界。未单独注明构建的条目来自截至 **2026-09-11** 的 **3.2.3.4646** 历史记录，部分案例的构建和平台元数据不完整，须在目标环境复验。**3.3.0.4850 Win32** 条目仅覆盖 **2026-10-08** 观察的样本。详见[版本边界](skills/affinity-mcp/references/sdk-verified.md#version-boundaries)。
-
-- [ ] **未验证的文档关闭场景**：3.3.0.4850 Win32 仅同步关闭已修改、未保存的自建样本通过，异步路径、业务文档和保存提示仍未验证。见[生命周期边界](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export)。
-- [ ] **向现有文档插入或拼接页面**：SDK 没有可用入口，只能新建多页文档。
-- [ ] **直接创建默认画笔对象**：RasterBrush 和 VectorBrush 的默认创建入口不可用；已有矢量画笔仍可读取和修改。
-- [ ] **调整 RasterBrush 参数**：尚未取得可用的栅格画笔对象，透明度和间距未验证。
-- [ ] **文本框链接和单个字形插入**：文本框之间的链接未验证，已测试的 CharGlyph 插入方式不可用；普通文字输入和替换可用。
-- [ ] **完整的高级矢量操作**：曲线编辑、布尔运算及所有形状参数组合尚未验证。
-- [ ] **完整的栅格选区操作**：选区相加、相减、相交及多边形选区尚未验证。
-- [ ] **完整的切片导出流程**：不能完全通过 SDK 新建切片或 ExportConfig，也未验证直接按该配置导出。
-- [ ] **同时指定导出宽高**：对应的 ExportScale 创建入口返回了错误的尺寸类型。
-- [ ] **更多导出方式**：PDF、出血、多页导出及其它格式或预设尚未验证。
-- [ ] **创建或替换图片框内容**：目前只验证了读取已有图片框。
-- [ ] **宏录制与回放**：目前只验证了导出现有宏。
-- [ ] **全部效果和图像处理参数**：当前只验证了部分滤镜、调整、填充、描边和图层效果。
-- [ ] **完整的网络能力**：公网、TLS 和异步网络尚未验证；本地同步请求可用。
-- [ ] **异步文件复制**：已测试的异步复制方式不可用；同步桌面文件操作及部分异步读取可用。
-- [ ] **Canva AI 功能**：一次生成命令在执行前被拒绝，其余 AI 功能未验证。
-- [ ] **向 Affinity by Canva 上报 SDK 问题**：尚未执行，且每次都需要用户明确授权。
-
-没有列出的 SDK 操作仍视为尚未验证；受权限控制的功能需先在 Affinity by Canva 中授权。
-
-## 验证
+Claude Code：
 
 ```shell
-node scripts/affinity-mcp-proxy.test.mjs
+claude plugin marketplace update affinity-mcp
+claude plugin update affinity-mcp@affinity-mcp
 ```
 
-检查覆盖两种stdio帧格式、UTF-8字符内部拆分、同次输入多条消息、坏JSON后的恢复、通知无回包、分页、文字与图片透传、HTTP错误、可配置等待及非法/边界值、连接/endpoint/初始化失败、延迟POST与SSE竞态、迟到成功/错误不重复响应、异常SSE、断线不重放、重连、EOF退出、版本一致性及包含空格、中文和字面美元符号路径下的Codex和Claude Code/ZCode共用启动配置。安装连接检查也使用模拟服务验证，包括拒绝备用列表和进程清理；这些回归不连接真实Affinity应用。
+ZCode 刷新个人市场后更新插件。更新后打开新任务或重启会话，避免继续使用旧工具和 Skill。
 
-### 检查真实安装连接
+版本变化见[中文更新日志](CHANGELOG.zh-cn.md)（[English](CHANGELOG.md)）。
 
-保持Affinity打开并启用MCP，然后显式运行：
+</details>
+
+<a id="检查真实安装连接"></a>
+<details>
+<summary>进阶：检查真实安装连接</summary>
+
+保持 Affinity 打开并启用 MCP，在插件安装目录运行：
 
 ```shell
 node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
 ```
 
-将`<absolute-plugin-root>`替换为确定的插件安装目录绝对路径。Claude Code/ZCode的`.mcp.json`启动配置使用`--config shared`。检查器读取该副本的配置并启动对应代理，不自动猜缓存版本，也不修改安装文件。
+将 `<absolute-plugin-root>` 换成确定的安装目录绝对路径；Claude Code / ZCode 使用 `--config shared`。
 
-代理与连接检查器位于 `skills/affinity-mcp/scripts/`，作为完整 Plugin 的一部分分发。检查器核对所选副本的插件清单与代理版本是否一致。
+检查器核对该副本的清单与代理版本，发现在线工具并读取 SDK preamble，不执行文档脚本，也不修改文档、设置、提示或脚本库。它不会自动选择缓存副本。通过只证明指定配置能够连接，不证明客户端界面实际加载了该副本，也不证明文档操作有效。
 
-检查器初始化代理，跟随`tools/list`分页并读取SDK preamble，不执行脚本，也不改变文档、设置、hint或脚本库。发现降级、RPC/工具错误、无法识别的preamble或超时均判失败；进程清理完成后才报告通过。单次请求上限45秒，整次检查预算60秒，之后进行有界的进程清理。
+</details>
 
-JSON摘要记录所选目录/配置、插件版本、代理SHA-256和Node版本。`applicationBuild`与`applicationPlatform`为`null`，因为这些调用没有取得应用身份。通过仅证明这份启动配置的连接与preamble读取，不证明宿主UI加载的副本或SDK文档操作有效。Affinity修改preamble文案后，可能需要更新内容断言。
+## 隐私与条款
 
-## 结构依据与致谢
+插件默认在本机连接 Affinity，但返回 AI 客户端的文档内容和预览可能发送给其模型提供者。使用前请阅读[隐私政策](PRIVACY.zh-cn.md)和[服务条款](TERMS.zh-cn.md)。
 
-根目录布局参考 [Superpowers](https://github.com/obra/superpowers) 及其 [source 为 ./ 的单条市场索引](https://github.com/obra/superpowers/blob/main/.claude-plugin/marketplace.json)。ZCode 通过其[文档声明的 Claude Code 插件兼容能力](https://zcode.z.ai/cn/docs/plugin)复用该格式。Claude Code 入口参考其[插件规范](https://code.claude.com/docs/en/plugins-reference)和[市场规范](https://code.claude.com/docs/en/plugin-marketplaces)。
+这是由 [Paloexiz](https://github.com/Paloexiz) 维护的社区项目，并非 OpenAI、Z.ai、Anthropic、Canva 或 Affinity 官方产品。遇到问题可到[项目 Issues](https://github.com/Paloexiz/Affinity-MCP/issues)反馈；这是公开渠道，请先移除敏感信息。
 
-代理和 Skill 来自 [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33)，来源提交为 Paloexiz fork 的 `9f2c2db`。原 MIT 许可及署名保留在 [LICENSE.upstream](LICENSE.upstream) 和 [NOTICE](NOTICE)，本仓库使用 [MIT](LICENSE)。
+## 项目资料与致谢
+
+开发渠道和交付规则见[版本说明](docs/versioning.md)。
+
+插件布局参考 [Superpowers](https://github.com/obra/superpowers)；ZCode 通过其[Claude Code 插件兼容能力](https://zcode.z.ai/cn/docs/plugin)复用插件格式。Claude Code 集成参考其[插件规范](https://code.claude.com/docs/en/plugins-reference)和[市场规范](https://code.claude.com/docs/en/plugin-marketplaces)。
+
+代理和 Skill 来自 [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33)，来源提交为 Paloexiz fork 的 `9f2c2db`。原 MIT 许可及署名保留在 [LICENSE.upstream](LICENSE.upstream) 和 [NOTICE](NOTICE)，本仓库使用 [MIT 许可](LICENSE)。

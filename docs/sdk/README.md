@@ -1,21 +1,25 @@
 # SDK 版本与能力索引
 
-这里按 **Affinity 应用构建 + 平台 + 具体操作** 记录能力。现有资料未单独提供可确认的 SDK 发布版本号，因此文件名使用应用完整构建号；不要改写成“SDK 3.3”。
+这里按 **Affinity 应用构建 + 平台 + 具体操作** 记录能力。运行时SDK自报字段另列，不作为应用或官网文档版本的替代，因此文件名使用应用完整构建号；不要改写成“SDK 3.3”。
+
+操作配方按当前运行时能力通用使用，实测平台只是证据元数据，不是系统白名单。不得因其它系统未单独测试就拒绝使用同一API，也不能把一次失败直接归因为操作系统。只有官方限制或确认的差异才分系统处理。[MCP架构](https://modelcontextprotocol.io/specification/2025-11-25/architecture)定义通用通信与能力协商；Affinity的[官方脚本示例](https://www.affinity.studio/help/scripting-tutorial-swap-objects/)对Mac和Windows使用同一JavaScript。SDK仍处于[Beta](https://sdk.affinity.studio/)，这些依据不构成所有方法跨平台行为一致的保证。
 
 <a id="version-identity"></a>
 ## 版本身份
 
 | 维度 | 已知值 | 依据与限制 |
 | --- | --- | --- |
-| 仓库插件版本 | `0.5.3` | [Codex 清单](../../.codex-plugin/plugin.json)、[共用插件清单](../../.claude-plugin/plugin.json)、[市场条目](../../.claude-plugin/marketplace.json)；这是静态仓库值，实际交付状态按[版本说明](../versioning.md)另行核对 |
-| 代理报告版本 | `0.5.3` | [代理源码](../../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) 中的 `clientInfo.version` 与 `serverInfo.version`；静态声明，不是运行时握手证据 |
+| 仓库插件版本 | `0.5.4-dev.1` | [Codex 清单](../../.codex-plugin/plugin.json)、[共用插件清单](../../.claude-plugin/plugin.json)、[市场条目](../../.claude-plugin/marketplace.json)；这是静态仓库值，实际交付状态按[版本说明](../versioning.md)另行核对 |
+| 代理报告版本 | `0.5.4-dev.1` | [代理源码](../../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) 中的 `clientInfo.version` 与 `serverInfo.version`；静态声明，不是运行时握手证据 |
 | MCP 协议默认值 | `2025-11-25` | [配置](../../.mcp.json)与[代理源码](../../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)；不是 SDK 版本或协议全面兼容认证 |
 | 历史能力基线 | `3.2.3.4646` | [3.2.3.4646 记录](3.2.3.4646.md)所列固定提交来源，截至 2026-09-11；历史转录，没有独立复验结果 |
 | 样本构建 | `Affinity 3.3.0.4850 Win32 (Sep 11 2026)` | [脱敏证据摘要](evidence/2026-10-08.md) A-01，观察于 2026-10-08；括号内是应用自报字符串，不作为发布日期 |
 | MacOS 样本构建 | `Affinity 3.3.1.4940 MacOS (Oct  6 2026)` | [批量与撤销证据](evidence/2026-10-19.md) B-01，观察于 2026-10-19；括号内同样不作为发布日期 |
 | 同构建海报补测 | `Affinity 3.3.1.4940 MacOS (Oct  6 2026)` | [原生设置与完整预览证据](evidence/2026-10-20.md)，观察于 2026-10-20；默认预览与完整选区 PNG 范围分别验收，另有标线检查图、透明背景负例读图及带标线总耗时，不代表新增 SDK 导出能力或通用 Agent 检出率 |
 | 同构建光学对齐补测 | `Affinity 3.3.1.4940 MacOS (Oct  6 2026)` | [模式、规则与中文标点证据](evidence/2026-10-20-optical-alignment.md)，观察于 2026-10-20；该次代理实际加载身份及宿主精确版本未单独记录，不继承 B-01 的插件身份 |
-| 样本中 SDK 独立版本 | 未记录 | 不能用 `app.buildVersion=0` 或插件版本代填 |
+| 同构建文本流与异步关闭补测 | `Affinity 3.3.1.4940 MacOS (Oct  6 2026)` | [E-01～E-05](evidence/2026-10-21-text-flow-and-close.md)，观察于 2026-10-21，插件 `0.5.3`、`app.buildVersion=1`；宿主精确版本未记录；覆盖两个双框样本的链接/取消链接、格式与撤销恢复，以及丢弃未保存内容的异步关闭 |
+| 同构建入口/基础对象/文件补测 | `Affinity 3.3.1.4940 MacOS (Oct  6 2026)` | [F-01～F-07](evidence/2026-10-21-sdk-availability.md)，观察于2026-10-21，插件0.5.3；覆盖入口反射、限定值对象/布尔/字符、文件/导出/保存重开 |
+| SDK自报字段 | 此前样本未记录；F-01读到 `Environment.sdkVersionStr="0.1"` | V8字段为11.5.150.4；与应用buildVersion=1、官网`/33001/`和插件身份分开，不回填旧实验 |
 | Win32 样本的安装插件/宿主精确版本 | 原始样本未完整记录 | 仓库版本已知，不意味着每次运行加载的副本和宿主都已锁定 |
 | MacOS 批量样本的插件身份 | `0.4.3`，安装副本与对应仓库代理 hash 一致 | B-01；这是该次观察时的身份，宿主精确版本未记录，不随开发候选递增或扩展到后续其他实验 |
 
@@ -25,7 +29,7 @@
 | --- | --- | --- |
 | [3.2.3.4646](3.2.3.4646.md) | README 声明的历史基线与随包 reference 中的案例摘要 | 查旧限制及其证据缺口；不能视为该构建全部案例的独立验证 |
 | [3.3.0.4850 Win32](3.3.0.4850.md) | 2026-10-08 一次性未保存样本文档、只读接口检查及原始回包 | 以具体用例为单位判断，不继承旧版的整张成功清单 |
-| [3.3.1.4940 MacOS](3.3.1.4940-macos.md) | 2026-10-19 矩形的批量、查询、撤销/重做和受限预览；2026-10-20 海报的 Margin/Bleed 与完整选区预览，另有单行 Art/Frame 光学对齐与 UI 中文规则样本 | 各实验的身份、对象、操作与证据层分别记录；不证明其他历史能力、任意海报或整个 Agent 工作流提速 |
+| [3.3.1.4940 MacOS](3.3.1.4940-macos.md) | 2026-10-19批量/预览；2026-10-20海报Margin/Bleed、完整预览与光学对齐；2026-10-21文本流/关闭、SDK入口、基础对象/布尔/字符、文件/导出/保存重开 | 各实验身份与操作分别记录；入口存在、限定样本通过和未验证项分开，不证明整个SDK可用或Agent工作流提速 |
 
 没有记录的构建或平台均为未验证。记录只覆盖注明的观察点，没有中间构建的验证结果。
 
@@ -46,9 +50,19 @@
 
 每行来源、对象范围和负例详见链接的构建页。本表是项目自己的验证账本，不是 Affinity 官方发布说明。
 
-### MacOS 光学对齐补充
+### 光学对齐样本补充
 
 `3.3.1.4940 MacOS` 已验证 `GlyphAtts.opticalAlignmentType` 与 `StoryDelta.createOpticalAlignmentType` 的模式读写路线，枚举为 None/Manual/Font。自定义字符及左右百分比规则属于已查 SDK 入口缺口；界面加入中文规则后，MCP 测量确认固定框内段落对齐可消除该样本的主体偏移，艺术字按含标点对象边界重定位仍可能偏移。模式存在、规则可编辑与实际主体对齐分别验收，详见[构建结果与证据](3.3.1.4940-macos.md#optical-alignment)。随包[文本选型](../../skills/affinity-mcp/references/sdk-verified.md#text-tool-choice-and-refit)与[光学对齐指引](../../skills/affinity-mcp/references/sdk-verified.md#optical-alignment-and-punctuation)分别说明策略和执行边界；Win32 旧记录保持各自样本范围。
+
+### 文本流与异步关闭样本补充
+
+`3.3.1.4940 MacOS` 的 2026-10-21 双框样本验证了 `createLinkTextFrame`、对目标框的 `createUnlinkTextFrame` 及各自的撤销重做。链接已有文字会合并 Story；取消链接后目标框变空、全文及已比较格式留在源框，不能当作按可见文字拆分或恢复链接前原文。`closeAsync(callback)` 和 `document.promises.close()` 各直接关闭一个未保存脏样本，**丢弃未保存内容，没有保存或提示保护**。这些是 Mac 指定样本通过，不能改写上表 Win32 的“未重新测试”。详见[构建结果](3.3.1.4940-macos.md#linked-text-flow-and-close)和[脱敏证据](evidence/2026-10-21-text-flow-and-close.md)；不证明任意文本链、格式属性或关闭后恢复。
+
+### SDK 入口、基础对象与文件样本补充
+
+2026-10-21的[入口与行为证据](evidence/2026-10-21-sdk-availability.md)覆盖455个API对象、4,332个文档原生方法；其中4,260个有函数入口、72个未找到，继承限定路径另计。成功样本关联115个方法，另有4,142个有入口方法未完成功能验收、两个尺寸工厂反例和一个异步复制失败；不把115个关联路径当作完整语义认证。
+
+指定样本通过普通CharGlyph插入、四种基础布尔、部分值/像素、五种同步导出、异步PNG/CurrentSpread及saveAs/重开。异步复制仍返回NO_ENVIRONMENT；默认笔刷工厂和旧VectorBrush加载仍失败。当前Mac异步PNG的实际文件与解码像素推翻旧hint的一概失败说法，但不升级其它异步/平台/出血场景。详见[构建页](3.3.1.4940-macos.md#sdk-availability)及[随包文件配方](../../skills/affinity-mcp/references/sdk-verified.md#verified-file-and-export-workflow)。
 
 ## 结果状态怎么读
 

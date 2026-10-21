@@ -2,6 +2,8 @@
 
 Cases below are operation-specific records, not whole-module guarantees. Read the live preamble and relevant topics/ranges before first use, retaining them during an unchanged session. Revalidate affected assumptions after build/connection changes or conflicting results.
 
+**Common recipes, recorded environments:** use the same recipe on any operating system with the required runtime APIs, permissions and object preconditions. A sample's OS is provenance, not a restriction to that OS; do not require an OS match or reject a route solely because another system lacks a recorded test. Actual cross-platform equivalence is not claimed. Verify current capability and post-state, and separate OS branches only when an official restriction or a confirmed difference warrants them. Affinity's [official script tutorial](https://www.affinity.studio/help/scripting-tutorial-swap-objects/) presents one JavaScript example for Mac and Windows; the [SDK is beta](https://sdk.affinity.studio/), so a common API is not proof that every implementation behaves identically.
+
 <a id="version-boundaries"></a>
 ## Version boundaries
 
@@ -10,6 +12,12 @@ Unless explicitly marked 3.3 below, entries retain the historical 3.2-era refere
 Separate **3.3.1.4940 MacOS** batch/undo/rectangle samples (**2026-10-19**) and editable-text/embedded-bitmap poster previews with native Margin/Bleed (**2026-10-20**) are bounded in [execution efficiency](scripting-pitfalls.md#execution-efficiency), [single-call preview](scripting-pitfalls.md#single-call-preview) and [native geometry](page-geometry.md#read-and-apply-the-correct-native-setting). Default renders omitted outer Bleed in the poster; only its verified complete-selection PNG covered the full Bleed. These samples do not upgrade unrelated historical cases below.
 
 Separate **3.3.1.4940 MacOS** single-line text samples (**2026-10-20**) distinguish [optical modes, UI hanging rules and punctuation-sensitive alignment](#optical-alignment-and-punctuation). They do not establish multiline reflow, rule-table SDK access or general font/glyph mapping.
+
+Separate **3.3.1.4940 MacOS** two-frame samples (**2026-10-21**, plugin **0.5.3**) verified [link/unlink and restoration](#linked-text-flow), plus [callback/Promise close that discards unsaved content](scripting-pitfalls.md#async-close). They do not extend the optical-rule tests to linked text or establish arbitrary formatting edits, chain shapes or close-error recovery.
+
+Separate **3.3.1.4940 MacOS, 2026-10-21** samples verified [ordinary character insertion](#ordinary-character-insertion), [four basic Boolean operations](#basic-boolean-operations), [detached values](#bounded-value-objects) and [files/export/save-reopen](#verified-file-and-export-workflow). These supersede only the named historical limitations. Runtime `Environment.sdkVersionStr="0.1"`, application `buildVersion=1`, website `/33001/` and plugin `0.5.3` are different identity fields; earlier unrecorded SDK fields remain unrecorded.
+
+**Discovery is not acceptance:** the same observation matched 455 native API objects across 20 modules to 4,332 documented methods: 4,260 callable direct entries, 72 missing declarations (71 NodeDefinition-derived `fromNodeDefinition` methods and `CommandApi.areEqual`). The extra 4,884 inherited qualified paths are aliases. Inspect descriptors/prototype chains; an empty own-property list is not evidence of no methods. Of 68 top-level JS topics, 67 loaded; `/vectorbrush.js` did not. A topic, enum or handle is not an executed capability. Bounded successful samples were associated with 115 documented native methods; 4,142 other callable methods remain unverified, alongside two scale counterexamples and one async-copy failure. This is not complete semantic certification of those 115 methods.
 
 Mandatory preamble reading does not make every preamble/hint claim correct. Prefer the current public wrapper, verify exact native imports/ranges when needed, and compare the requested result with actual post-state. An `ALWAYS add hint` suggestion does not override user authorization. The 3.3 samples used `app.userDesktopPath`; Collection `.first` / `.at(0)` worked while `[0]` did not. A missing `DocumentApi.getDocumentProperties` entry does not prove all native property reads are absent. Spread prerequisites vary by command; use [the operation-specific notes](scripting-pitfalls.md#documents-and-spreads), not a blanket switch before every edit.
 
@@ -34,7 +42,41 @@ document.executeCommand(DocumentCommand.createSetText(selection, 'Replacement'))
 - The inspected 3.3.0.4850 Win32 `Node.setText` wrapper uses `TextSelection.create(this.storyRange)`; plain full replacement passed on the 2026-10-08 sample. `begin` / `end` identify endpoints, not start / length. Use the actual story range and verify the target text; linked/partial ranges need their own checks.
 - Plain replacement is not a format-preserving recipe: in a 3.3 sample, full replacement merged 20px/12px runs into 20px. For preservation tasks, capture character/paragraph runs first and sample-verify the intended edit/range. The same-length, single-run artistic edit below passed only its limited case. `canHideOverflow` is a capability getter; neither its value nor a complete Story proves visible content or permanent deletion.
 - `Font.all` enumerates the installed fonts; `StoryDelta.createPostscriptName` with `createFormatText` selects one. Glyph height, character spacing, alignment and indents can be set on live text and read back. A character-spacing value of 2 produces very wide spacing and wrapping—it is not a two-pixel recipe.
-- `CharGlyph.create(33)`, clone, `char32` and `string` work. `createInsertGlyph` with such a typed glyph fails at construction (`expected GlyphHandle`).
+- Historical `CharGlyph.create(33)`/clone/readback succeeded, while `createInsertGlyph` failed at construction with `expected GlyphHandle`. The ordinary-character sample below passed; retain the old failure only with its historical scope.
+
+<a id="ordinary-character-insertion"></a>
+### Ordinary character insertion
+
+In the **2026-10-21 character sample** (environment recorded above), a single frame containing AB in ArialMT/16 document pixels accepted a typed CharGlyph at an explicit insertion range and rendered A!B:
+
+```js
+const { Selection, TextSelection } = require('/selections.js');
+const { DocumentCommand } = require('/commands.js');
+const { CharGlyph } = require('/glyphs.js');
+// doc/textNode are authorized and UUID/spread/type/content-checked.
+const selection = Selection.create(doc, textNode);
+selection.addSubSelectionForNode(textNode,
+  TextSelection.create({ begin: 1, end: 1 }));
+doc.executeCommand(DocumentCommand.createInsertGlyph(selection, CharGlyph.create(33)));
+```
+
+Capture full text, character runs, frame box/transform, textRenderScale and protected nodes before inserting. Check the new full text and unchanged font/height/scales/geometry, then render; verified undo/redo/another undo restored the retained sample. Derive ranges from the target Story, not from a guessed frame-local index. The sample does not establish special glyphs, arbitrary code points, missing-font mapping, mixed runs or linked-frame ranges.
+
+<a id="linked-text-flow"></a>
+## Linked text flow
+
+On **3.3.1.4940 MacOS, 2026-10-21**, two disposable 640 × 480px, 96 DPI, single-spread samples used a 240 × 86px source frame and a 240 × 360px destination. `DocumentCommand.createLinkTextFrame(source, destination)` and `createUnlinkTextFrame(destination)`, executed through `doc.executeCommand`, passed the following cases:
+
+| Destination before linking | Link result | Unlinking the destination |
+| --- | --- | --- |
+| Empty | The 57-character source Story flowed across both frames; destination `textBegin=39` | Destination empty; all 57 characters and original formatting remain in the source Story, overflowing its frame |
+| 11 characters with distinct formatting | Source text + a paragraph break + destination text form a 69-character Story; destination text starts at 58 | Destination empty; the full merged 69-character Story remains in the source |
+
+Linking preserved the original characters' fonts (`PingFangSC-Regular`/`PingFangSC-Semibold`), heights (24/16/20/18 document pixels), Left/Right/Centre paragraph modes, indents and paragraph spacing in these cases; frame boxes, transforms and text render/UI scales stayed unchanged. Source and destination ranges after linking were [0,39) and [39,58) in the empty case, or [0,39) and [39,70) in the populated case; final ends include the Story terminator. `node.story` is the whole shared Story; `storyRange`/`textBegin` describe the frame's scope and may include overflow/terminator entries, so neither full Story equality nor a range alone proves visible fit.
+
+Before linking, confirm both nodes belong to the intended document/spread and retain each original Story, character/paragraph runs, frame geometry and scales. Before unlinking, resolve the intended text destination: **this tested unlink is not a visible-text split or an inverse of linking**. If separate independent texts are required, do not claim unlink alone achieves that result; establish another authorized, sample-verified operation. Re-read flow members/order/front/back flags, actual ranges, full text and required formatting; render both frames to verify the visible flow and overflow.
+
+Each tested link/unlink operation had a verified one-step undo/redo boundary, and another undo of unlink restored the linked state. Undoing link restored the original separate stories, including the destination's original text; restored linked renders matched their baseline PNG bytes. Check actual values on the target history instead of inferring a rollback count or using unlink to undo a merge. These results do not establish three-frame/cross-spread chains, unlinking a source/middle frame, all formatting properties, new formatting writes over linked ranges, save/reopen or recovery after close.
 
 <a id="text-tool-choice-and-refit"></a>
 ## Text tool choice and refit
@@ -132,6 +174,13 @@ For punctuation-sensitive work:
 
 ## Structure and geometry
 
+<a id="basic-boolean-operations"></a>
+### Basic Boolean operations
+
+In the **2026-10-21 Boolean sample** (environment recorded above), `Selection.create(doc, [a,b])` passed to `DocumentCommand.createBoolOpUnion`, `createBoolOpSubtract`, `createBoolOpIntersect` or `createBoolOpXor`, followed by `doc.executeCommand`, produced real PolyCurve nodes from pairs of overlapping black rectangles. With A=(40,y,120,50) and B=(100,y,120,50), resulting x/width were Union=40/180, Subtract=40/60, Intersect=100/60, Xor=40/180; coverage at x=70/130/190 was 111/100/010/101. Geometry, rendered interior pixels and actual undo/redo/undo/redo matched retained target/protected snapshots.
+
+Confirm the intended document/spread, node types and ordered operand selection before execution. Capture target/protected membership, types, boxes and six transform components. Read actual output nodes and rendered coverage; a command object or compound-operation enum is insufficient. Re-fetch handles after node replacement or history changes, and verify the actual history boundary before restoration. Complex/open curves, decorations, effects, arbitrary operand orders and other histories remain unverified.
+
 - Renaming through `descriptionInterface.userDescription`, locking through `Document.setEditable` and visibility through `createSetVisibility` are readable; restore lock and visibility after temporary changes. Tag data (`TagInterface`: custom and predefined keys, and the decoration flag) is readable—that is not evidence of arbitrary tag writes.
 - `setSpreadSizeWithAnchor` and `setSpreadDocumentProperties` resize a spread and its properties; verified with `SpatialAnchor.TopLeft` and `reflowPages = false`, with `getSpreadExtents()` confirming the result. Other property combinations are untested.
 - All `PageBoundingBoxType` variants can return the same box. Read trim, bleed and page boxes separately and check them against the print requirement.
@@ -141,11 +190,18 @@ For punctuation-sensitive work:
 
 ## Raster, fills and files
 
+<a id="bounded-value-objects"></a>
+### Detached values and RGBA8 pixels
+
+On **3.3.1.4940 MacOS, 2026-10-21**, the following bounded paths passed: Point (0,0)→(3,4) distance=5/squared=25; translate (10,20) and inverse roundtrip; rectangle Curve clone/translate with original bounds unchanged; RGBA8 Colour clone (12,34,56,alpha=200); UTF-8 Buffer clone; default Font name ArialMT. A 4×4 RGBA8 Bitmap with pixel (1,2)=(12,34,56,255) preserved that pixel through `createCompatibleBitmap(true)` and `PixelReaderRGBA8` readback; dispose pixel accessors after use. These do not establish all matrices, colour spaces, encodings or raster formats.
+
+`create()` and `clone()` returned matching shapeType values for ShapeArrow, ShapeCalloutEllipse, ShapeCalloutRectangle, ShapeCat/Cat2/Cat3/Cat4, ShapeCloud, ShapeCog, ShapeCrescent, ShapeDiamond, ShapeDoubleStar, ShapeEllipse, ShapeHeart, ShapePie, ShapePolygon, ShapeRectangle, ShapeSegment, ShapeSpiral, ShapeSquareStar, ShapeStar, ShapeTear, ShapeTrapezoid, ShapeTriangle and ShapeQRCode. This is detached creation/clone/type acceptance only, not parameter editing, document rendering or QR decoding. Verify the required values and clone independence rather than treating a non-null handle as success.
+
 - `Bitmap`, `PixelBuffer`, `PixelReaderRGBA8` / `PixelReaderWriterRGBA8` and `copyTo` work for pixel read and write; a compatible buffer exposes its bytes. `Buffer` roundtrips UTF-8 text, and clone, shared span and independent slice behave as expected.
 - Raster domain size, content bounds and placed size are different quantities—do not equate them. Image resources report original and placed size together with format and placement metadata. A generated bitmap reports original DPI 0 and no external file path, so do not assume either. File size is a BigInt and must be converted before JSON logging. Command transforms moved and scaled the raster and image content boxes, confirmed in a preview.
-- Solid and two-stop linear-gradient fills, stroke weight, hatch fills and brush-fill anchoring can be set, read back and rendered. `LineStyle.createDefaultWithWeight` works without a VectorBrush; `VectorBrush.createDefault()` throws, so take an existing brush from `lineStyleInterface.lineStyle.vectorBrush` and never fabricate a handle. RasterBrush acquisition remains unverified.
+- Historical solid/gradient/hatch/anchoring cases retain their original scope. On **3.3.1.4940 MacOS, 2026-10-21**, `LineStyle.createDefaultWithWeight(2)` read weight=2; the current property is `lineStyle.pathBrush`, and an ordinary solid stroke returned null. The old `vectorBrush` property was undefined and `/vectorbrush.js` failed to load. `PathBrush.createDefault()` and `RasterBrush.createDefault()` throw wrapper placeholders saying `not yet implemented in C++ API`; neither is a successful native creation. A usable acquired brush instance remains unverified: inspect the current wrapper, do not assume a solid stroke contains one, and never fabricate handles.
 - `Bitmap.loadFromFile` and the callback-based `loadFromFileAsync` decode images. `NodeRenderingEngine.createDefault` plus a compatible buffer gives actual raster output for inspection.
-- Desktop file read/write/seek, the synchronous `copyFile`, `Directory.entries` / `all` / `filePaths`, `FileStatus`, `clone`, `File.promises.length` and UTF-8 content work. `FileSystemPromises.copyFile` returns `NO_ENVIRONMENT` while `exists`, `getFileStatus` and `readAllAsync` work—do not generalise either way. No ACL or permission mutations were exercised.
+- Historical Desktop file/seek/directory/status/async-read cases retain their own scope. The [owned-file sample](#verified-file-and-export-workflow) passed UTF-8 write/read and synchronous `copyFile`, but `FileSystemPromises.copyFile` still returned `NO_ENVIRONMENT` with no destination file. Do not generalize that failure to async PNG or all asynchronous methods. No ACL/permission mutations were exercised.
 - Synchronous `HttpRequest` GET to a local server works with **Access networks** enabled; timers and callbacks work.
 - Script-library reads and writes and `saveAsPackage` with `PackageResourcesPolicy.IncludeImages` work for local files. Approval for local writes does not authorise `report_sdk_issue` or sharing hints externally, and local hints require the matching Affinity setting.
 
@@ -159,18 +215,39 @@ For punctuation-sensitive work:
 ## Lifecycle, documents and export
 
 - `Document.createFromOptions()` with `NewDocumentOptions` creates a new document, including one with multiple spreads; it does not add pages to an existing document. Read actual geometry after creation. Inserting pages into an existing document and multi-page stitching remain unverified.
-- The historical `ExportScale.createWithWidthHeight(600, 800)` case returned a `Square` scale with multiplier 600 and size 800, not a WidthHeight scale. Do not use that factory as a recipe; read `.size` for Width/Height/Square scales and do not interpret inactive `.width`/`.height` fields as dimensions. This relocated observation was not rerun on the Mac batch sample.
+- On **3.3.1.4940 MacOS, 2026-10-21**, the historical `ExportScale.createWithWidthHeight(600,800)` counterexample was reproduced: Square(3), size=800, multiplier=600, width=800, height=0. `createWithMultiplierSquare(2,600)` returned WidthHeight(4), size=2, multiplier=0 (width/height not recorded). Both fail the intended semantics; root cause is not established. Do not swap factory names as a workaround. Single-argument Width(600), Height(800), Square(600) and Multiplier(2) objects passed type/effective-field readback; use `.size` for Width/Height/Square, not inactive fields. No actual custom-scale export was tested.
 
-- On 3.3.0.4850 Win32, synchronous `Document.close()` closed modified, unsaved disposable samples, confirmed by re-enumeration. Async/promises close, business documents and save prompts remain unverified. Confirm authorization and the sample identity before closing; do not extrapolate this result to discarding user work.
+- On 3.3.0.4850 Win32, synchronous `Document.close()` closed modified, unsaved disposable samples, confirmed by re-enumeration. Async/promises close and business documents remain unverified on that Win32 sample. On **3.3.1.4940 MacOS, 2026-10-21**, `closeAsync(callback)` and `document.promises.close()` each directly closed a dirty unsaved sample without saving or a prompt interaction, discarding its unsaved content. Callback error and Promise result were `undefined`, and re-enumeration confirmed removal. Apply [the save/discard authorization and completion checks](scripting-pitfalls.md#async-close); the Mac success does not upgrade historical Windows close failures or establish recovery after close.
 
-- `save`, `saveAs`, `saveAsync`, `saveAsAsync` and the package variants write files and clear the save-state getters afterwards. `executeCommandAsync` completes callbacks.
-- Sync `Document.export` with PNG/CurrentSpread and async `exportAsync` with PNG/CurrentPage produce rendered images. Other scopes, presets and bleed behaviour are unverified. `exportMacro` writes the current macro.
+- Historical save/async-save/package and `executeCommandAsync` cases retain their original incomplete build metadata; they are not new test passes. The recorded `saveAs`/reopen and exports are bounded below. Historical async PNG/CurrentPage and `exportMacro` remain separate cases.
 - The **3.3.1.4940 MacOS** small-spread sample separately verified synchronous PNG/CurrentSpread export, `File.readAll(...).toString('base64')`, owned temporary-file cleanup and explicit host image handoff in the edit call. Apply the [single-call preview gates](scripting-pitfalls.md#single-call-preview); this does not extend the async, print or arbitrary-document cases.
 - `ExportConfig` appears only once a slice exists on the node (for example one created in the UI); `ExportableInterface` on its own can report a null config and no public factory was found. Change a size with `format.replaceSize(index, size)` and the format list with the append/replace/delete methods, write the format back through `config.replaceFormat`, and apply the config with `DocumentCommand.createSetExportConfig(selection, config)`. A fresh read can still return the old value until it is written back.
 - `DocumentProperties.create()` returns detached defaults, not a snapshot of the document—set only the fields you intend to change. Setting a single field through `setDocumentProperties` (for example units Millimetre → Inch) applies without changing DPI, view DPI or extents.
 - Sub-selection counts (such as CurveEdge or CurveNode ranges) are not visible-vertex counts. Repeated same-kind commands coalesce into fewer history entries, so check the actual history and refuse an ambiguous rollback rather than inferring undo counts from API calls.
 - Embedded documents: `EmbeddedDocumentNode` reads page and layer metadata, and the available page boxes are TrimBox, MinimumContent and MaximumContent—an unavailable MediaBox request does not change the value. `createSetEmbeddedDocumentSelectedSpreadID` and `createSetEmbeddedDocumentSelectedArtboardID` switch between valid enumerated IDs, and restoring the original ID restores the rendered output. Writing an empty `selectedArtboardId` returns `COMMAND_FAILED` even though an empty value represents the whole document; restore it with a checked single-step undo instead.
 - UI actions (creating a picture frame, preparing a sample for export, clicking a dialog) can produce state that the SDK then reads, but they are not evidence of an SDK entry point. Picture frame reads expose enabled/content, the anchor and the constraints (`calculateAnchor` → Centre, `calculateConstraints(..., ConstraintType.Default)` → ForceAspectMax), and `frameContents` is a raw `NodeHandle`—wrap it with `createTypedNode`. SDK dialogs stay live after an MCP timeout: a button click fires its callback once, OK returns result Ok, and the dialog's own result—not the transport timeout—tells you it finished.
+
+<a id="verified-file-and-export-workflow"></a>
+### Verified file/export/save workflow
+
+In the **2026-10-21 file sample** (environment recorded above), an explicitly authorized owned Desktop directory and a 640×480px/96 DPI white-background/three-black-rectangle spread passed these paths:
+
+| Path | Accepted result |
+| --- | --- |
+| File.create/writeStringAsUtf8/flush/close + File.readAll | 17-byte UTF-8 synthetic text roundtrip; synchronous `fs.copyFile(source,destination,CopyOptions.None)` was byte-identical |
+| Synchronous PNG, JPEG, SVG, PDF, WebP / CurrentSpread | Returned export records OK, correct paths and independently readable content/geometry |
+| `await doc.promises.export(path, options, area)` / PNG / CurrentSpread | Actual file and OK record after Promise completion; all 307,200 decoded pixels matched the synchronous PNG and expected geometry |
+| `doc.saveAs(path)` then close/reopen | Correct path and real file, dirty/needsSaving false; all four nodes, geometry, transforms, DPI and rendered output preserved |
+
+Resolve the requested output and authorization before writing. Use `app.userDesktopPath`, an owned directory/path, and reject collisions; do not test on or overwrite user files. Enumerate `FileExportOptions.allPresetNames` and choose the intended **actual** preset name. This sample used `PNG`, `JPEG (最佳质量)`, `SVG (用于导出)`, `PDF (用于导出)` and `WebP (无损，默认值)`; names depend on installation/language. `createWithPresetName('JPEG')` is not an established universal choice.
+
+Guard the document UUID and spread, then export with `FileExportArea.createForCurrentSpread()` from `/document.js`. The sync route is `doc.export(path, options, area)`; the async route is `await doc.promises.export(path, options, area)` inside a returned async IIFE, not top-level await. Keep options/area alive through completion and recheck the target before subsequent writes. Inspect every returned record in `records.all`: path, `isSuccess`/result, warning and error. Require the intended file to exist and decode it at the expected dimensions/area; metadata or Promise completion alone is insufficient. Respect [the separate Bleed checks](page-geometry.md#completion-evidence).
+
+PNG/WebP/async PNG each matched all 307,200 pixels. JPEG matched 214,500 interior pixels after an 8px edge-band exclusion. SVG retained the four rectangles and viewBox. PDF was one 480×360pt page; independent 96 DPI rendering matched the expected 640×480 geometry and 287,364 interior pixels after a 2px edge exclusion. Sync/async PNG file bytes differed only in iTXt metadata while decoded pixels and IDAT matched. Compare decoded pixels for visual equality, not whole-file hash equality. These checks do not cover text/fonts, photographs, transparency, complex effects, Bleed, other presets/areas/scales or multiple pages.
+
+Older hints saying all Mac async PNG exports fail with `NO_ENVIRONMENT` are contradicted by this sample. The separate `FileSystemPromises.copyFile` sample still failed with that error and no output. Record method/build/post-state separately; do not substitute a JPEG render for a requested PNG or retry failed writes without reading actual state.
+
+For saving, verify the intended path, real file/content and both save-state flags; `undefined` is not a success value. Reopen only a task-owned sample or when the user authorized that lifecycle operation; do not close/reopen user documents merely to check saving. If reopening is outside scope, report that content-persistence check as unverified. Delete only authorized owned temporary outputs after evidence is retained, and confirm cleanup without touching unrelated files. Async save, savePackage, existing-file overwrites and linked resources were not part of this sample.
 
 ## AI
 

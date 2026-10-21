@@ -2,6 +2,24 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## 2026-10-21
+
+### 0.5.4-dev.1
+
+#### Changed
+
+- Account for merged text when linking frames; stop treating unlinking as restoring their original separate text.
+- Resolve whether to save or discard unsaved changes before async document close.
+
+#### Added
+
+- Agent recipes for rectangle Boolean operations, RGBA8 pixels, PNG/JPEG/SVG/PDF/WebP export and native save/reopen.
+
+#### Fixed
+
+- Stop rejecting ordinary character insertion and async PNG export based on older SDK limitations.
+- Correct brush discovery to use PathBrush names and remove the invalid VectorBrush fallback.
+
 ## 2026-10-20
 
 ### 0.5.3

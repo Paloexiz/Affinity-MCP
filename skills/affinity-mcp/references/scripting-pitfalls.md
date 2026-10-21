@@ -92,11 +92,24 @@ For an uncertain submitted operation, compare actual text/runs, geometry, hierar
 
 ## Saving and state
 
-- **[SDK]** `Document.save()` and `Document.saveAs(path)` return `undefined`; there is no success value. A successful save leaves `isDirty` and `needsSaving` false—use those flags as the save check.
+- **[SDK]** `Document.save()` and `Document.saveAs(path)` return `undefined`; there is no success value. Verify the intended path, real readable file/content and both `isDirty`/`needsSaving` flags; flags alone are insufficient. The [owned saveAs/reopen sample](sdk-verified.md#verified-file-and-export-workflow) preserved its nodes/geometry/render, without establishing other save routes or permission to close/reopen user documents.
 - **[SDK]** An untitled document can have `isDirty === false` while `needsSaving === true`; a clean flag alone does not establish that the document has been saved.
 - **[SDK]** `isDirty` does not mean "content equals the saved file": undoing the whole history of an unsaved document leaves it true. Do not use it to prove the content state.
 
+<a id="async-close"></a>
+### Async close discards unsaved content
+
+**[SDK] 3.3.1.4940 MacOS, observed 2026-10-21:** `doc.closeAsync(callback)` and `doc.promises.close()` each directly closed a modified, never-saved disposable sample with `isDirty=true` and `needsSaving=true`. No save call or save-prompt interaction occurred: **unsaved content was discarded**. The callback received one `undefined` error argument; the Promise resolved to `undefined`. Both were followed by document enumeration confirming the target was gone. Previously reported `NOT_IMPLEMENTED` failures remain historical, not a current Mac result.
+
+1. Bind and guard the intended document UUID; inspect `isDirty` and `needsSaving`. Resolve whether the user wants to preserve or discard unsaved work before submitting close. Reuse explicit discard authorization for the named sample; a general close request does not authorize losing user work. If preservation is required, save only within the authorized path/scope and verify it first. Never rely on a GUI save prompt or on undo after close.
+2. Wait for the callback or Promise, handle its error, and re-enumerate to confirm target removal and preservation of unrelated documents. A returned `undefined` or an accepted request alone is insufficient. After a timeout or ambiguous result, inspect the inventory before any retry; do not replay a possibly completed close.
+
+The tested Promise script returned an async IIFE (`return (async () => { await doc.promises.close(); /* verify inventory */ })();`); top-level `await` was rejected by this execution context. This validates only the successful close path for the two never-saved samples, not existing saved files with pending edits, cancellation, failures, timeouts, reopening or application recovery. For text-flow restoration, verify [link/unlink undo](sdk-verified.md#linked-text-flow) while the document is still open.
+
 ## Visibility and export
+
+- **[SDK]** On **3.3.1.4940 MacOS, 2026-10-21**, five synchronous formats and `doc.promises.export` for PNG/CurrentSpread produced independently checked files. `FileSystemPromises.copyFile` still returned `NO_ENVIRONMENT`; that failure is not a blanket asynchronous limitation. Use [the exact preset/scope, completion, record and content checks](sdk-verified.md#verified-file-and-export-workflow). Export preset names are localized. Sync/async PNG can have identical decoded pixels but different metadata bytes; whole-file hashes are not visual oracles.
+- **[SDK]** PixelBuffer `.buffer` is a native ArrayBuffer in the tested render route: read bytes with `new Uint8Array(pixelBuffer.buffer)`, rather than assuming it has SDK Buffer `.array`. Compare enum `.value` to enum `.value` (or another documented common representation); a strict comparison of a numeric value to an enum object fails before the intended guard can pass.
 
 - **[SDK]** `isVisibleInExport` is read-only: assigning to it neither throws nor takes effect, and only a getter is exposed—no export-only hide entry point was found. Hide the node with `createSetVisibility` instead (switch the spread first if the node is outside it), then capture and restore the previous visibility in the same script, read it back after restoring, tell the user that the document was changed temporarily, and do not save while a node is hidden. Hide nodes only when the user asked to exclude them, and after a timeout or interruption restore visibility before anything is saved.
 

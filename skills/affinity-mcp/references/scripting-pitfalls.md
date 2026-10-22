@@ -95,6 +95,7 @@ For an uncertain submitted operation, compare actual text/runs, geometry, hierar
 - **[SDK]** `Document.save()` and `Document.saveAs(path)` return `undefined`; there is no success value. Verify the intended path, real readable file/content and both `isDirty`/`needsSaving` flags; flags alone are insufficient. The [owned saveAs/reopen sample](sdk-verified.md#verified-file-and-export-workflow) preserved its nodes/geometry/render, without establishing other save routes or permission to close/reopen user documents.
 - **[SDK]** An untitled document can have `isDirty === false` while `needsSaving === true`; a clean flag alone does not establish that the document has been saved.
 - **[SDK]** `isDirty` does not mean "content equals the saved file": undoing the whole history of an unsaved document leaves it true. Do not use it to prove the content state.
+- **[SDK]** The **2026-10-22** [extended file workflow](sdk-verified.md#extended-file-and-layout-workflow) separately checked async saveAs/save, overwriting an owned file and three-frame save/reopen. Async saveAsPackage preserved the live document path and existing dirty flags; package creation is not confirmation that the active file is saved. Its linked-image offline-fidelity counterexample requires checking originals and rendered pixels after relocation, rather than trusting a cache preview or resource metadata.
 
 <a id="async-close"></a>
 ### Async close discards unsaved content

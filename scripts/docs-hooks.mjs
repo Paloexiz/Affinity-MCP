@@ -64,6 +64,7 @@ const PRIVACY_RULES = [
   ['private-key', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bsk-[a-zA-Z0-9_-]{24,}\b/],
   ['email', /\b[A-Z0-9._%+-]+@(?!example\.(?:com|org|net)\b|[^\s@]+\.invalid\b)[A-Z0-9.-]+\.[A-Z]{2,}\b/i],
   ['phone', /(?:^|[^\d])(?:1[3-9]\d{9}|\+\d(?:[ -]?\d){10,14})(?!\d)/],
+  ['local-timezone', /\b(?:Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|US|Canada|Mexico|Brazil|Chile)\/[A-Za-z_+\-]+(?:\/[A-Za-z_+\-]+)*\b|\b(?:UTC|GMT)\s*[+\-−]\s*(?!0{1,2}(?::?00)?(?![\d:]))(?:[01]?\d|2[0-3])(?::?[0-5]\d)?(?![\d:])|\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?[+\-](?!00:?00\b)\d{2}:?\d{2}\b|北京时间|中国标准时间/i],
 ];
 
 function privateEvidenceReference(line) {

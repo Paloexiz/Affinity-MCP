@@ -2,6 +2,23 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## 2026-10-22
+
+### 0.5.4-dev.3
+
+#### Changed
+
+- Reject front-frame unlinking because a tested call cleared the whole Story; unlinking a middle frame leaves the full text upstream and empties the downstream chain.
+
+#### Added
+
+- Clone a PathBrush from an existing brushed curve, adjust its width, and reuse it on another curve; preparing a preset in the UI remains a separate step.
+- Add bounded recipes for three-frame flows across spreads, known-height frame reflow, multi-page/selected-page PDF and transparent text export, and asynchronous native save/overwrite/reopen.
+
+#### Fixed
+
+- Require explicit checks for mixed-format replacements, complete Bleed and packaged originals: successful calls can lose formatting, crop the output or render degraded image regions after reopening.
+
 ## 2026-10-21
 
 ### 0.5.4-dev.2

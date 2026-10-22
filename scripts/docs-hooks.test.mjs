@@ -123,6 +123,21 @@ test('privacy scans ignored docs, refuses private context, never echoes sensitiv
   assert.match(output,/docs\/private.md/);
 });
 
+test('privacy blocks local timezone disclosures without blocking dates or neutral UTC',t=>{
+  const root=fixture(t);
+  const samples=['Asia/Example_City','America/Example/City','UTC+03:30','UTC+00:30','GMT-0030','GMT-4','2026-01-01T12:34:56+02:30','2026-01-01 12:34-0230','北京时间'];
+  for(const sample of samples){
+    write(root,'docs/README.md',`# Context\nDO_NOT_INJECT_PRIVATE_DOCUMENT\n${sample}\n`);
+    assert.deepEqual(privacyFindings(root),[{file:'docs/README.md',line:3,rule:'local-timezone'}]);
+    const output=JSON.stringify(handleHook(root,input('SessionStart')));
+    assert.match(output,/隐私检查未通过/);
+    assert.ok(!output.includes(sample));
+    assert.ok(!output.includes('DO_NOT_INJECT_PRIVATE_DOCUMENT'));
+  }
+  write(root,'docs/README.md','# Public\n观察日期：2026-01-01。发布采用 UTC 日期。\n2026-01-01T12:34:56Z\nUTC+00:00\nGMT-0000\nUTC+0\n2026-01-01T12:34:56+00:00\n');
+  assert.deepEqual(privacyFindings(root),[]);
+});
+
 test('private file references are blocked across markup and bare paths without echoing them',t=>{
   const root=fixture(t);
   const samples=[

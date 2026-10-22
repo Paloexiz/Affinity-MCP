@@ -36,7 +36,7 @@ flowchart LR
 | [`skills/affinity-mcp/`](../skills/affinity-mcp/SKILL.md) | 操作入口、授权边界、样本与结果验收指导 | 不替代应用当前版本的运行证据 |
 | [`inspection-preview.mjs`](../skills/affinity-mcp/scripts/inspection-preview.mjs) | 使用已导出 PNG 和同次核验的几何生成独立 SVG 检查图，标出完整 Bleed、Trim 与启用的 Margin，以棋盘底显示原图透明区域；仅使用 Node 内置模块 | 不连接 Affinity、不写工程或修改代理；不是原生辅助线开关或自动印前验收，SVG 的本地图像渲染与宿主交付另行验证 |
 | `docs/` 中的公共技术文档与根目录 `AGENTS.md` | 架构、版本记录、脱敏技术摘要及维护约定 | 仅在开发分支维护，不进入生产安装树；不能引用被 Git 忽略的内容 |
-| `assets/sdk-evidence/` | 开发文档和检查图回归使用的公开合成图片、几何夹具 | 不属于运行依赖，不进入 `main` 或生产安装包 |
+| `assets/sdk-evidence/` | 开发文档和检查图回归使用的公开合成图片、几何夹具；包括三框接排、界面文字转换及资源包失真对照 | 不属于运行依赖，不进入 `main` 或生产安装包；真实 SDK 样本的适用范围见各证据页，不能由图片推导完整功能通过 |
 | 本地内部归档 | 原始问题、个人工作材料和实验原始输出 | 保持忽略，不作为 docs 的内容依赖或证据引用 |
 
 这是单上下文的小型仓库；文档按职责分开，代码仍是一个代理脚本。[领域约定](agents/domain.md)。

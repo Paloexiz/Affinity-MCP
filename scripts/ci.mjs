@@ -1,6 +1,6 @@
 import { readFileSync, appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { checkDelivery, checkCandidateDelivery, git } from "./check-delivery.mjs";
+import { checkDelivery, checkDevelopmentDate, checkCandidateDelivery, git } from "./check-delivery.mjs";
 import { parseVersion } from "./check-version.mjs";
 import { GitHub, id, hash } from "./release/github.mjs";
 
@@ -81,6 +81,7 @@ export function fetchInputs(root, identity, remote, token, { objects = [], contr
 
 export function deliveryType(previous, current, production) {
   for (const version of [previous, current, production]) parseVersion(version, typeof version === "string" && version.includes("-dev.") ? "development" : "stable");
+  if (current === previous && current.includes("-dev.")) return "development-date";
   if (current.includes("-dev.")) return !previous.includes("-dev.") && previous !== production ? "withdraw" : "development";
   return previous.includes("-dev.") ? "promote" : "date-revision";
 }
@@ -117,8 +118,10 @@ async function policy(root) {
   const stable = fetchInputs(root, identity, origin, env.GITHUB_TOKEN, { control: enabled, objects: enabled ? [sha(env.RELEASE_CONTROL_ROOT)] : [] });
   const version = commit => JSON.parse(git(root, ["show", `${commit}:.codex-plugin/plugin.json`], true)).version;
   const type = deliveryType(version(identity.base), version(identity.head), version(stable));
-  if (type !== "development" && !enabled) fail("Candidate transitions are disabled until platform activation is verified.");
-  const delivery = type === "development" ? checkDelivery(root, { ...identity, stable }) : await checkCandidateDelivery(root, { ...identity, stable, type }, new GitHub({ repository: env.GITHUB_REPOSITORY, repositoryId: id(Number(env.GITHUB_REPOSITORY_ID)), readToken: env.GITHUB_TOKEN }), env.RELEASE_CONTROL_ROOT);
+  if (!["development", "development-date"].includes(type) && !enabled) fail("Candidate transitions are disabled until platform activation is verified.");
+  const delivery = type === "development" ? checkDelivery(root, { ...identity, stable })
+    : type === "development-date" ? checkDevelopmentDate(root, { ...identity, stable })
+    : await checkCandidateDelivery(root, { ...identity, stable, type }, new GitHub({ repository: env.GITHUB_REPOSITORY, repositoryId: id(Number(env.GITHUB_REPOSITORY_ID)), readToken: env.GITHUB_TOKEN }), env.RELEASE_CONTROL_ROOT);
   report(delivery);
 }
 

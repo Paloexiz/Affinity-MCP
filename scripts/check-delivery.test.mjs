@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkDelivery, checkSkipInstructions, checkCandidateDelivery } from "./check-delivery.mjs";
+import { checkDelivery, checkDevelopmentDate, checkSkipInstructions, checkCandidateDelivery } from "./check-delivery.mjs";
 import { fixture as apiFixture } from "./release/fixtures/github.mjs";
 import { Control } from "./release/control.mjs";
 
@@ -76,6 +76,7 @@ test("zero/missing/non-ancestor bases and merged history fail", t => {
   git(f.root, "checkout", "-q", "-b", "branch", f.base); f.write("side.md", "side"); const side = f.commit();
   git(f.root, "checkout", "-q", "--detach", head); git(f.root, "merge", "--no-ff", "-qm", "merge", side);
   assert.throws(() => f.check(git(f.root, "rev-parse", "HEAD")), /linear/);
+  assert.throws(() => checkDevelopmentDate(f.root, { base: f.base, head: git(f.root, "rev-parse", "HEAD"), stable: f.stable }), /linear/);
 });
 
 test("unpublished stable candidates cannot reopen development in stage A", t => {
@@ -110,6 +111,53 @@ test("gate changes are exposed as an exact diff for human review", t => {
 
 const logPaths = ["CHANGELOG.md", "CHANGELOG.zh-cn.md"];
 const entry = (version, date, summary = "Synthetic change.") => "## " + date + "\n\n### " + version + "\n\n#### Changed\n\n- " + summary + "\n\n";
+function developmentDateFixture(t) {
+  const f = fixture(t), version = "0.5.4-dev.3", history = entry("0.5.3", "2026-10-19");
+  const setDate = date => { for (const path of logPaths) f.write(path, entry(version, date === "Unreleased" && path.endsWith("zh-cn.md") ? "未发布" : date) + history); };
+  setDate("Unreleased"); const base = f.commit("Delivered development awaiting date closure");
+  return { ...f, base, setDate, checkDate: (head, options = {}) => checkDevelopmentDate(f.root, { base, head, stable: f.stable, ...options }) };
+}
+
+test("development date closure preserves version and entry bytes, including an existing same-day group and CRLF", t => {
+  for (const [date, eol] of [["2026-10-20", "\n"], ["2026-10-19", "\r\n"]]) {
+    const f = developmentDateFixture(t);
+    if (eol === "\r\n") {
+      for (const path of logPaths) f.write(path, f.read(path).replaceAll("\n", eol));
+      f.base = f.commit("CRLF development log");
+    }
+    f.setDate(date);
+    for (const path of logPaths) f.write(path, f.read(path).replace(`\n\n## ${date}\n\n`, "\n\n").replaceAll("\n", eol));
+    const head = f.commit("Record the verified original delivery date");
+    const result = checkDevelopmentDate(f.root, { base: f.base, head, stable: f.stable });
+    assert.equal(result.type, "development-date"); assert.equal(result.version, "0.5.4-dev.3");
+    assert.throws(() => checkDelivery(f.root, { base: f.base, head, stable: f.stable }), /sequence/);
+    const cliResult = spawnSync(process.execPath, [cli, "--root", f.root, "--type", "development-date", "--base", f.base, "--head", head, "--stable", f.stable], { encoding: "utf8" });
+    assert.equal(cliResult.status, 0, cliResult.stderr); assert.equal(JSON.parse(cliResult.stdout).type, "development-date");
+  }
+});
+
+test("development date closure rejects ordinary maintenance, identity, prose, historical, language and mode changes", t => {
+  for (const scenario of ["file", "version", "body", "history", "one-language", "mode", "invalid-date", "order", "title", "commit"]) {
+    const f = developmentDateFixture(t); f.setDate(scenario === "invalid-date" ? "2026-02-30" : scenario === "order" ? "2026-10-18" : "2026-10-20");
+    if (scenario === "file") f.write("extra.md", "Unrelated maintenance");
+    if (scenario === "version") f.version("0.5.4-dev.4");
+    if (scenario === "one-language") f.write("CHANGELOG.zh-cn.md", git(f.root, "show", f.base + ":CHANGELOG.zh-cn.md") + "\n");
+    if (["body", "history"].includes(scenario)) for (const path of logPaths) f.write(path, f.read(path).replace(scenario === "body" ? "Synthetic change." : "2026-10-19", scenario === "body" ? "Changed summary." : "2026-10-18"));
+    let head;
+    if (scenario === "mode") { git(f.root, "add", "."); git(f.root, "update-index", "--chmod=+x", "CHANGELOG.md"); git(f.root, "commit", "-qm", "Mode change"); head = git(f.root, "rev-parse", "HEAD"); }
+    else head = f.commit(scenario === "commit" ? "Date [skip ci]" : "Forbidden date closure");
+    assert.throws(() => f.checkDate(head, scenario === "title" ? { title: "[skip ci]" } : {}), undefined, scenario);
+  }
+});
+
+test("development dates cannot be recorded twice or changed after closure", t => {
+  const f = developmentDateFixture(t); f.setDate("2026-10-20"); const dated = f.commit("First date closure");
+  f.setDate("2026-10-21"); const changed = f.commit("Attempt to rewrite the delivery date");
+  assert.throws(() => f.checkDate(changed, { base: dated }), /unchanged Unreleased/);
+  git(f.root, "commit", "--allow-empty", "-qm", "Repeat date closure"); const repeated = git(f.root, "rev-parse", "HEAD");
+  assert.throws(() => f.checkDate(repeated, { base: changed }), /both CHANGELOG/);
+});
+
 async function candidateFixture(t) {
   const f = fixture(t), remote = await apiFixture(t);
   const history = entry("0.5.4-dev.3", "2026-10-20") + entry("0.5.3", "2026-10-19");
@@ -160,6 +208,16 @@ test("same-core promotion binds exact event/main/control and permits only fixed 
     const candidate = execFileSync("git", ["commit-tree", tree, "-p", f.development, "-m", "Synthetic candidate"], { cwd: f.root, encoding: "utf8" }).trim();
     await assert.rejects(f.check("promote", f.development, candidate), /same core|fixed identity|forbidden|historical|date order/, scenario);
   }
+});
+
+test("promotion preserves development history after its date closure", async t => {
+  const f = await candidateFixture(t); git(f.root, "reset", "--hard", f.development);
+  f.set("0.5.4-dev.4", entry("0.5.4-dev.4", "Unreleased") + f.history); const delivered = f.commit("Development implementation");
+  const datedHistory = entry("0.5.4-dev.4", "2026-10-22") + f.history;
+  f.set("0.5.4-dev.4", datedHistory); const dated = f.commit("Date closure");
+  assert.equal(checkDevelopmentDate(f.root, { base: delivered, head: dated, stable: f.stable }).version, "0.5.4-dev.4");
+  f.set("0.5.4", entry("0.5.4", "2026-10-23") + datedHistory); const promoted = f.commit("Promotion after complete development delivery");
+  f.sync(dated); assert.equal((await f.check("promote", dated, promoted)).transition.development, dated);
 });
 
 test("retired candidate date revisions preserve byte-exact entries and historical ordering", async t => {

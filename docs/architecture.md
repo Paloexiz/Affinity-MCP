@@ -32,7 +32,7 @@ flowchart LR
 | [`skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) | stdin 解析、请求路由、SSE 连接、响应关联、错误转发 | 不校验目标文档、不回滚 SDK 操作、不保存操作结果 |
 | [`scripts/affinity-mcp-proxy.test.mjs`](../scripts/affinity-mcp-proxy.test.mjs) | 模拟服务上的进程边界和打包配置回归 | 不证明真实 SDK 操作有效 |
 | [`scripts/check-version.mjs`](../scripts/check-version.mjs) 与[回归](../scripts/check-version.test.mjs) | 显式渠道下的版本格式、现行声明同步及可选 Git 基准增量检查 | 不决定产品影响级别，不发布版本，不验证宿主缓存或安装渠道切换 |
-| [`scripts/check-delivery.mjs`](../scripts/check-delivery.mjs)、[CI 入口](../scripts/ci.mjs)与对应回归 | 检查普通批次、末提交声明及 skip；独立候选入口校验同 core 转正、严格日期差异、最近转正来源撤回和只读控制证据 | 不以 PR merge SHA 代替 head 历史；启用候选模式须有固定控制根及平台配置；检查本身不写生产 |
+| [`scripts/check-delivery.mjs`](../scripts/check-delivery.mjs)、[CI 入口](../scripts/ci.mjs)与对应回归 | 检查普通批次、末提交声明及 skip；独立开发日期检查只接纳双语当前条目原样移出未发布；候选入口校验同 core 转正、严格日期差异、最近转正来源撤回和只读控制证据 | 不以 PR merge SHA 代替 head 历史；开发日期仍须平台事件取证；启用候选模式须有固定控制根及平台配置；检查本身不写生产 |
 | [`scripts/check-links.mjs`](../scripts/check-links.mjs)、[回归](../scripts/check-links.test.mjs)及[生产文件清单](../scripts/release/production-files.json) | 核对仓库本地 Markdown/HTML 引用、锚点、忽略规则、生产允许文件来源与安装引用 | 不访问外部链接，不替代真实 ZIP/安装验收、任意 Markdown 解析或隐私语义审查 |
 | [CLI 的归档模式](../scripts/release.mjs)、[生产树与清单](../scripts/release/production.mjs)、[ZIP 配方](../scripts/release/archive.mjs)及[安装模拟](../scripts/release/install.mjs) | 从固定 Git blob/mode 生成三项可复现归档；闭环比较 source、ZIP、manifest、tree 与显式候选校验值，执行实际包内两配置模拟 | 归档模式不自动转正，不写远端或使用生产凭据；模拟不证明真实 SDK、市场安装或宿主加载 |
 | [发布控制协议](../scripts/release/control.mjs)、[针对性审批](../scripts/release/control-actions.mjs)、[GitHub 边界](../scripts/release/github.mjs)及[回归](../scripts/release/control.test.mjs) | 验证固定根下的完整数据历史、排他 owner、单个写入意图和永久候选撤销；批准后的 guard 与恢复只追加控制数据 | 不创建平台保护，不以任务取消或 token 到期代替请求终态；模块通过不代表平台启用 |
@@ -191,7 +191,7 @@ preamble 中声明为文本的内容块必须提供字符串 `text`；任一非�
 
 交付模块的 `checkCandidateDelivery` 只读调用此协议，显式接受转正、日期修订或撤回。复用普通交付的完整对象、单父历史、末提交版本声明和 skip 校验；Git 禁用 replacement refs，blob 文本按严格 UTF-8 读取且保留末尾空白。转正只掩码固定九处身份字段比较其余字节；日期修订核对完整树的文件/mode，并移除本版日志块后比较历史字节，块自身也必须原样保留；新增或移动的当前日期组须相对历史日期倒序，同日期使用同一组，不重新排序历史。撤回沿合法日期修订找到最近转正及直接开发父，按该父推导同 core 下一编号，再检查完整候选到撤回的区间和历史日志。记录 C/P/D/W/M、控制 tip 和退休记录，不接受外部传入的旧开发基准。
 
-候选判定前后读回当前 develop/main 和控制 tip，目标枚举复用 guard 的未交付检查；日期/撤回必须有准确 base 的永久 retired 记录，结果 head 若已 retired 则所有类型均拒绝，重跑原 push 不能恢复旧候选资格。owner 或未知意图存在就停止。历史日期修订的 base 同样须在退休集合中。返回的是该次检查的事实快照，不能取代 strict up-to-date、受保护分支、准确 push 重验或审批；调用者不能将旧成功结果用于新 base。具体治理边界见[候选修订规则](versioning.md#未正式交付候选的修订与撤回)。CI 按前后版本形态选择模式，再完整验证；不会在普通检查失败后尝试另一模式。特殊转换要求显式启用配置和固定控制根，普通 CLI 不提供任意回退开关。
+候选判定前后读回当前 develop/main 和控制 tip，目标枚举复用 guard 的未交付检查；日期/撤回必须有准确 base 的永久 retired 记录，结果 head 若已 retired 则所有类型均拒绝，重跑原 push 不能恢复旧候选资格。owner 或未知意图存在就停止。历史日期修订的 base 同样须在退休集合中。返回的是该次检查的事实快照，不能取代 strict up-to-date、受保护分支、准确 push 重验或审批；调用者不能将旧成功结果用于新 base。具体治理边界见[候选修订规则](versioning.md#未正式交付候选的修订与撤回)。CI 按前后版本形态选择模式，再完整验证；不会在普通检查失败后尝试另一模式。特殊转换要求显式启用配置和固定控制根，普通 CLI 不提供任意候选回退开关。同一 dev 身份另由 `checkDevelopmentDate` 检查仅限双语日志的日期收尾，复用完整对象、线性历史、skip、完整树/mode 和逐字节条目比较；不申请生产权限或沿用 stable 日期例外，真实日期仍由[平台交付事件](versioning.md#development-date-closure)证明。
 
 [控制协议](../scripts/release/control.mjs)使用独立固定的仓库 ID 和根提交，验证 `release-control` 从根到当前 tip 的完整单父历史。分支只含规范 UTF-8 的 `control.json`，逐类限制 schema、前驱、owner、意图及状态变化；永久撤销的 source 集合只增不减。读取上限为 10,000 条控制记录，扩大前需设计经审查的检查点。取得 owner 前须有完整操作所需容量：发布预留七项业务请求的意图/结果、claim、receipt 和 terminal 共 17 条，guard 预留 3 条。后续每项意图还须留出结果和 terminal，其他非终态追加保留终态槽；容量不足在写入前停止，不能先写入无法读回或无法结束的记录。该分支和记录不进入安装树。
 

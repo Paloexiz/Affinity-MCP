@@ -100,7 +100,7 @@ node scripts/docs-hooks.mjs check
 
 [CI 入口](../scripts/ci.mjs)核对事件和 checkout。PR 的 merge SHA 用于集成测试，merge 的两个父提交须等于事件 base/head；版本历史单独检查 head。策略 job 完整 checkout 后显式 fetch base/head 和 main，启用候选转换时另取得固定控制根及完整控制 ref；fork head 也须存在，全部所需对象缺失即失败，checker 不按需联网。身份、基准和 workflow/checker 变更写入日志与 job summary。模式先按版本形态确定，再完整检查普通批次、转正、日期修订或候选撤回，不在失败后降级尝试其它类型。候选转换只在 `RELEASE_ENABLED=true` 且有固定控制根时开放；配置必须在真实平台验收后启用，静态 stable 通过不能绕过这一要求。真实临时 Git 与本机 HTTP 回归不等于平台保护已生效。
 
-策略 job 还核对[本地链接与生产范围](../scripts/check-links.mjs)。启用前须由获授权的维护者关闭 merge/rebase，只保留 squash，并读回设置；develop 还须配置线性历史、最新分支和 required check 规则。GitHub 的[仓库 API](https://docs.github.com/en/rest/repos/repos#get-a-repository)要求 `contents:write` 才返回合并设置字段，因此普通只读 CI 不承担该项配置验收，也不因此增加写权限。PR 标题和提交消息中的 skip 标记均拒绝；最终 squash 消息仍可能被人工修改，完全跳过的运行无法自报缺席。发布前的准确 push 证据要求由后续发布流程承担，不能由手动运行替代。
+策略 job 还核对[本地链接与生产范围](../scripts/check-links.mjs)。同一 dev 身份先选择独立的 `development-date`，仅接受两份 CHANGELOG 当前条目从未发布原样移至有效日期；仍要求完整对象、线性历史和 skip 检查，不消费生产开关或凭据。它不能证明日期对应真实事件，维护者另按[开发日期收尾](versioning.md#development-date-closure)取证并独审。启用前须由获授权的维护者关闭 merge/rebase，只保留 squash，并读回设置；develop 还须配置线性历史、最新分支和 required check 规则。GitHub 的[仓库 API](https://docs.github.com/en/rest/repos/repos#get-a-repository)要求 `contents:write` 才返回合并设置字段，因此普通只读 CI 不承担该项配置验收，也不因此增加写权限。PR 标题和提交消息中的 skip 标记均拒绝；最终 squash 消息仍可能被人工修改，完全跳过的运行无法自报缺席。发布前的准确 push 证据要求由后续发布流程承担，不能由手动运行替代。
 
 汇总 job 的 `name` 字面值为 `Repository checks / required`，使用 `always()` 并明确要求 `test` 矩阵和 `policy` 全部 success；failure、cancelled、skipped、缺项均非零退出。汇总不 checkout 候选源码，不等待人工审批。设置 required check 时必须读回真实 check-run 名称与 GitHub Actions 来源，并通过真实 PR 验证失败阻止合并；配置文件和本地汇总测试不构成平台保护已生效的证据。
 

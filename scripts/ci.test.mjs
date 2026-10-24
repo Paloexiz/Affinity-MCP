@@ -27,6 +27,7 @@ test("dispatch modes reject missing, cross-mode, malformed and unbound control i
 test("delivery type is chosen from version shapes before validation, never by retrying an ordinary failure", () => {
   for (const [previous, current, production, expected] of [
     ["0.5.4-dev.3", "0.5.4-dev.4", "0.5.3", "development"],
+    ["0.5.4-dev.3", "0.5.4-dev.3", "0.5.3", "development-date"],
     ["0.5.4", "0.5.5-dev.1", "0.5.4", "development"],
     ["0.5.4-dev.3", "0.5.4", "0.5.3", "promote"],
     ["0.5.4", "0.5.4", "0.5.3", "date-revision"],

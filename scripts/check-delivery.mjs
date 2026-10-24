@@ -132,6 +132,17 @@ function withoutEntry(text, version) {
   if (!selected) fail("Missing grouped candidate CHANGELOG entry.");
   return { ...selected, rest };
 }
+export function checkDevelopmentDate(root, options = {}) {
+  const { previous, result, readAt } = inspectDelivery(root, options);
+  parseVersion(previous, "development");
+  if (previous !== result.version) fail("Development date closure must retain the exact development version.");
+  if (restrictedFiles(root, options.base, options.head, logs).length !== 2) fail("Development date closure must change both CHANGELOG files only.");
+  for (const path of logs) {
+    const a = withoutEntry(readAt(options.base)(path), previous), b = withoutEntry(readAt(options.head)(path), previous);
+    if (!["Unreleased", "未发布"].includes(a.date) || !validDate(b.date) || !b.ordered || a.block !== b.block || a.rest !== b.rest) fail("Development date closure must move only the unchanged Unreleased entry to a valid date and preserve history.");
+  }
+  return { type: "development-date", ...result };
+}
 function promotion(root, base, head, stable) {
   const inspected = inspectDelivery(root, { base, head, stable });
   const { previous, production, result, readAt } = inspected;
@@ -225,7 +236,8 @@ export async function checkCandidateDelivery(root, options, api, controlRoot) {
 
 if (import.meta.main) {
   try {
-    const { values } = parseArgs({ options: Object.fromEntries(["root", "base", "head", "stable", "title"].map(key => [key, { type: "string" }])), strict: true, allowPositionals: false });
-    console.log(JSON.stringify(checkDelivery(values.root ?? process.cwd(), values), null, 2));
+    const { values } = parseArgs({ options: Object.fromEntries(["root", "base", "head", "stable", "title", "type"].map(key => [key, { type: "string" }])), strict: true, allowPositionals: false });
+    const check = values.type === "development-date" ? checkDevelopmentDate : checkDelivery;
+    console.log(JSON.stringify(check(values.root ?? process.cwd(), values), null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

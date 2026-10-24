@@ -1,0 +1,35 @@
+{
+  "source_sha": "1111111111111111111111111111111111111111",
+  "production_base_sha": "2222222222222222222222222222222222222222",
+  "version": "0.5.4",
+  "release_date": "2026-10-24",
+  "production_tree_sha": "3333333333333333333333333333333333333333",
+  "recipe_version": "1",
+  "recipe_tool_sha": "4444444444444444444444444444444444444444",
+  "manifest_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "archive_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+  "ci": {
+    "repository_id": 123,
+    "workflow_id": 10,
+    "workflow_path": ".github/workflows/docs-hooks.yml",
+    "workflow_sha": "1111111111111111111111111111111111111111",
+    "ref": "refs/heads/develop",
+    "head_branch": "develop",
+    "head_sha": "1111111111111111111111111111111111111111",
+    "event": "push",
+    "run_id": 101,
+    "run_attempt": 1,
+    "job_id": 6,
+    "check_id": 1006,
+    "check_name": "Repository checks / required",
+    "check_app_id": 15368,
+    "completed_at": "2026-10-24T00:00:00Z",
+    "check_set_version": "1",
+    "ref_evidence": {
+      "run_id": 101,
+      "run_attempt": 1,
+      "artifact_id": 201,
+      "artifact_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+    }
+  }
+}

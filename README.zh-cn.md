@@ -161,6 +161,14 @@ claude plugin update affinity-mcp@affinity-mcp
 
 </details>
 
+### 下载发布归档
+
+对于提供归档的正式版本，从同一个 [GitHub Release](https://github.com/Paloexiz/Affinity-MCP/releases) 下载三项附件：`affinity-mcp-<version>.zip`、`release-manifest.json` 和 `SHA256SUMS`。旧版本可能没有这些附件。应选择上述命名的 ZIP 附件；GitHub 自动提供的 **Source code** 压缩包是另一种文件。
+
+在下载目录中，Linux 执行 `sha256sum -c SHA256SUMS`，macOS 执行 `shasum -a 256 -c SHA256SUMS`。Windows PowerShell 对 ZIP 和 manifest 两个文件分别使用 `Get-FileHash -Algorithm SHA256`，将结果与 `SHA256SUMS` 中各自对应的行比较。两项都必须一致。
+
+这些归档用于下载与内容核对，安装、更新仍使用上文的插件市场，不支持手动 ZIP 安装。校验值只能发现字节差异，单独不能证明发布者身份、客户端加载、缓存刷新或真实 Affinity SDK 操作成功。manifest 标明源提交、生产树及验证范围；实际模拟测试结果单独记录，不写入可复现归档。
+
 <a id="检查真实安装连接"></a>
 <details>
 <summary>高级：本地连接冒烟测试</summary>

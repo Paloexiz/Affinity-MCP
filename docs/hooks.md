@@ -94,12 +94,32 @@ node scripts/docs-hooks.mjs check
 
 直接 CLI 另验证正常检查的 JSON 输出、隐私发现及未知 mode 的非零退出；Windows 同时使用普通和 namespaced 入口路径。模块导入只输出测试 sentinel，不读取 hook stdin 或生成状态，原有 PowerShell/POSIX 启动器回归继续保留。[测试实现](../scripts/docs-hooks.test.mjs)。
 
-[三平台回归配置](../.github/workflows/docs-hooks.yml)在 `develop` 推送或目标为 `develop` 的 PR 中，相关文档、版本清单、中英文 CHANGELOG（`CHANGELOG*.md`）、忽略规则、hooks、版本检查器、代理测试或两个 Skill 运行脚本发生变化时触发；分支和路径过滤须同时满足。[GitHub 触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)将 PR 的分支过滤应用于目标分支。生产 `main` 不包含维护 workflow，开发检查由 `develop` 的 push/PR 承担。
+[仓库 CI](../.github/workflows/docs-hooks.yml)在每次 develop push、目标为 develop 的 PR opened/synchronize/reopened/edited/ready_for_review 时执行，不使用路径过滤。PR 改目标或从草稿转为就绪也重新检查。默认及普通 CI 只有 `contents: read`；发布准备、安装和控制摘要局部增加 `actions: read`，需要核对 check 的发布摘要及执行任务另有 `checks: read`。checkout 不持久化凭据，三个官方 Actions 固定完整提交 SHA。PR 和普通 CI 不引用生产 Environment、发布密钥或生产写入步骤。
 
-配置保留 `workflow_dispatch`，但[手动触发](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow?tool=cli)有默认分支存在 workflow 的前提；`--ref develop` 只选择运行分支，不承诺绕过该前提。每个平台先检查实际仓库 `docs/` 的隐私，再运行合成夹具回归：Windows 实际启动 PowerShell，macOS/Linux 实际启动 `/bin/sh`，均覆盖中文/空格路径、子目录启动和纯 JSON 输出。测试临时目录先解析真实路径，兼容 macOS 的临时目录符号链接。配置使用 GitHub 官方的 [checkout](https://github.com/actions/checkout)、[setup-node](https://github.com/actions/setup-node) 与 [runner 矩阵](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)；只申请仓库读取权限，本机忽略资料不进入 CI。
+三平台固定 Node `24.22.1`，Linux 另以 `24.20.0` 检查最低版本兼容；矩阵不因一个平台失败取消其余平台，单 job 超时 15 分钟。各环境记录 Node、Git、runner 镜像身份、事件/workflow/实际 checkout SHA、run 与 attempt。Git 必须为 2.45+。运行静态版本/隐私检查及代理、版本、hooks、inspection-preview 四套原有回归，并加入交付历史、链接、CI 事件/汇总、生产 ZIP/manifest/实际包内模拟，以及[持久控制协议回归](../scripts/release/control.test.mjs)。控制回归只使用真实临时 Git 与本机 HTTP 模拟 API，不访问 GitHub；代理和包内回归只连接本地模拟服务，不访问真实 Affinity。归档回归使用合成正式候选，不能替代具体发布候选同一 ZIP 的三平台验收。Windows hooks 夹具实际启动 PowerShell，macOS/Linux 启动 `/bin/sh`；最低 Node 的 Linux 结果不能替代另外两平台最低版本验收。
 
-同一 workflow 读取清单版本格式，向版本检查函数显式传入 `development` 或 `stable`，支持日常开发快照与 `develop` 转正后的正式快照，并运行校验器回归；不依赖 checkout 分支名，也不自动取得生产基准。正式格式检查会核对开发树现行文档身份，生产树可以整体省略 `docs/`。静态模式不调用 Git；版本增量及其回归要求 Git 2.45+，以 `--no-lazy-fetch` 禁止部分克隆按需下载缺失对象，缺对象或旧 Git 不支持该选项时明确失败。回归只在临时仓库通过本地 `file://` 克隆验证这个边界。正式交付先在 `develop` 转正、检查、审查、提交并推送，再同步 `main`，具体顺序见[版本与交付流程](versioning.md#changelog-与正式交付)。交付前的增量核验使用维护者已确认的 Git 提交单独运行。这些命令不改变 hooks 生命周期、信任或启用状态。
+[CI 入口](../scripts/ci.mjs)核对事件和 checkout。PR 的 merge SHA 用于集成测试，merge 的两个父提交须等于事件 base/head；版本历史单独检查 head。策略 job 完整 checkout 后显式 fetch base/head 和 main，启用候选转换时另取得固定控制根及完整控制 ref；fork head 也须存在，全部所需对象缺失即失败，checker 不按需联网。身份、基准和 workflow/checker 变更写入日志与 job summary。模式先按版本形态确定，再完整检查普通批次、转正、日期修订或候选撤回，不在失败后降级尝试其它类型。候选转换只在 `RELEASE_ENABLED=true` 且有固定控制根时开放；配置必须在真实平台验收后启用，静态 stable 通过不能绕过这一要求。真实临时 Git 与本机 HTTP 回归不等于平台保护已生效。
 
-同一 workflow 也在检查图工具、其无依赖测试或公开海报 PNG/几何夹具（含透明负例）变化时触发，并运行 `node --test scripts/inspection-preview.test.mjs`。该回归检查本地 SVG 生成的几何、文件绑定、透明源图保留与拒绝覆盖边界，不调用 Affinity、不依赖 SVG 渲染库，也不证明三个平台的实际视觉输出。
+策略 job 还核对[本地链接与生产范围](../scripts/check-links.mjs)。启用前须由获授权的维护者关闭 merge/rebase，只保留 squash，并读回设置；develop 还须配置线性历史、最新分支和 required check 规则。GitHub 的[仓库 API](https://docs.github.com/en/rest/repos/repos#get-a-repository)要求 `contents:write` 才返回合并设置字段，因此普通只读 CI 不承担该项配置验收，也不因此增加写权限。PR 标题和提交消息中的 skip 标记均拒绝；最终 squash 消息仍可能被人工修改，完全跳过的运行无法自报缺席。发布前的准确 push 证据要求由后续发布流程承担，不能由手动运行替代。
 
-各平台的通过结论必须来自对应环境的实际运行结果，CI 配置存在不代表测试已通过。启用后还需观察真实生命周期是否触发；手动模拟和 hook 信任状态都不能替代此项检查。本机执行结果与启用记录按[维护规则](maintaining.md)仅在本机保存。
+汇总 job 的 `name` 字面值为 `Repository checks / required`，使用 `always()` 并明确要求 `test` 矩阵和 `policy` 全部 success；failure、cancelled、skipped、缺项均非零退出。汇总不 checkout 候选源码，不等待人工审批。设置 required check 时必须读回真实 check-run 名称与 GitHub Actions 来源，并通过真实 PR 验证失败阻止合并；配置文件和本地汇总测试不构成平台保护已生效的证据。
+
+普通测试列表另包含[发布证据与正常交付回归](../scripts/release/publication.test.mjs)：仅本机 HTTP 和临时 Git，验证准确原 push attempt/ref 制品、只读保护预检、审批交接身份、receipt/生产提交绑定以及 main/tag/draft/附件/公开的顺序与故障停止。App 测试仅用临时合成 RSA 密钥及假 token；不读取生产凭据，不访问真实 GitHub。push 的策略任务生成规范 `push-ref.json`，准确 artifact ID/digest 传给发布准备；准备只等待必需 CI 汇总，不等待整个包含审批的 run 完成。编排存在不能证明已启用或通过真实平台验收。
+
+[补缺恢复回归](../scripts/release/recovery.test.mjs)同样只运行本机 HTTP/Git：在 main、tag、草稿、部分附件等状态重新读取，只补缺项；同时验证原 CI 可用性、准确 P/receipt 与新验证/审查身份、冲突和未知停止。只读报告另覆盖 tag/Release/附件及最终控制重读失败，保留先前目标和部分附件的观察，明确冲突并断言零新写入。它使用合成 job/check/artifact 记录检查交接契约，不能冒充真实旧源码的三平台重验。无凭据恢复检查、同一 ZIP 安装 jobs、production 批准和实际恢复入口仍由后续编排与平台验收负责。
+
+`workflow_dispatch` 的 `ci` 模式用于只读重验，必须选择 develop 并提供准确前一开发提交 `base_sha`；其余为 `publish`、`recover`、`retire-candidate` 和 `control-recover`，各自严格限定必需及禁止字段，并要求预期工具 SHA 和唯一入口标识。手动 CI 不冒充准确 push 证据。发布/控制 dispatch 的普通 CI 任务被有意跳过，普通 required 因依赖未成功而失败；这些模式通过自己的准确证据及针对性审批前进，不消费这一失败的普通汇总。guard 不依赖安装包或被它阻塞的 PR。入口及输入表见[版本说明](versioning.md#受控工作流入口)。
+
+准备步骤只在 push 模式解析本次 policy 输出的 ref 制品。手动首次发布从显式输入取得原 push 的准确证据，恢复按既有 receipt 判定，不解析被跳过任务的空输出。首次发布在准备阶段即要求 source 仍为 develop tip，摘要和写入前继续重验；已交付恢复允许旧 source。准备后，三个独立安装任务按同一个 artifact ID/digest 下载，实际验证 ZIP 和独立生产树，再各自上传安装回执；不依赖矩阵的同名 output。恢复的四个测试任务另 checkout 输入的旧 C，当前受审工具检查准确 HEAD 并枚举旧源码的全部适用测试，先执行版本、隐私和链接检查，再执行所有根 scripts 下的测试及独立代理回归。执行旧代码的子进程剔除 Actions 运行凭据、读 token 和发布环境变量；任务本身没有生产密钥。恢复策略沿原生产父检查历史及持久绑定，独立汇总要求测试和策略全部成功；完成后才生成新验证附件。
+
+发布摘要保存同运行 handoff/digest、独审记录、完整生产差异及双语 CHANGELOG；control 摘要仅保存具体撤销/恢复事实、工具审查和永久后果。三个写入任务只在摘要成功后引用预建 `production`，共享固定 job concurrency group、`queue: max`、`cancel-in-progress: false`；普通 CI 不占组。批准后固定 checkout 本次 workflow/tool SHA，发布私钥只提供给执行步骤，旧 source 不决定持钥代码。实际批准核对通过后，先保存绑定交接 digest 的批准记录，再申请 App token；保存失败即停止。执行成功或捕获后续失败时，结果保留本进程已取得的批准记录，不能从旧文件继承批准。runner 消失或强制取消可能使尾部审计上传缺失，不能据此推断没有写入，应查持久控制历史。
+
+原 ref、包、安装回执、恢复验证及审计制品设置 30 天保留；仓库/组织上限和真实过期状态须另核对。审计附件与可复现三项发布附件分离。维护者应在期限前导出准确 run/attempt 的审查、摘要、批准和结果；仅有 digest 不能重建原报告。job output 超过固定大小限制会停止，不截断交接。队列语义依据[GitHub 官方说明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)；静态工具未识别新字段时应单独核对具体差异，不能忽略其它诊断或声称平台调度已验证。
+
+[链接检查器](../scripts/check-links.mjs)覆盖当前仓库的 Markdown 内联/引用式链接、HTML href/src、标题和显式锚点、URL 编码路径与 Git 忽略规则，拒绝缺失、越界及符号链接。注释和代码示例不提供真实锚点或生产清单，公开允许清单章节必须唯一。行内代码只支持同一行内等长反引号配对；未配对或跨行写法明确失败，应改用围栏代码块，不能让跨段匹配吞掉后续链接。静态检查与归档生成共用生产清单结构、来源和转换校验，拒绝多余字段或错误的 README 转换；机器清单和公开允许清单须集合一致，安装清单的路径与随包文档引用须落入允许集合；仅根 README 的 `docs/versioning.md` 链接可等待规定的生产转换。生产忽略模板另由必需测试核对期望字节和实际 Git 忽略语义：允许清单内文件及环境示例须保留，环境配置和运行残留须忽略；模板变化需同步审查期望夹具。它不访问外部 URL，不解析任意 Markdown 扩展或 JavaScript 动态路径，也不替代真正生产 ZIP 的解包/安装验收。隐私检查与人工语义复核继续分别执行。
+
+正常发布与恢复的证据核对还要求三份独立安装回执：每份绑定准确 job、执行身份、实际消费的 artifact ID/传输 digest 以及 ZIP/manifest/tree。离线负例覆盖绿色 jobs 搭配另一份包、相同包重新上传为另一个 artifact、回执缺失及身份替换，不能只凭成功任务名称通过。正常发布与恢复另在公开意图已经持久化后模拟附件被移除，检查草稿保持未公开且没有发送公开请求；这验证最终检查的执行顺序，不模拟平台原子发布。回执的真实生成与传递须在后续 workflow 编排中验收。
+
+历史 CI 回归另将可读汇总 job/check ID 的矛盾与 check 404/410 组合，要求身份冲突先失败；身份相符而 check 真正不可取得的对照仍保留重验分类。它只验证读取和判定顺序，不把合成记录当作平台删除原因。
+
+各平台的通过结论必须来自对应环境的真实结果。本地测试、YAML、hook 信任状态和规则存在都不能替代 GitHub 事件触发、required check 或宿主生命周期验收；本机结果与启用记录按[维护规则](maintaining.md)仅保存在本地。

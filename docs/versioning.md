@@ -42,7 +42,7 @@
 
 所有文档、源码和发布范围修改先在 `develop` 完成。生产候选只从已核对的开发提交提取允许文件，并保留规定的生产 README 链接适配及 Git 规则；不在 `main` 编写开发文档或另行修正功能。
 
-当前中英文 README 指向 `docs/versioning.md` 的相对链接，在生产副本中替换为指向本次已核对开发提交中同一文件的 HTTPS 固定链接；`develop` 保留原相对链接。不能为了保留相对链接而把 `docs/` 复制进生产树。
+当前中英文 README 指向 `docs/versioning.md` 的相对链接，在生产副本中替换为指向本次已核对开发提交中同一文件的 HTTPS 固定链接；`develop` 保留原相对链接。不能为了保留相对链接而把 `docs/` 复制进生产树。机器清单见 [production-files.json](../scripts/release/production-files.json)，生产忽略规则使用[独立模板](../scripts/release/production.gitignore)。[链接检查器](../scripts/check-links.mjs)对照本表核对集合、来源及安装引用；它不生成生产包，也不证明现有 main 已符合此清单。
 
 同步验收须同时满足：
 
@@ -51,6 +51,25 @@
 3. 在仅含允许文件的生产候选上，核对清单、运行资源、用户文档和 Skill/references 的全部本地引用均能解析；不得依赖 `docs/`、测试夹具或开发 checkout 才能安装、阅读或运行。安装副本也按同一清单核对。
 4. tag、GitHub Release 及其附件只能绑定通过上述验收的生产提交；开发分支完整源码压缩包不充当生产安装包。记录允许清单不表示已有远端生产树已完成清理。
 
+## 发布归档的生成与核对
+
+[发布 CLI](../scripts/release.mjs)的 `prepare`、`verify`、`verify-install` 只做本地准备、验证与安装模拟；控制模式另见[控制记录与恢复](architecture.md#发布控制记录与故障恢复)，实际平台配置与生产启用须单独完成验收。安装和更新仍从 main 的 marketplace 进行，ZIP 不构成新的安装渠道；用户下载方法见[中文 README](../README.zh-cn.md#下载发布归档)。生成前须取得并确认 source、原生产 base 的完整 Git 对象，候选必须为通过静态检查的正式格式，且相对 base 是下一正式目标。工具不转换工作树版本，也不代表已获正式发布授权。
+
+```shell
+node scripts/release.mjs prepare --source-sha <source-commit> --base-sha <production-base> --output-dir <new-output-directory>
+node scripts/release.mjs verify --source-sha <source-commit> --base-sha <production-base> --bundle-dir <bundle-directory> --tree-sha <expected-tree> --archive-sha256 <expected-zip-hash> --manifest-sha256 <expected-manifest-hash>
+node scripts/release.mjs verify-install --source-sha <source-commit> --base-sha <production-base> --bundle-dir <bundle-directory> --tree-sha <expected-tree> --archive-sha256 <expected-zip-hash> --manifest-sha256 <expected-manifest-hash>
+node --test scripts/release/archive.test.mjs scripts/release/production.test.mjs
+```
+
+可用 `--root` 指定包含已确认 Git 对象的仓库。输出目录的父目录须存在，目标目录必须尚不存在；不覆盖旧附件。prepare 输出候选身份、三个校验值及生产文件差异；后两命令的期望值来自独立保存的 prepare 结果或已批准交接，不能从待验证附件中抄取后当作批准依据。verify-install 执行包内代码，只能在无生产凭据的验证阶段运行。
+
+配方 v1 固定为 28 个允许文件、Git mode `100644`、UTF-8 路径字节序、无压缩 ZIP STORE、DOS 时间 1980-01-01 00:00:00，不写目录项、注释或 extra fields。输入使用 Git blob 原始字节，不转换换行；拒绝 symlink/submodule、非可移植路径、重复/大小写或文件目录冲突及 ZIP64。README 只转换指定 versioning 链接；历史 Validation 删除仅匹配已知旧提交和对应输入 hash，不能据标题删除当前合法段落。CHANGELOG 与 `.gitattributes` 原样复制，`.gitignore` 来自生产模板。实现采用 [Node 内建 CRC32](https://nodejs.org/docs/latest-v24.x/api/zlib.html#zlibcrc32data-value)和 [ZIP 官方格式](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT)，身份核对使用 SHA-256。
+
+附件恰为 `affinity-mcp-<version>.zip`、`release-manifest.json`、`SHA256SUMS`。schema v1 的 manifest 以 UTF-8 无 BOM、两空格缩进、LF 和一个末尾 LF 序列化；字段依次为 schema_version、recipe_version、version、release_date、source_sha、production_base_sha、production_tree_sha、tag、files、archive、verification_scope。schema_version 为整数，recipe_version 为字符串；files 按 UTF-8 路径排序，逐项保存 path、六位 mode 和小写 SHA-256。SHA256SUMS 只含 ZIP、manifest 两行，按文件名字节序排序，每行为 hash、两个空格、文件名与 LF。清单不包含自身 hash、生产 commit、CI/审批记录、时钟或本机路径。
+
+校验从固定 source 重建，并比较三项附件的精确字节，重新解析 ZIP 和计算 Git tree，核对显式候选校验值。三项附件互相匹配仍不足以证明来自正确 source。安装模拟分别检验 ZIP 与生成的 main 树，结果记录真实运行环境；不声明真实 SDK、客户端或市场验收通过。配方到已审工具提交和精确 Node 版本的受保护映射、生产 commit/审批/恢复绑定属于发布协议，当前本地命令不创建这些远端状态。
+
 ## 每批修改怎样编号
 
 1. 开始一批开发交付前，确认上一开发交付和当前正式基准的提交及版本；不能仅凭本地分支名称或缓存的远端引用推断它们是最新状态。
@@ -58,6 +77,8 @@
 3. 同一目标在上一开发交付基础上递增 `N`；累计产品影响需要更高目标时选择新 core，并从 `dev.1` 开始。不得倒退目标或借纯维护变化消耗正式 PATCH。
 4. 在 `CHANGELOG.md` 的 `Unreleased` 和 `CHANGELOG.zh-cn.md` 的“未发布”分组中，同步用三级版本标题记录当前候选及本批用户可见变化，版本与清单一致；没有用户可见变化时按下文标注，不用内部维护活动凑条目。开发批次交付后同时归入实际 UTC 日期；没有待交付候选时，清单对应日期分组中的已交付版本，不在未发布分组重复记录。正式交付时汇总同一目标的累计产品变化。写入版本不是提交、推送或发布凭据。
 5. 候选工作树完成适用检查与独立审查后，再按用户授权组织提交。各次提交按职责组织，版本号及所有现行版本声明统一放在本批最后一个 commit 中，并核对最终提交与已审内容一致。后续仍属于本批的修正不增加编号，但须重新检查、审查和整理，保证这些变更仍仅出现在最后一个 commit 中。提交与推送仍服从用户授权。
+
+启用批次 CI 时，仓库须只允许 squash 合并，develop 使用线性历史和最新分支检查；PR 分支通过 rebase 更新。每批一个 PR、一次 dev.N，合并后的 squash 提交再次运行 push CI。PR 标题、区间内每条提交消息不得含 GitHub 的 skip 指令；合并时仍须核对人工编辑的最终消息。完全跳过的运行不能自行报告缺席，不能把旧绿灯或手动运行当作该次 push 的成功证据。
 
 历史源码按明确授权从 `0.1.0` 重编号：初始源码为 `0.1.0`，新增可配置超时及结构化诊断为 `0.2.0`，新增安装连接检查 CLI 为 `0.3.0`；运行脚本随 Skill 打包的迁移目标为 `0.4.0-dev.1`，对应正式源码身份为 `0.4.0`。内容提交保留前一版本，批次末尾统一更新身份；初始源码是单一 bootstrap 提交。历史日期沿用对应旧编号首次可确认的实际交付日，不用本次重编号时间或作者日期代填；缺少证据的节点、版本号、日期和标签不补造。详见[更新日志](../CHANGELOG.md)。
 
@@ -102,7 +123,38 @@ node scripts/check-version.mjs --channel stable --from <confirmed-production-com
 
 同步 `main` 时，从开发 checkout 的检查器显式指定 `--root <production-tree>`，使用 `--channel stable --from <previous-production-commit>`；被检查的 Git 仓库需含基准对象。正式候选要求三清单、两个代理声明及与稳定版本匹配、日期有效的本版 CHANGELOG 条目；开发树转正时还核对现行文档身份，生产树可以不包含 `docs/`，但存在该目录时须具备完整且一致的身份声明。移除当前未发布的开发版本标题；没有待交付内容时省略“未发布”分组。为只读核验已发布的旧树，检查器仍接受历史空分组、旧式 `[Unreleased]` 和版本日期合并标题；新日志统一使用日期分组。检查器只验证元数据，不查询或确认真实发布日期、远端发布状态或目标可见性。
 
-[CI](../.github/workflows/docs-hooks.yml)根据清单声明的格式，向同一检查函数显式传入 `development` 或 `stable`，分别覆盖日常开发快照和转正快照；不依赖 checkout 分支名，只运行格式、一致性和校验器回归，不把浅克隆中无法确认的历史当作增量检查通过。交付前另跑带基准的检查，避免把静态通过当作防跳号证明。
+[CI](../.github/workflows/docs-hooks.yml)的静态检查按清单格式选择渠道，独立的[交付检查](../scripts/check-delivery.mjs)验证事件及历史；实际平台配置与生产启用须单独验收。PR 历史使用事件 `base.sha..head.sha`，集成回归使用该事件的 merge SHA；push 使用 `before..GITHUB_SHA`。CI 显式取得并固定 main SHA，检查完整对象、祖先关系、线性历史及最后提交的全部现行声明。普通文件编辑不算版本修改；中途改版又回退、漏同步、未升版、跳号或缺对象均失败。版本解析和递增仍复用原检查器，检查阶段不隐式 fetch。源码、workflow 和工具身份及门禁差异写入运行日志与 job summary，人工审查仍须防止 PR 自行弱化门禁。
+
+可在含完整对象的临时仓库中，对已形成提交的候选运行以下只读检查；未提交工作区仍使用上面的静态/增量命令，不能冒充提交历史检查：
+
+```shell
+node scripts/check-delivery.mjs --base <previous-development-commit> --head <candidate-commit> --stable <confirmed-production-commit>
+node scripts/check-links.mjs
+```
+
+交付模块提供 `checkCandidateDelivery`，显式区分 `promote`、`date-revision`、`withdraw`，读取固定控制根的真实历史和正式目标状态；调用者不能用布尔值或本地成功记录代替证据。CI 先按前后版本形态选定模式，失败时不回退到其它模式。特殊转换须有固定 `RELEASE_CONTROL_ROOT` 且 `RELEASE_ENABLED=true`，该配置只在平台验收后启用；检查本身不使用生产凭据或写入。静态 stable 通过不能绕过候选协议。手动只读 CI 必须提供 `base_sha` 且选择 develop；入口和输入见下文。
+
+## 受控工作流入口
+
+生产配置默认关闭。获授权维护者先完成目标仓库的规则、Environment、App、控制根和实际恢复入口验收，再设置 repository variables：`RELEASE_ENABLED=true`、固定根 `RELEASE_CONTROL_ROOT`、符合[预检 schema](../scripts/release/evidence.mjs)的 `RELEASE_POLICY`，以及绑定本次 source/tool/包的 `RELEASE_REVIEW`。针对撤销和控制恢复，使用只绑定工具与控制协议范围的 `RELEASE_CONTROL_REVIEW`。`RELEASE_APP_PRIVATE_KEY` 仅保存在预建的 `production` Environment。这些配置值和本地通过记录不代替实际平台验收或人工批准。
+
+同一个 workflow 的手动模式均固定 ref 为 develop。除只读 `ci` 可保留原简单调用外，所有模式还必须提供 `expected_tool_sha`（已审查 develop 工具完整 SHA）和 `entry_id`（本次唯一的 32 位小写十六进制标识）；不允许跨模式的多余输入。
+
+| operation | 必需输入 | 效果 |
+| --- | --- | --- |
+| `ci` | `base_sha` | 重验当前 develop 的普通或已启用候选规则，不充当原 push |
+| `publish` | `source_sha`、原 main `base_sha`、`version`、`push_run_id`、`push_attempt`、`ref_artifact_id`、`ref_artifact_digest` | 重新准备尚未正式交付的准确 source，原准确 push 证据必须仍可读取 |
+| `recover` | `source_sha`、原生产父 `base_sha`、准确 `production_sha`、`receipt_sha`、`version` | 复用已交付生产提交，重新测试/安装/审查/批准后只补后续缺项 |
+| `retire-candidate` | `source_sha`、`version`、`reason`（`date-revision` 或 `withdraw`） | 针对性批准后永久撤销准确未交付候选的首发资格 |
+| `control-recover` | `source_sha`、`version` | 针对性批准后对账已终止旧 owner，不重放业务请求 |
+
+main 保持生产树，不放 workflow。[受控入口工具](../scripts/release/entry.mjs)使用当前维护者已有的 `gh` 登录凭据，先读取目标仓库管理身份、已登记 workflow、main/develop 和固定工具，再提交一次直接 dispatch；生产模式另核对控制记录。它不使用发布 App 的 token 修改设置，也不建立新 PAT。调用参数为 `--repository`、`--repository-id`、`--workflow-id`、`--input`（上述模式字段的 JSON 文件）、`--journal`（新的本地审计文件）；生产模式另提供 `--control-root`。从本地仓库 checkout 内调用，本地文件放在其 `.scratch/` 下以 `ai-agent-` 开头的目录，不纳入仓库。工具解析日志父目录的真实路径，核对它位于该区域且确实被 Git 忽略，再以独占创建方式保留日志；不接受仓库根目录中仅文件名带此前缀的路径。`entry_id` 可由工具生成，`expected_tool_sha` 必须明确提供。
+
+只有直接 dispatch 明确返回 404/422、注册及输入已核对、且只读列表没有本次入口记录，才采用已选兜底：记录意图后临时把默认分支切为 develop，读回、触发一次，并立即恢复 main。恢复发生在测试、批准和运行详情查证之前；触发响应未知时也是先恢复，再按唯一入口标识及准确 SHA 只读查证。其它权限/限流错误停止，网络未知不进入二次触发。运行 API 不返回原输入全文；审计中的输入是实际提交值，run 归属由 ID、仓库、事件、ref 短名、工具 SHA 和唯一标题交叉核对，不能把本地输入记录称为平台读回。
+
+默认分支恢复失败保持 blocked；出现另一个管理员设置的第三分支时不自动覆盖。进程被强制终止不能保证执行 finally，维护者须按已落盘的原设置和意图检查、恢复 main，并查证是否已有运行；不得删除记录后盲目再触发。暂切默认分支期间，默认展示、PR 基线及未固定 ref 的安装/更新可能取到 develop，不能承诺零影响。发布/控制摘要和 token 发行前均再次要求默认分支为 main；旧 run rerun 仅作有限期补充，不是常规恢复保证。
+
+正常发布及补缺从同运行 outputs 接收准确制品/验证/审批交接，`discover*` 和 `publish`/`resume`/控制 CLI 是 workflow 内部接口，不提供本地直接发布旁路。包、安装回执、审计的保留与导出边界见[hooks 说明](hooks.md)。新工具解释原 recipe v1 时必须保持字节兼容；当前原 push 的 workflow blob 还须等于控制根固定工具的 workflow blob，改变该检查集合前需先制定并审查版本化迁移，不能临时豁免或重建控制根。
 
 ## CHANGELOG 与正式交付
 
@@ -124,8 +176,23 @@ node scripts/check-version.mjs --channel stable --from <confirmed-production-com
 2. **先在 `develop` 转正。** 移除候选的 `-dev.N` 后缀，同步三清单、代理两处声明和现行文档，选择计划首次交付的 UTC 日期，将当前未发布内容和已交付开发批次的累计产品变化同步整理为两份 CHANGELOG 中该日期下的正式版本条目，保留历史条目。删除已转为正式版的未发布开发标题、空的 `Unreleased` /“未发布”分组及只对草稿成立的临时状态声明；候选状态放在交付报告中，稳定制品不写入将来会失真的“尚未发布”标记。
 3. 验证转正后的确切文件内容：在 `develop` 候选工作树完成[正式格式的静态与增量检查](#两类检查)、适用测试及独立审查。审查本批改写的全部 CHANGELOG 条目及 Release 说明，逐条对照对应版本的实际差异，确认具体用户影响、版本归属和双语语义；删掉没有用户影响的维护叙述，必要时使用上述无变更标记。正式摘要以此前正式版本为基准，不能把旧功能再列为新增。结构检查通过不代表内容合格。随后按授权组织提交，版本号及所有现行版本声明统一放在本批最后一个 commit 中。后续内容变化须重新完成受影响的检查与复核。**先提交并推送 `develop`**，回读远端确切 SHA、版本和交付日期，并核对 CI；这一步完成后才能同步 `main`。
 4. **从已推送的 `develop` 提交同步 `main`。** 使用上一步的确切 SHA，按 [main 分支保留范围](#production-content)逐文件提取安装内容及同一套根中英文 CHANGELOG，移除候选中的开发资料遗留项；不得递归复制整个资源目录。仅保留生产 README 的有效文档链接、去除依赖开发测试目录的说明，并保留生产忽略规则。不在 `main` 首次转正、不再次修改版本或 CHANGELOG，也不只合并历史关系。核对完整生产文件集合、引用、版本、测试和审查结果后，提交并推送 `main`，回读远端 SHA 与文件内容。
-5. 首次正式交付须发生在准备的 UTC 日期；只有全部正式目标及 `develop` 转正快照均未交付时，延期跨日才可重新准备、检查和审查。`develop` 转正快照一经推送，该版本的生产内容与日期即冻结，`main` 同步相同内容；后续发现的问题进入新版本。任一正式目标已提供本版后，日期保持首次正式交付日，不随宿主后续同步而修改。结果不明时先只读核验，分别报告各目标状态，不能把命令失败视为未交付。
+5. 首次正式交付须发生在准备的 UTC 日期。`main` 已提供本版、正式 tag 已存在或公开 Release 已提供本版，任一成立即冻结版本、内容和日期；`develop` 转正推送、CI 制品和仅有草稿 Release 不单独算正式交付。转正推送后、首次正式交付前进入候选冻结窗口，只允许下述日期修订或明确撤回；普通功能、配置和文档批次暂缓。结果不明时停止并只读核验，不能把命令失败视为未交付。已交付版本跨日补齐剩余步骤时仍使用原内容与日期。
 6. 按已授权范围创建 tag 或 GitHub Release，并绑定已核对的生产提交；若使用 GitHub Release，正式版本不勾选预发布标记，说明仅使用英文，对应英文 CHANGELOG 的本版内容，不附其他版本条目。启用不可变 Release 时，先建立草稿并补齐附件，再发布。回读 tag 指向、Release 状态及附件身份；市场可见性和实际安装副本另行核对，安装文件一致不等于宿主已刷新或在线连接通过。[GitHub 发布流程](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)。
+
+### 未正式交付候选的修订与撤回
+
+正常自动发布工具的协议见[准确发布证据与正常交付](architecture.md#准确发布证据与正常交付)。`preflight` 读取已配置的保护身份；`discover` 生成审批摘要及同运行交接；`publish` 只在受保护 develop job 中接受同次 outputs，先保存准确原 push CI receipt，再按 main、annotated tag、draft、三附件下载核对、公开/latest/immutable 的顺序完成交付。首次 main 写入缺准确原 CI 或 source 已不是 develop tip 时停止；手动运行、本地测试及任意成功字段不能豁免。首次日界前 120 秒不开始写入，成功读回发现实际跨日则冻结已交付内容并停止后续。实际平台配置与生产启用须单独完成验收
+
+main 已交付后的 `recovery-report`、`discover-recovery` 和 `resume` 分别用于只读发现、新验证交接和批准后的补缺，详见[恢复契约](architecture.md#已交付版本的补缺恢复)。输入固定旧 source、原生产父、准确生产提交、receipt、版本与控制根；只能复用已交付 P，不能重建并改写 main。原 CI 不可取得时仍须完整新检查、同包安装模拟、新独审和新批准；权限或网络未知不能套用此例外。旧 source 已 retired、旧 owner/未知意图、错误 tag/附件以及缺持久绑定均停止。模块回归不表示实际恢复 workflow、入口和平台保护已启用。
+
+转正只允许同 core 的 dev→stable，并以准确 main 检查正式增量。差异限定为三清单版本、代理两处版本、文档入口/架构/SDK 的四处现行身份，以及本版双语正式摘要和日期。当前没有允许修改的草稿状态句；正文、workflow、测试或其他功能修改须先交付普通开发批次。已有日期分组中的开发和正式历史字节保留；仅当前 Unreleased 开发条目可由正式摘要替代。固定字段见[交付检查器](../scripts/check-delivery.mjs)，不能按整文件版本字符串替换来豁免其他差异。
+
+日期修订和撤回都先通过[控制 guard](architecture.md#发布控制记录与故障恢复)永久撤销准确当前 stable source C 的首次发布资格。guard 取得共同 owner、排除未决写入并确认 main/tag/公开 Release 均未交付，才追加 retired 记录；取消任务不代替该事实。PR 检查只读，必须验证完整控制历史、没有当前 owner/意图，以及 C 的确切 retired 记录。PR 的事件 base 必须仍为 develop tip；push 的 before 为 C、head 为当前 develop tip，正式基准必须等于当前 main。读取失败或状态变化均停止，旧 PR 绿灯不能授权新 base。
+
+- **只改日期**：版本不变，只将两份 CHANGELOG 中本版的完整条目原样移动到不同的有效 UTC 日期分组；可创建新组、删除因此空出的组。标题、分类、正文及所有历史条目的内容和相对顺序保持字节一致，其他文件及 mode 不变。同日期空提交不算修订。此狭窄例外不另增 dev.N，也不强推移动旧 bump。
+- **发现问题后撤回修复**：从 C 沿单父历史只跨过合法的同版本日期修订，找到最近一次合法转正 P 及其直接开发父 D。W 必须是 D 的同 core、下一 dev.N；例如 dev.3→stable→dev.4，再次撤回则 dev.5。完整 C→W 仍执行线性历史、skip 指令和末提交声明检查，可纳入修复；双语日志仅移除本次未交付 stable 条目，新增 Unreleased/未发布的开发摘要，保留历史条目。不可任取旧 D、重置编号、改 core 或把普通检查失败自动转为撤回模式。
+
+新的合格 PR 经 strict up-to-date 和普通 squash 交付后，以新 source 重新检查、构建、审查和批准；旧包与旧批准失效。两个同 base PR 先合并一个后，另一个必须更新基准并重新检查。关闭 PR 不恢复旧 C 的发布资格；日期/撤回历史和旧提交保留。任何正式目标已交付、控制意图未知或历史对象缺失，都不能使用这些例外。各平台保护与实际事件的验收仍须独立完成。
 
 历史缺证据时把版本置于英文 `Date unverified` / 中文“日期待核实”分组，链接已确认提交，不拿计划日期或 Git 作者/提交时间代替发布日期，不创建不存在的标签链接。
 

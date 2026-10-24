@@ -1,76 +1,717 @@
 name: Repository checks
+run-name: CI/CD ${{ github.event.inputs.entry_id || github.sha }}
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'ci, publish, recover, retire-candidate or control-recover'
+        required: false
+        type: string
+        default: 'ci'
+      expected_tool_sha:
+        description: 'Reviewed develop workflow/tool full SHA'
+        required: false
+        type: string
+      entry_id:
+        description: 'Unique 32-character entry identity from the controlled entry tool'
+        required: false
+        type: string
+      base_sha:
+        description: 'Exact previous develop SHA for CI; original main parent for publication'
+        required: false
+        type: string
+      source_sha:
+        description: 'Exact stable source commit'
+        required: false
+        type: string
+      version:
+        description: 'Stable candidate version'
+        required: false
+        type: string
+      push_run_id:
+        description: 'Original successful push run ID'
+        required: false
+        type: string
+      push_attempt:
+        description: 'Original exact push attempt'
+        required: false
+        type: string
+      ref_artifact_id:
+        description: 'Original full-ref evidence artifact ID'
+        required: false
+        type: string
+      ref_artifact_digest:
+        description: 'Original full-ref evidence artifact SHA-256'
+        required: false
+        type: string
+      production_sha:
+        description: 'Exact delivered production commit for recovery'
+        required: false
+        type: string
+      receipt_sha:
+        description: 'Exact durable receipt commit for recovery'
+        required: false
+        type: string
+      reason:
+        description: 'date-revision or withdraw for candidate retirement'
+        required: false
+        type: string
   push:
     branches: [develop]
-    paths:
-      - 'docs/**'
-      - 'AGENTS.md'
-      - 'README*.md'
-      - 'CHANGELOG*.md'
-      - '.codex-plugin/plugin.json'
-      - '.claude-plugin/*.json'
-      - '.gitignore'
-      - '.codex/hooks.json'
-      - 'scripts/docs-hooks*'
-      - 'scripts/check-version*'
-      - 'scripts/affinity-mcp-proxy.test.mjs'
-      - 'scripts/inspection-preview.test.mjs'
-      - 'skills/affinity-mcp/scripts/inspection-preview.mjs'
-      - 'assets/sdk-evidence/poster-*.png'
-      - 'assets/sdk-evidence/poster-inspection*-geometry.json'
-      - 'skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs'
-      - 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'
-      - '.github/workflows/docs-hooks.yml'
   pull_request:
     branches: [develop]
-    paths:
-      - 'docs/**'
-      - 'AGENTS.md'
-      - 'README*.md'
-      - 'CHANGELOG*.md'
-      - '.codex-plugin/plugin.json'
-      - '.claude-plugin/*.json'
-      - '.gitignore'
-      - '.codex/hooks.json'
-      - 'scripts/docs-hooks*'
-      - 'scripts/check-version*'
-      - 'scripts/affinity-mcp-proxy.test.mjs'
-      - 'scripts/inspection-preview.test.mjs'
-      - 'skills/affinity-mcp/scripts/inspection-preview.mjs'
-      - 'assets/sdk-evidence/poster-*.png'
-      - 'assets/sdk-evidence/poster-inspection*-geometry.json'
-      - 'skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs'
-      - 'skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs'
-      - '.github/workflows/docs-hooks.yml'
+    types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:
   contents: read
 
+env:
+  RELEASE_ENABLED: ${{ vars.RELEASE_ENABLED }}
+
 jobs:
+  route:
+    name: Classify workflow operation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ci: ${{ steps.route.outputs.ci }}
+      operation: ${{ steps.route.outputs.operation }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: route
+        run: node scripts/release/workflow.mjs route
+
   test:
+    needs: route
+    if: ${{ needs.route.outputs.ci == 'true' }}
+    name: test (${{ matrix.os }}, Node ${{ matrix.node }})
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
+        node: ['24.22.1']
+        include:
+          - os: ubuntu-latest
+            node: '24.20.0'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '24.21.0'
+          node-version: ${{ matrix.node }}
           package-manager-cache: false
+      - run: node scripts/ci.mjs runtime
       - run: node scripts/docs-hooks.mjs check
-      - run: node --test scripts/docs-hooks.test.mjs
       - name: Check snapshot version
         run: >
           node --input-type=module -e "import { readFileSync } from 'node:fs';
           import { checkRepository } from './scripts/check-version.mjs';
           const version = JSON.parse(readFileSync('.codex-plugin/plugin.json', 'utf8')).version;
           console.log(JSON.stringify(checkRepository(process.cwd(), { channel: typeof version === 'string' && version.includes('-dev.') ? 'development' : 'stable' }), null, 2));"
-      - run: node --test scripts/check-version.test.mjs
-      - run: node --test scripts/inspection-preview.test.mjs
+      - run: node --test scripts/docs-hooks.test.mjs scripts/check-version.test.mjs scripts/inspection-preview.test.mjs scripts/check-delivery.test.mjs scripts/check-links.test.mjs scripts/ci.test.mjs scripts/release/archive.test.mjs scripts/release/production.test.mjs scripts/release/control.test.mjs scripts/release/publication.test.mjs scripts/release/recovery.test.mjs scripts/release/control-actions.test.mjs scripts/release/workflow.test.mjs scripts/release/entry.test.mjs
+      - run: node scripts/affinity-mcp-proxy.test.mjs
+
+  policy:
+    needs: route
+    if: ${{ needs.route.outputs.ci == 'true' }}
+    outputs:
+      ref_artifact: ${{ steps.binding.outputs.binding }}
+    name: Delivery policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Verify event objects and delivery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+        run: node scripts/ci.mjs policy
+      - run: node scripts/check-links.mjs
+      - run: node scripts/docs-hooks.mjs check
+      - id: ref
+        if: ${{ github.event_name == 'push' }}
+        run: node scripts/release/workflow.mjs push-ref
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: ref_upload
+        if: ${{ github.event_name == 'push' }}
+        with:
+          name: ${{ steps.ref.outputs.name }}
+          path: .scratch/ai-agent-release/push-ref/push-ref.json
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+      - id: binding
+        if: ${{ github.event_name == 'push' }}
+        env:
+          RELEASE_ARTIFACT_NAME: ${{ steps.ref.outputs.name }}
+          RELEASE_ARTIFACT_ID: ${{ steps.ref_upload.outputs.artifact-id }}
+          RELEASE_ARTIFACT_DIGEST: ${{ steps.ref_upload.outputs.artifact-digest }}
+        run: node scripts/release/workflow.mjs bind
+
+  required:
+    name: Repository checks / required
+    if: ${{ always() }}
+    needs: [test, policy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every CI dependency to succeed
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: >
+          node --input-type=module -e 'const needs=JSON.parse(process.env.CI_NEEDS); const keys=["test","policy"]; if (Object.keys(needs).length !== keys.length || !keys.every(key => needs[key]?.result === "success")) { console.error("Required CI dependency failed, was cancelled, skipped, or is missing."); process.exit(1); } console.log("All required CI jobs succeeded.");'
+  prepare:
+    name: Prepare release
+    needs: [route, required, policy]
+    if: ${{ always() && needs.route.result == 'success' && (needs.route.outputs.operation == 'publish' || needs.route.outputs.operation == 'recover') && (github.event_name == 'workflow_dispatch' || needs.required.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      prepared: ${{ steps.prepare.outputs.prepared }}
+      source_sha: ${{ steps.prepare.outputs.source_sha }}
+      artifact: ${{ steps.binding.outputs.binding }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_REF_ARTIFACT: ${{ needs.policy.outputs.ref_artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: prepare
+        run: node scripts/release/workflow.mjs prepare
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: ${{ steps.prepare.outputs.name }}
+          path: .scratch/ai-agent-release/bundle/*
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+      - id: binding
+        env:
+          RELEASE_ARTIFACT_NAME: ${{ steps.prepare.outputs.name }}
+          RELEASE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          RELEASE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: node scripts/release/workflow.mjs bind
+
+  install_windows:
+    name: Install archive (windows-latest)
+    needs: prepare
+    if: ${{ always() && needs.prepare.result == 'success' }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      receipt: ${{ steps.binding.outputs.binding }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+      RELEASE_PLATFORM: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: install
+        run: node scripts/release/workflow.mjs install
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: ${{ steps.install.outputs.name }}
+          path: .scratch/ai-agent-release/installation/installation.json
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+      - id: binding
+        env:
+          RELEASE_ARTIFACT_NAME: ${{ steps.install.outputs.name }}
+          RELEASE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          RELEASE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: node scripts/release/workflow.mjs bind
+
+  install_macos:
+    name: Install archive (macos-latest)
+    needs: prepare
+    if: ${{ always() && needs.prepare.result == 'success' }}
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      receipt: ${{ steps.binding.outputs.binding }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+      RELEASE_PLATFORM: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: install
+        run: node scripts/release/workflow.mjs install
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: ${{ steps.install.outputs.name }}
+          path: .scratch/ai-agent-release/installation/installation.json
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+      - id: binding
+        env:
+          RELEASE_ARTIFACT_NAME: ${{ steps.install.outputs.name }}
+          RELEASE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          RELEASE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: node scripts/release/workflow.mjs bind
+
+  install_linux:
+    name: Install archive (ubuntu-latest)
+    needs: prepare
+    if: ${{ always() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      receipt: ${{ steps.binding.outputs.binding }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+      RELEASE_PLATFORM: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: install
+        run: node scripts/release/workflow.mjs install
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: ${{ steps.install.outputs.name }}
+          path: .scratch/ai-agent-release/installation/installation.json
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+      - id: binding
+        env:
+          RELEASE_ARTIFACT_NAME: ${{ steps.install.outputs.name }}
+          RELEASE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          RELEASE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: node scripts/release/workflow.mjs bind
+
+  recovery_test:
+    name: Recovery test (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: [route, prepare]
+    if: ${{ always() && needs.route.outputs.operation == 'recover' && needs.prepare.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        node: ['24.22.1']
+        include:
+          - os: ubuntu-latest
+            node: '24.20.0'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          path: .scratch/ai-agent-source
+          fetch-depth: 0
+          persist-credentials: false
+      - run: node scripts/release/workflow.mjs recovery-test
+
+  recovery_policy:
+    name: Recovery policy
+    needs: [route, prepare]
+    if: ${{ always() && needs.route.outputs.operation == 'recover' && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - run: node scripts/release/workflow.mjs recovery-policy
+
+  recovery_required:
+    name: Recovery checks / required
+    needs: [route, recovery_test, recovery_policy]
+    if: ${{ always() && needs.route.outputs.operation == 'recover' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: >
+          node --input-type=module -e 'const needs=JSON.parse(process.env.CI_NEEDS); if (!["route","recovery_test","recovery_policy"].every(key => needs[key]?.result === "success")) process.exit(1);'
+
+  recovery_proof:
+    name: Bind recovery validation
+    needs: [route, prepare, recovery_required, install_windows, install_macos, install_linux]
+    if: ${{ always() && needs.route.outputs.operation == 'recover' && needs.prepare.result == 'success' && needs.recovery_required.result == 'success' && needs.install_windows.result == 'success' && needs.install_macos.result == 'success' && needs.install_linux.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      validation: ${{ steps.binding.outputs.binding }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+      RELEASE_INSTALLATIONS: '[${{ needs.install_windows.outputs.receipt }},${{ needs.install_macos.outputs.receipt }},${{ needs.install_linux.outputs.receipt }}]'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: proof
+        run: node scripts/release/workflow.mjs recovery-proof
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: ${{ steps.proof.outputs.name }}
+          path: .scratch/ai-agent-release/validation/recovery-validation.json
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+      - id: binding
+        env:
+          RELEASE_ARTIFACT_NAME: ${{ steps.proof.outputs.name }}
+          RELEASE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          RELEASE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: node scripts/release/workflow.mjs bind
+
+  summary:
+    name: Release approval summary
+    needs: [route, prepare, install_windows, install_macos, install_linux, recovery_proof]
+    if: ${{ always() && needs.prepare.result == 'success' && needs.install_windows.result == 'success' && needs.install_macos.result == 'success' && needs.install_linux.result == 'success' && (needs.route.outputs.operation == 'publish' || needs.recovery_proof.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    outputs:
+      handoff: ${{ steps.summary.outputs.handoff }}
+      digest: ${{ steps.summary.outputs.handoff_sha256 }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+      RELEASE_INSTALLATIONS: '[${{ needs.install_windows.outputs.receipt }},${{ needs.install_macos.outputs.receipt }},${{ needs.install_linux.outputs.receipt }}]'
+      RELEASE_VALIDATION: ${{ needs.recovery_proof.outputs.validation }}
+      RELEASE_REVIEW: ${{ vars.RELEASE_REVIEW }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: summary
+        run: node scripts/release/workflow.mjs summary
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-summary
+          path: .scratch/ai-agent-release/audit/*
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+
+  publish:
+    name: Publish release
+    needs: [route, prepare, summary]
+    if: ${{ always() && needs.summary.result == 'success' && needs.prepare.result == 'success' && needs.route.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    environment: production
+    concurrency:
+      group: affinity-mcp-production
+      queue: max
+      cancel-in-progress: false
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_PREPARED: ${{ needs.prepare.outputs.prepared }}
+      RELEASE_ARTIFACT: ${{ needs.prepare.outputs.artifact }}
+      RELEASE_HANDOFF: ${{ needs.summary.outputs.handoff }}
+      RELEASE_HANDOFF_SHA256: ${{ needs.summary.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - run: node scripts/release/workflow.mjs fetch
+      - name: Execute approved publication
+        env:
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          RELEASE_OPERATION: ${{ needs.route.outputs.operation }}
+        run: >
+          node --input-type=module -e 'import {spawnSync} from "node:child_process"; const mode=process.env.RELEASE_OPERATION === "publish" ? "publish" : process.env.RELEASE_OPERATION === "recover" ? "resume" : null; if (!mode) process.exit(1); const result=spawnSync(process.execPath,["scripts/release.mjs",mode],{stdio:"inherit"}); process.exit(result.status ?? 1);'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: audit
+        if: ${{ always() }}
+        with:
+          name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-publish
+          path: .scratch/ai-agent-release/audit/*
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+
+  control_summary:
+    name: Control approval summary
+    needs: route
+    if: ${{ needs.route.outputs.operation == 'retire-candidate' || needs.route.outputs.operation == 'control-recover' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      handoff: ${{ steps.summary.outputs.handoff }}
+      digest: ${{ steps.summary.outputs.handoff_sha256 }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_CONTROL_REVIEW: ${{ vars.RELEASE_CONTROL_REVIEW }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - id: summary
+        run: node scripts/release/workflow.mjs control-summary
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-control-summary
+          path: .scratch/ai-agent-release/audit/*
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+
+  guard:
+    name: Retire candidate
+    needs: [route, control_summary]
+    if: ${{ needs.route.outputs.operation == 'retire-candidate' && needs.control_summary.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    environment: production
+    concurrency:
+      group: affinity-mcp-production
+      queue: max
+      cancel-in-progress: false
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_HANDOFF: ${{ needs.control_summary.outputs.handoff }}
+      RELEASE_HANDOFF_SHA256: ${{ needs.control_summary.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Execute approved control operation
+        env:
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: node scripts/release.mjs retire-candidate
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: audit
+        if: ${{ always() }}
+        with:
+          name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-guard
+          path: .scratch/ai-agent-release/audit/*
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30
+
+  control_recover:
+    name: Recover release control
+    needs: [route, control_summary]
+    if: ${{ needs.route.outputs.operation == 'control-recover' && needs.control_summary.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    environment: production
+    concurrency:
+      group: affinity-mcp-production
+      queue: max
+      cancel-in-progress: false
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      RELEASE_POLICY: ${{ vars.RELEASE_POLICY }}
+      RELEASE_CONTROL_ROOT: ${{ vars.RELEASE_CONTROL_ROOT }}
+      RELEASE_HANDOFF: ${{ needs.control_summary.outputs.handoff }}
+      RELEASE_HANDOFF_SHA256: ${{ needs.control_summary.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Execute approved control operation
+        env:
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: node scripts/release.mjs control-recover
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: audit
+        if: ${{ always() }}
+        with:
+          name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-control_recover
+          path: .scratch/ai-agent-release/audit/*
+          if-no-files-found: error
+          overwrite: false
+          archive: true
+          retention-days: 30

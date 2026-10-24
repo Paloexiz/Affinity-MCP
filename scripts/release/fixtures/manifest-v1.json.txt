@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "recipe_version": "1",
+  "version": "0.5.4",
+  "release_date": "2026-10-24",
+  "source_sha": "1111111111111111111111111111111111111111",
+  "production_base_sha": "2222222222222222222222222222222222222222",
+  "production_tree_sha": "ab460c9c5da8318365de716ea1f5b64cf5304bd4",
+  "tag": "v0.5.4",
+  "files": [
+    {
+      "path": "a.txt",
+      "mode": "100644",
+      "sha256": "15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225"
+    }
+  ],
+  "archive": {
+    "name": "affinity-mcp-0.5.4.zip",
+    "size": 117,
+    "sha256": "bac548d263fd4a6ffcc1fb3541da6aca1955790a5913ad46cf4c1a59ff310758"
+  },
+  "verification_scope": {
+    "production_files": "explicit-allowlist",
+    "installation_check": "mock-only; results recorded separately",
+    "real_affinity_sdk": "not-verified",
+    "host_and_marketplace": "not-verified"
+  }
+}

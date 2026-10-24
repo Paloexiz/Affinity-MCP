@@ -9,13 +9,14 @@ import { workflowPath } from "./evidence.mjs";
 import { Control } from "./control.mjs";
 
 export function journalWriter(path, cwd = process.cwd()) {
+  const canonical = process.platform === "win32" ? realpathSync.native : realpathSync;
   let root;
-  try { root = realpathSync(execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8", stdio: "pipe" }).trim()); }
+  try { root = canonical(execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8", stdio: "pipe" }).trim()); }
   catch { reject("Entry journal requires a local repository checkout."); }
   path = resolve(path);
   let parent = dirname(path); const missing = [];
   while (!existsSync(parent)) { missing.unshift(basename(parent)); parent = dirname(parent); }
-  path = join(realpathSync(parent), ...missing, basename(path));
+  path = join(canonical(parent), ...missing, basename(path));
   const local = relative(root, path).replaceAll("\\", "/");
   if (!/^\.scratch\/(?:[^/]+\/)?materials\/.+/.test(local)) reject("Entry journal must be inside this checkout's .scratch/materials/ or .scratch/<feature>/materials/ directory.");
   try { execFileSync("git", ["check-ignore", "--no-index", "--quiet", "--", local], { cwd: root, stdio: "pipe" }); }
@@ -25,7 +26,7 @@ export function journalWriter(path, cwd = process.cwd()) {
   return value => {
     const temporary = path + ".tmp";
     writeFileSync(temporary, json(value), { flag: "w", mode: 0o600 });
-    const file = openSync(temporary, "r"); try { fsyncSync(file); } finally { closeSync(file); }
+    const file = openSync(temporary, "r+"); try { fsyncSync(file); } finally { closeSync(file); }
     renameSync(temporary, path);
   };
 }

@@ -215,7 +215,7 @@ main 请求的意图绑定前后两个完整 SHA：保存意图前核对 main �
 
 ## 准确发布证据与正常交付
 
-工作流准备首先区分 push、手动首次发布和已交付恢复，只读取该模式实际提供的证据。首次发布的 source 在准备、摘要和写入前均须保持为 develop tip；恢复以持久 receipt 绑定旧 source。工作流的临时包、回执、审计及恢复源码 checkout 统一放在 `.scratch/release/materials/`，不进入生产树。入口审计的本地路径和独占创建约束见[受控入口](versioning.md#受控工作流入口)。
+工作流准备首先区分 push、手动首次发布和已交付恢复，只读取该模式实际提供的证据。首次发布的 source 在准备、摘要和写入前均须保持为 develop tip；恢复以持久 receipt 绑定旧 source。工作流的临时包、回执、审计及恢复源码 checkout 统一放在 `.scratch/release/materials/`，不进入生产树。入口审计将 checkout 根与最近存在的日志父目录按同一方式解析真实路径；Windows 使用 `realpathSync.native` 统一短路径别名，再执行相对路径、忽略规则及独占创建检查。临时日志通过读写句柄刷盘后重命名，不依赖 Windows 上不可刷盘的只读句柄。路径和创建约束见[受控入口](versioning.md#受控工作流入口)。
 
 [证据模块](../scripts/release/evidence.mjs)读取明确 run ID/attempt 的 API 和分页 jobs，逐项核对仓库、workflow、source、分支短名、事件、job/check 身份、GitHub Actions 来源和必需集合。它不使用 latest rerun，也不等待包含人工批准和发布的整个 run 完成。完整 ref 来自该原 push 的独立 `push-ref.json` 运行制品，与准确 artifact ID、传输 digest、运行身份及固定配方工具中的 workflow blob 一起核对；REST 的 `head_branch` 本身不能区分同名 branch/tag。首次 main 写入缺原证据就停止，日志保留期不能代替 run/check 的实际可用性判断。[准确 attempt 接口](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run-attempt)、[job 接口](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt)。
 

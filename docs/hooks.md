@@ -114,7 +114,7 @@ node scripts/docs-hooks.mjs check
 
 发布摘要保存同运行 handoff/digest、独审记录、完整生产差异及双语 CHANGELOG；control 摘要仅保存具体撤销/恢复事实、工具审查和永久后果。三个写入任务只在摘要成功后引用预建 `production`，共享固定 job concurrency group、`queue: max`、`cancel-in-progress: false`；普通 CI 不占组。批准后固定 checkout 本次 workflow/tool SHA，发布私钥只提供给执行步骤，旧 source 不决定持钥代码。实际批准核对通过后，先保存绑定交接 digest 的批准记录，再申请 App token；保存失败即停止。执行成功或捕获后续失败时，结果保留本进程已取得的批准记录，不能从旧文件继承批准。runner 消失或强制取消可能使尾部审计上传缺失，不能据此推断没有写入，应查持久控制历史。
 
-原 ref、包、安装回执、恢复验证及审计制品设置 30 天保留；仓库/组织上限和真实过期状态须另核对。审计附件与可复现三项发布附件分离。维护者应在期限前导出准确 run/attempt 的审查、摘要、批准和结果；仅有 digest 不能重建原报告。job output 超过固定大小限制会停止，不截断交接。队列语义依据[GitHub 官方说明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)；静态工具未识别新字段时应单独核对具体差异，不能忽略其它诊断或声称平台调度已验证。
+原 ref、包、安装回执、恢复验证及审计制品设置 30 天保留；仓库/组织上限和真实过期状态须另核对。发布工作流的本地运行资料和恢复源码副本位于 `.scratch/release/materials/`，上传步骤与工具使用同一路径。审计附件与可复现三项发布附件分离。维护者应在期限前导出准确 run/attempt 的审查、摘要、批准和结果；仅有 digest 不能重建原报告。job output 超过固定大小限制会停止，不截断交接。队列语义依据[GitHub 官方说明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)；静态工具未识别新字段时应单独核对具体差异，不能忽略其它诊断或声称平台调度已验证。
 
 [链接检查器](../scripts/check-links.mjs)覆盖当前仓库的 Markdown 内联/引用式链接、HTML href/src、标题和显式锚点、URL 编码路径与 Git 忽略规则，拒绝缺失、越界及符号链接。注释和代码示例不提供真实锚点或生产清单，公开允许清单章节必须唯一。行内代码只支持同一行内等长反引号配对；未配对或跨行写法明确失败，应改用围栏代码块，不能让跨段匹配吞掉后续链接。静态检查与归档生成共用生产清单结构、来源和转换校验，拒绝多余字段或错误的 README 转换；机器清单和公开允许清单须集合一致，安装清单的路径与随包文档引用须落入允许集合；仅根 README 的 `docs/versioning.md` 链接可等待规定的生产转换。生产忽略模板另由必需测试核对期望字节和实际 Git 忽略语义：允许清单内文件及环境示例须保留，环境配置和运行残留须忽略；模板变化需同步审查期望夹具。它不访问外部 URL，不解析任意 Markdown 扩展或 JavaScript 动态路径，也不替代真正生产 ZIP 的解包/安装验收。隐私检查与人工语义复核继续分别执行。
 

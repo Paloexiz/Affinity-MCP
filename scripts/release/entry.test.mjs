@@ -77,7 +77,7 @@ test("D2 change response loss still restores main, but failed restoration and co
 test("entry CLI uses only the existing CLI credential, persists exact inputs and refuses journal overwrite", async t => {
   const f = await entryFixture(t), checkout = mkdtempSync(join(tmpdir(), "ai-agent-entry-checkout-")); t.after(() => rmSync(checkout, { recursive: true, force: true }));
   execFileSync("git", ["clone", "--no-hardlinks", f.root, checkout], { stdio: "pipe" }); writeFileSync(join(checkout, ".gitignore"), "/.scratch/\n");
-  const input = join(f.root, "input.json"), journal = join(checkout, ".scratch/ai-agent-entry/entry.json"), credential = join(f.root, "credential.mjs");
+  const input = join(f.root, "input.json"), journal = join(checkout, ".scratch/cicd/materials/entry.json"), credential = join(f.root, "credential.mjs");
   writeFileSync(input, JSON.stringify(f.entryInput));
   writeFileSync(credential, `import child from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';const original=child.execFileSync;child.execFileSync=(command,args,...rest)=>{if(command==='gh'){if(JSON.stringify(args)!==JSON.stringify(['auth','token','--hostname','github.com']))throw Error('Unexpected credential command');return 'read-fixture-token\\n'}return original(command,args,...rest)};syncBuiltinESMExports();`);
   const result = await new Promise(resolve => {
@@ -86,7 +86,8 @@ test("entry CLI uses only the existing CLI credential, persists exact inputs and
   });
   assert.equal(result.code, 0, result.stderr); assert.deepEqual(JSON.parse(readFileSync(journal)).inputs, f.entryInput); assert.equal(JSON.parse(result.stdout).run.id, 501);
   assert.doesNotMatch(result.stdout + result.stderr + readFileSync(journal), /fixture-token/); assert.throws(() => journalWriter(journal, checkout));
-  for (const path of [join(checkout, "ai-agent-journal.json"), join(checkout, "ai-agent-public/entry.json"), join(f.root, "entry.json")]) { assert.throws(() => journalWriter(path, checkout)); assert.equal(existsSync(path), false); }
-  symlinkSync(f.root, join(checkout, ".scratch/ai-agent-external"), "junction"); assert.throws(() => journalWriter(join(checkout, ".scratch/ai-agent-external/entry.json"), checkout));
-  writeFileSync(join(checkout, ".gitignore"), ""); assert.throws(() => journalWriter(join(checkout, ".scratch/ai-agent-unignored/entry.json"), checkout));
+  const common = join(checkout, ".scratch/materials/entry.json"); journalWriter(common, checkout)({ status: "checked" }); assert.deepEqual(JSON.parse(readFileSync(common)), { status: "checked" });
+  for (const path of [join(checkout, "ai-agent-journal.json"), join(checkout, "ai-agent-public/entry.json"), join(checkout, ".scratch/cicd/entry.json"), join(f.root, "entry.json")]) { assert.throws(() => journalWriter(path, checkout)); assert.equal(existsSync(path), false); }
+  symlinkSync(f.root, join(checkout, ".scratch/cicd/materials/external"), "junction"); assert.throws(() => journalWriter(join(checkout, ".scratch/cicd/materials/external/entry.json"), checkout));
+  writeFileSync(join(checkout, ".gitignore"), ""); assert.throws(() => journalWriter(join(checkout, ".scratch/cicd/materials/unignored/entry.json"), checkout));
 });

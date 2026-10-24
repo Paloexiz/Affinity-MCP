@@ -132,7 +132,7 @@ export async function fixture(t) {
   globalThis.fetch = (input, options) => { const target = new URL(input); state.destinations.push(target.href); return originalFetch(url + target.pathname + target.search, options); };
   const preload = join(root, "preload.mjs");
   writeFileSync(preload, `const originalFetch=globalThis.fetch;globalThis.fetch=(input,options)=>{const target=new URL(input);return originalFetch(${JSON.stringify(url)}+target.pathname+target.search,options)};if(process.env.FIXTURE_NOW){const OriginalDate=Date;const instant=OriginalDate.parse(process.env.FIXTURE_NOW);globalThis.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:[instant]))}static now(){return instant}}}\n`);
-  t.after(async () => { globalThis.fetch = originalFetch; server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); rmSync(root, { recursive: true, force: true }); });
+  t.after(async () => { globalThis.fetch = originalFetch; await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }); rmSync(root, { recursive: true, force: true }); });
   const api = () => new GitHub({ repository: "test/repository", repositoryId: 123, readToken: "read-fixture-token", writeToken: "write-fixture-token" });
   const actor = (job = 1, operation = "publish", expiry = Date.now() + 600000) => {
     state.jobs.set(job, { id: job, run_id: job + 100, status: "in_progress" }); state.jobAttempts.set(job, 1);

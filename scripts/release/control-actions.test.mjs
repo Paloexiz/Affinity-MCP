@@ -26,7 +26,7 @@ async function controlFixture(t, mode = "retire-candidate") {
 const now = work => atTime("2026-10-24T12:00:00Z", work);
 const prepare = f => prepareControlHandoff(f.api(), f.controlInput, f.policy);
 const execute = (f, handoff) => executeControl(f.api(), handoff, digest(json(handoff)), f.policy, f.execution, f.privateKey);
-const outcome = f => JSON.parse(readFileSync(join(f.root, ".scratch/ai-agent-release/audit/outcome.json")));
+const outcome = f => JSON.parse(readFileSync(join(f.root, ".scratch/release/materials/audit/outcome.json")));
 function cli(f, mode, handoff, extra = {}) {
   const env = { ...process.env, FIXTURE_NOW: "2026-10-24T12:00:00Z", GITHUB_ACTIONS: "true", GITHUB_REF: "refs/heads/develop", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_JOB: mode === "retire-candidate" ? "guard" : "control_recover", GITHUB_SHA: f.source, GITHUB_WORKFLOW_SHA: f.source, GITHUB_REPOSITORY: "test/repository", GITHUB_REPOSITORY_ID: "123", GITHUB_RUN_ID: "101", GITHUB_RUN_ATTEMPT: "1", GITHUB_TOKEN: "read-fixture-token", RELEASE_POLICY: JSON.stringify(f.policy), RELEASE_HANDOFF: JSON.stringify(handoff), RELEASE_HANDOFF_SHA256: digest(json(handoff)), RELEASE_APP_PRIVATE_KEY: f.privateKey, ...extra };
   const child = spawn(process.execPath, ["--import", f.preload, fileURLToPath(new URL("../release.mjs", import.meta.url)), mode, "--root", f.root], { cwd: f.root, env });

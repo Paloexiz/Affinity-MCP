@@ -17,7 +17,7 @@ export function journalWriter(path, cwd = process.cwd()) {
   while (!existsSync(parent)) { missing.unshift(basename(parent)); parent = dirname(parent); }
   path = join(realpathSync(parent), ...missing, basename(path));
   const local = relative(root, path).replaceAll("\\", "/");
-  if (!/^\.scratch\/ai-agent-[^/]+\/.+/.test(local)) reject("Entry journal must be inside this checkout's .scratch/ai-agent- directory.");
+  if (!/^\.scratch\/(?:[^/]+\/)?materials\/.+/.test(local)) reject("Entry journal must be inside this checkout's .scratch/materials/ or .scratch/<feature>/materials/ directory.");
   try { execFileSync("git", ["check-ignore", "--no-index", "--quiet", "--", local], { cwd: root, stdio: "pipe" }); }
   catch { reject("Entry journal must be ignored by Git."); }
   mkdirSync(dirname(path), { recursive: true });

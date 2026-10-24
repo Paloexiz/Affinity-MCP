@@ -257,7 +257,7 @@ test("read-only recovery report distinguishes network retry from confirmed confl
   });
   const reportCLI = await run("recovery-report", f.identity); assert.equal(reportCLI.code, 0, reportCLI.stderr);
   const discovered = await run("discover-recovery", f.recoveryInput); assert.equal(discovered.code, 0, discovered.stderr); assert.deepEqual(JSON.parse(discovered.stdout).handoff, value);
-  const outcome = () => JSON.parse(readFileSync(join(f.root, ".scratch/ai-agent-release/audit/outcome.json"))), before = f.state.business.length;
+  const outcome = () => JSON.parse(readFileSync(join(f.root, ".scratch/release/materials/audit/outcome.json"))), before = f.state.business.length;
   f.state.appFailure = 403; const failed = await run("resume"); assert.equal(failed.code, 1); assert.equal(outcome().approval.run_id, 202); assert.equal(outcome().approval.handoff_sha256, digest(json(value))); assert.equal(outcome().status, "unconfirmed"); assert.equal(f.state.business.length, before); f.state.appFailure = null;
   const result = await run("resume"); assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).status, "published"); assert.doesNotMatch(result.stdout + result.stderr, /PRIVATE KEY|fixture-token/);
   assert.deepEqual(outcome().approval, JSON.parse(result.stdout).approval);

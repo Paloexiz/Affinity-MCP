@@ -133,7 +133,7 @@ test("workflow source keeps the required gate independent, pins every action and
   for (const [name, job] of Object.entries(jobs)) if (!["publish", "guard", "control_recover"].includes(name)) assert.doesNotMatch(job, /secrets\.|environment: production|concurrency:/);
   for (const match of text.matchAll(/uses: (.+)/g)) assert.match(match[1], /^actions\/[\w-]+@[a-f0-9]{40} #/);
   for (const key of ["windows", "macos", "linux"]) { assert.match(jobs[`install_${key}`], /needs: prepare/); assert.match(jobs[`install_${key}`], /RELEASE_ARTIFACT: \$\{\{ needs.prepare.outputs.artifact \}\}/); }
-  assert.match(jobs.recovery_test, /path: .scratch\/ai-agent-source/); assert.match(jobs.recovery_test, /ref: \$\{\{ needs.prepare.outputs.source_sha \}\}/);
+  assert.match(jobs.recovery_test, /path: .scratch\/release\/materials\/source/); assert.match(jobs.recovery_test, /ref: \$\{\{ needs.prepare.outputs.source_sha \}\}/);
   assert.equal((text.match(/permissions:\n      contents: write/g) ?? []).length, 0);
   assert.deepEqual(artifactBinding({ run_id: 1, tool_sha: "a".repeat(40), workflow_sha: "a".repeat(40) }, "fixed", "2", "b".repeat(64)), { id: 2, digest: "b".repeat(64), name: "fixed", run_id: 1, head_sha: "a".repeat(40) });
 });
@@ -147,14 +147,14 @@ test("historical test runner executes the selected source's complete applicable 
   }
   for (const name of ["CHANGELOG.md", "CHANGELOG.zh-cn.md"]) writeFileSync(join(f.checkout, name), f.built.files.find(file => file.path === name).bytes);
   const tests = files.filter(path => path.startsWith("scripts/") && path.endsWith(".test.mjs"));
-  const marker = `import {mkdirSync,appendFileSync} from 'node:fs';import assert from 'node:assert/strict';assert.equal(process.env.GITHUB_TOKEN,undefined);assert.equal(process.env.RELEASE_SENTINEL,undefined);assert.equal(process.env.ACTIONS_RUNTIME_TOKEN,undefined);mkdirSync('.scratch/ai-agent-test-execution',{recursive:true});appendFileSync('.scratch/ai-agent-test-execution/ran.jsonl',JSON.stringify(process.argv[1].replaceAll('\\\\','/').split('/scripts/')[1])+'\\n');`;
+  const marker = `import {mkdirSync,appendFileSync} from 'node:fs';import assert from 'node:assert/strict';assert.equal(process.env.GITHUB_TOKEN,undefined);assert.equal(process.env.RELEASE_SENTINEL,undefined);assert.equal(process.env.ACTIONS_RUNTIME_TOKEN,undefined);mkdirSync('.scratch/materials/test-execution',{recursive:true});appendFileSync('.scratch/materials/test-execution/ran.jsonl',JSON.stringify(process.argv[1].replaceAll('\\\\','/').split('/scripts/')[1])+'\\n');`;
   for (const path of tests) writeFileSync(join(f.checkout, path), marker);
   const git = args => execFileSync("git", ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "-c", "core.hooksPath=", "-c", "commit.gpgsign=false", ...args], { cwd: f.checkout, stdio: "pipe", env: { ...process.env, GIT_AUTHOR_DATE: "2026-10-24T00:00:00Z", GIT_COMMITTER_DATE: "2026-10-24T00:00:00Z" } }).toString().trim();
   git(["add", "--", ...files]); git(["commit", "-m", "Synthetic historical validation source"]); const source = git(["rev-parse", "HEAD"]);
   const code = `import {candidateTests} from ${JSON.stringify(new URL("workflow.mjs", import.meta.url).href)};candidateTests(${JSON.stringify(root)},${JSON.stringify(f.checkout)},${JSON.stringify(source)});`;
   const run = () => new Promise(resolve => { const child = spawn(process.execPath, ["--input-type=module", "-e", code], { env: { ...process.env, GITHUB_TOKEN: "read-only-fixture", RELEASE_SENTINEL: "untrusted-must-not-see", ACTIONS_RUNTIME_TOKEN: "runtime-must-not-see" }, stdio: ["ignore", "pipe", "pipe"] }); let stdout = "", stderr = ""; child.stdout.on("data", data => stdout += data); child.stderr.on("data", data => stderr += data); child.once("close", code => resolve({ code, stdout, stderr })); });
   const result = await run(); assert.equal(result.code, 0, result.stdout + result.stderr);
-  const ran = readFileSync(join(f.checkout, ".scratch/ai-agent-test-execution/ran.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  const ran = readFileSync(join(f.checkout, ".scratch/materials/test-execution/ran.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(ran.sort(), tests.map(path => path.slice(8)).sort());
   writeFileSync(join(f.checkout, "scripts/ci.test.mjs"), "throw new Error('Synthetic old-source failure');\n");
   const failed = await run(); assert.equal(failed.code, 1); assert.match(failed.stdout + failed.stderr, /Synthetic old-source failure/);

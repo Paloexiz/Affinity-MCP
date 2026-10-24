@@ -209,13 +209,13 @@ main 请求的意图绑定前后两个完整 SHA：保存意图前核对 main �
 
 恢复先读回旧 job 的 ID、run 与已完成状态，并分页读取[准确 run/attempt 的 jobs](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt)确认成员归属；不假定单个 job 响应提供 `run_attempt`。分页缺项、重复身份、总数变化或读取失败均停止。还须确认记录的 token 失效时间已过，当前工具不接受提前撤销的外部断言。没有意图，或目标能精确证明原请求已成功，才追加恢复记录；403/404、取消、超时、暂未出现目标都不能证明请求未提交。成功依据分别为准确 main 提交、annotated tag 对象、草稿身份与正文、下载附件字节、不可变且为 latest 的正式 Release。仍未知时停止并保留记录，需取得原请求终态或获授权的人工故障处置；不会按 TTL 清锁。[GitHub API](../scripts/release/github.mjs)不回显响应错误正文或凭据，也不自动重试写入。
 
-[控制回归](../scripts/release/control.test.mjs)以真实临时 Git 仓库和本机 HTTP 模拟 API 验证双进程竞争、SIGKILL 后重新读取、响应丢失、旧请求迟到、永久撤销、错误身份与缺对象，以及独立恢复 CLI 进程。测试子进程的 `--import` 加载器通过 `pathToFileURL(...).href` 传入，适用于包含盘符及需 URL 编码字符的文件路径。本机 API 夹具关闭 keep-alive 空闲超时，连接由测试清理统一关闭，避免同步 Git 工作与空闲连接关闭发生竞态；生产请求的30秒预算不变。它不连接 GitHub，不证明实际规则集、Environment 或队列已启用。
+[控制回归](../scripts/release/control.test.mjs)以真实临时 Git 仓库和本机 HTTP 模拟 API 验证双进程竞争、SIGKILL 后重新读取、响应丢失、旧请求迟到、永久撤销、错误身份与缺对象，以及独立恢复 CLI 进程。测试子进程的 `--import` 加载器通过 `pathToFileURL(...).href` 传入，适用于包含盘符及需 URL 编码字符的文件路径。本机 API 夹具关闭 keep-alive 空闲超时，清理时先停止接收新连接，再关闭已有连接并等待关闭回调，避免连接关闭竞态；生产请求的30秒预算不变。它不连接 GitHub，不证明实际规则集、Environment 或队列已启用。
 
 若收到确定拒绝后、结果记录持久化前进程失联，后来运行没有该响应的可验证证据，仍按未知意图阻塞；已有拒绝的内存判断不能由新运行继承。回归覆盖 422 后结果写入失败及新进程拒绝清锁。只有取得可验证的原请求终态或完成获授权的人工故障处置才能继续，不根据“目标未出现”猜测未提交。
 
 ## 准确发布证据与正常交付
 
-工作流准备首先区分 push、手动首次发布和已交付恢复，只读取该模式实际提供的证据。首次发布的 source 在准备、摘要和写入前均须保持为 develop tip；恢复以持久 receipt 绑定旧 source。入口审计的本地路径和独占创建约束见[受控入口](versioning.md#受控工作流入口)。
+工作流准备首先区分 push、手动首次发布和已交付恢复，只读取该模式实际提供的证据。首次发布的 source 在准备、摘要和写入前均须保持为 develop tip；恢复以持久 receipt 绑定旧 source。工作流的临时包、回执、审计及恢复源码 checkout 统一放在 `.scratch/release/materials/`，不进入生产树。入口审计的本地路径和独占创建约束见[受控入口](versioning.md#受控工作流入口)。
 
 [证据模块](../scripts/release/evidence.mjs)读取明确 run ID/attempt 的 API 和分页 jobs，逐项核对仓库、workflow、source、分支短名、事件、job/check 身份、GitHub Actions 来源和必需集合。它不使用 latest rerun，也不等待包含人工批准和发布的整个 run 完成。完整 ref 来自该原 push 的独立 `push-ref.json` 运行制品，与准确 artifact ID、传输 digest、运行身份及固定配方工具中的 workflow blob 一起核对；REST 的 `head_branch` 本身不能区分同名 branch/tag。首次 main 写入缺原证据就停止，日志保留期不能代替 run/check 的实际可用性判断。[准确 attempt 接口](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run-attempt)、[job 接口](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt)。
 

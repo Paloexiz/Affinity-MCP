@@ -14,7 +14,7 @@ import { executionIdentity, prepareHandoff } from "./publication.mjs";
 import { inspectRecovery, recoveryProof, prepareRecoveryHandoff } from "./recovery.mjs";
 import { prepareControlHandoff } from "./control-actions.mjs";
 
-export const workspace = ".scratch/ai-agent-release";
+export const workspace = ".scratch/release/materials";
 export function executionContext(root, env = process.env) {
   if (env.GITHUB_ACTIONS !== "true" || env.GITHUB_REF !== "refs/heads/develop" || !["push", "workflow_dispatch"].includes(env.GITHUB_EVENT_NAME)) reject("Release requires a trusted develop execution.");
   const tool = objectSha(git(root, ["rev-parse", "HEAD"]));
@@ -167,7 +167,7 @@ export async function workflowStep(mode, root = process.cwd()) {
   fetchRelease(root, api, prepared.source_sha, prepared.base_sha, [prepared.recipe.tool_sha, ...(prepared.identity ? [prepared.identity.production_sha, prepared.identity.receipt_sha] : [])], controlRoot);
   if (mode === "fetch") return;
   if (mode === "recovery-policy") { await inspectRecovery(api, root, prepared.identity, policy); return; }
-  if (mode === "recovery-test") { candidateTests(root, resolve(root, ".scratch/ai-agent-source"), prepared.source_sha); return; }
+  if (mode === "recovery-test") { candidateTests(root, resolve(root, ".scratch/release/materials/source"), prepared.source_sha); return; }
   const installations = load("RELEASE_INSTALLATIONS");
   if (mode === "recovery-proof") {
     if (prepared.operation !== "recover") reject("Recovery proof requires a recovery preparation.");

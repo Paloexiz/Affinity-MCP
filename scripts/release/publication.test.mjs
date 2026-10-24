@@ -213,7 +213,7 @@ test("real publication CLI consumes trusted context and same-run outputs without
   const preflightResult = await run({}, "preflight"); assert.equal(preflightResult.code, 0, preflightResult.stderr);
   const discovered = await run({ RELEASE_INPUT: JSON.stringify(f.input) }, "discover"); assert.equal(discovered.code, 0, discovered.stderr); assert.deepEqual(JSON.parse(discovered.stdout).handoff, value);
   const refused = await run({ GITHUB_JOB: "test" }); assert.notEqual(refused.code, 0); assert.match(refused.stderr, /protected/); assert.equal(f.state.appCalls.length, 0);
-  const folder = join(f.root, ".scratch/ai-agent-release/audit"), outcome = () => JSON.parse(readFileSync(join(folder, "outcome.json")));
+  const folder = join(f.root, ".scratch/release/materials/audit"), outcome = () => JSON.parse(readFileSync(join(folder, "outcome.json")));
   const previous = f.state.route; let approvalBeforeApp = false;
   f.state.route = async request => { if (request.path === "/installation") approvalBeforeApp = outcome().approval?.handoff_sha256 === digest(json(value)); return previous(request); };
   f.state.appFailure = 403; const credentialFailure = await run({}); assert.equal(credentialFailure.code, 1); assert.equal(approvalBeforeApp, true); assert.equal(outcome().status, "unconfirmed"); assert.equal(outcome().approval.run_id, 101); assert.equal(outcome().approval.job_id, 12); assert.deepEqual(outcome().approval.reviewers, [61]); assert.equal(f.state.business.length, 0);

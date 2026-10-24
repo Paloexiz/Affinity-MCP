@@ -148,7 +148,7 @@ node scripts/check-links.mjs
 | `retire-candidate` | `source_sha`、`version`、`reason`（`date-revision` 或 `withdraw`） | 针对性批准后永久撤销准确未交付候选的首发资格 |
 | `control-recover` | `source_sha`、`version` | 针对性批准后对账已终止旧 owner，不重放业务请求 |
 
-main 保持生产树，不放 workflow。[受控入口工具](../scripts/release/entry.mjs)使用当前维护者已有的 `gh` 登录凭据，先读取目标仓库管理身份、已登记 workflow、main/develop 和固定工具，再提交一次直接 dispatch；生产模式另核对控制记录。它不使用发布 App 的 token 修改设置，也不建立新 PAT。调用参数为 `--repository`、`--repository-id`、`--workflow-id`、`--input`（上述模式字段的 JSON 文件）、`--journal`（新的本地审计文件）；生产模式另提供 `--control-root`。从本地仓库 checkout 内调用，本地文件放在其 `.scratch/` 下以 `ai-agent-` 开头的目录，不纳入仓库。工具解析日志父目录的真实路径，核对它位于该区域且确实被 Git 忽略，再以独占创建方式保留日志；不接受仓库根目录中仅文件名带此前缀的路径。`entry_id` 可由工具生成，`expected_tool_sha` 必须明确提供。
+main 保持生产树，不放 workflow。[受控入口工具](../scripts/release/entry.mjs)使用当前维护者已有的 `gh` 登录凭据，先读取目标仓库管理身份、已登记 workflow、main/develop 和固定工具，再提交一次直接 dispatch；生产模式另核对控制记录。它不使用发布 App 的 token 修改设置，也不建立新 PAT。调用参数为 `--repository`、`--repository-id`、`--workflow-id`、`--input`（上述模式字段的 JSON 文件）、`--journal`（新的本地审计文件）；生产模式另提供 `--control-root`。从本地仓库 checkout 内调用，本地文件放在其 `.scratch/<feature>/materials/` 下，无任务目录时放入 `.scratch/materials/`，不纳入仓库；无需代理专用前缀。工具解析日志父目录的真实路径，核对它位于这些资料目录且确实被 Git 忽略，再以独占创建方式保留日志；仓库外、资料目录外、未忽略路径和已存在日志均拒绝。`entry_id` 可由工具生成，`expected_tool_sha` 必须明确提供。
 
 只有直接 dispatch 明确返回 404/422、注册及输入已核对、且只读列表没有本次入口记录，才采用已选兜底：记录意图后临时把默认分支切为 develop，读回、触发一次，并立即恢复 main。恢复发生在测试、批准和运行详情查证之前；触发响应未知时也是先恢复，再按唯一入口标识及准确 SHA 只读查证。其它权限/限流错误停止，网络未知不进入二次触发。运行 API 不返回原输入全文；审计中的输入是实际提交值，run 归属由 ID、仓库、事件、ref 短名、工具 SHA 和唯一标题交叉核对，不能把本地输入记录称为平台读回。
 

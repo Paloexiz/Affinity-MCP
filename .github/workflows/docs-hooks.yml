@@ -157,7 +157,7 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         with:
           name: ${{ steps.ref.outputs.name }}
-          path: .scratch/ai-agent-release/push-ref/push-ref.json
+          path: .scratch/release/materials/push-ref/push-ref.json
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -216,7 +216,7 @@ jobs:
         id: upload
         with:
           name: ${{ steps.prepare.outputs.name }}
-          path: .scratch/ai-agent-release/bundle/*
+          path: .scratch/release/materials/bundle/*
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -262,7 +262,7 @@ jobs:
         id: upload
         with:
           name: ${{ steps.install.outputs.name }}
-          path: .scratch/ai-agent-release/installation/installation.json
+          path: .scratch/release/materials/installation/installation.json
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -308,7 +308,7 @@ jobs:
         id: upload
         with:
           name: ${{ steps.install.outputs.name }}
-          path: .scratch/ai-agent-release/installation/installation.json
+          path: .scratch/release/materials/installation/installation.json
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -354,7 +354,7 @@ jobs:
         id: upload
         with:
           name: ${{ steps.install.outputs.name }}
-          path: .scratch/ai-agent-release/installation/installation.json
+          path: .scratch/release/materials/installation/installation.json
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -402,7 +402,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
-          path: .scratch/ai-agent-source
+          path: .scratch/release/materials/source
           fetch-depth: 0
           persist-credentials: false
       - run: node scripts/release/workflow.mjs recovery-test
@@ -480,7 +480,7 @@ jobs:
         id: upload
         with:
           name: ${{ steps.proof.outputs.name }}
-          path: .scratch/ai-agent-release/validation/recovery-validation.json
+          path: .scratch/release/materials/validation/recovery-validation.json
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -530,7 +530,7 @@ jobs:
         id: upload
         with:
           name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-summary
-          path: .scratch/ai-agent-release/audit/*
+          path: .scratch/release/materials/audit/*
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -581,7 +581,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-publish
-          path: .scratch/ai-agent-release/audit/*
+          path: .scratch/release/materials/audit/*
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -620,7 +620,7 @@ jobs:
         id: upload
         with:
           name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-control-summary
-          path: .scratch/ai-agent-release/audit/*
+          path: .scratch/release/materials/audit/*
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -665,7 +665,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-guard
-          path: .scratch/ai-agent-release/audit/*
+          path: .scratch/release/materials/audit/*
           if-no-files-found: error
           overwrite: false
           archive: true
@@ -710,7 +710,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: release-audit-${{ github.run_id }}-${{ github.run_attempt }}-control_recover
-          path: .scratch/ai-agent-release/audit/*
+          path: .scratch/release/materials/audit/*
           if-no-files-found: error
           overwrite: false
           archive: true

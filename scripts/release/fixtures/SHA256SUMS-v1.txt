@@ -1,0 +1,2 @@
+bac548d263fd4a6ffcc1fb3541da6aca1955790a5913ad46cf4c1a59ff310758  affinity-mcp-0.5.4.zip
+28fd062b98a8243e1a7ea6d8c05bc1acde8485381cfc86381f00d0ade441ce60  release-manifest.json

@@ -162,6 +162,14 @@ See the [Changelog](CHANGELOG.md) ([简体中文](CHANGELOG.zh-cn.md)) for relea
 
 </details>
 
+### Downloadable release archives
+
+For releases that provide them, download all three attachments from the same [GitHub Release](https://github.com/Paloexiz/Affinity-MCP/releases): `affinity-mcp-<version>.zip`, `release-manifest.json`, and `SHA256SUMS`. Older releases may not have these attachments. Use the named ZIP attachment; GitHub's automatic **Source code** archives are different files.
+
+In the download directory, run `sha256sum -c SHA256SUMS` on Linux or `shasum -a 256 -c SHA256SUMS` on macOS. In Windows PowerShell, use `Get-FileHash -Algorithm SHA256` on each of the ZIP and manifest files and compare both hashes with their corresponding lines in `SHA256SUMS`. Both must match.
+
+These archives support download and content verification; install and update through the marketplaces described above. Manual ZIP installation is not supported. Checksums detect byte differences; they do not by themselves authenticate the publisher or prove client loading, cache refresh, or real Affinity SDK behavior. The manifest identifies the source commit, production tree, and verification scope; actual mock-test results are recorded separately from the reproducible archive.
+
 <a id="check-a-real-installed-connection"></a>
 <details>
 <summary>Advanced: Connection smoke test</summary>

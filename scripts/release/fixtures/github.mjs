@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { genesis } from "../control.mjs";
 import { json, GitHub } from "../github.mjs";
 
@@ -124,6 +124,8 @@ export async function fixture(t) {
       return reply({ message: "Fixture route absent" }, 404);
     } catch { if (!response.headersSent) reply({ message: "Fixture object absent or request invalid" }, 404); else response.destroy(); }
   });
+  // Synchronous fixture Git work can outlast idle sockets; teardown closes every connection.
+  server.keepAliveTimeout = 0;
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
   const originalFetch = globalThis.fetch;
@@ -136,7 +138,7 @@ export async function fixture(t) {
     state.jobs.set(job, { id: job, run_id: job + 100, status: "in_progress" }); state.jobAttempts.set(job, 1);
     return { run_id: job + 100, job_id: job, run_attempt: 1, operation, source_sha: source, version: "0.5.4", workflow_sha: "b".repeat(40), tool_sha: "a".repeat(40), token_expires_at: new Date(expiry).toISOString().replace(/\.\d{3}Z$/, "Z") };
   };
-  return { root, rootSha, source, base, git, gitBytes, blob, tree, commit, dataCommit, versionTree, ref, readState, state, url, api, actor, preload };
+  return { root, rootSha, source, base, git, gitBytes, blob, tree, commit, dataCommit, versionTree, ref, readState, state, url, api, actor, preload: pathToFileURL(preload).href };
 }
 
 export async function atTime(time, work) {

@@ -4,7 +4,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync, existsSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { publicationFixture } from "./fixtures/publication.mjs";
 import { dispatchEntry, journalWriter } from "./entry.mjs";
 
@@ -81,7 +81,7 @@ test("entry CLI uses only the existing CLI credential, persists exact inputs and
   writeFileSync(input, JSON.stringify(f.entryInput));
   writeFileSync(credential, `import child from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';const original=child.execFileSync;child.execFileSync=(command,args,...rest)=>{if(command==='gh'){if(JSON.stringify(args)!==JSON.stringify(['auth','token','--hostname','github.com']))throw Error('Unexpected credential command');return 'read-fixture-token\\n'}return original(command,args,...rest)};syncBuiltinESMExports();`);
   const result = await new Promise(resolve => {
-    const child = spawn(process.execPath, ["--import", f.preload, "--import", credential, fileURLToPath(new URL("entry.mjs", import.meta.url)), "--input", input, "--journal", journal, "--repository", "test/repository", "--repository-id", "123", "--workflow-id", "10"], { cwd: checkout, env: process.env });
+    const child = spawn(process.execPath, ["--import", f.preload, "--import", pathToFileURL(credential).href, fileURLToPath(new URL("entry.mjs", import.meta.url)), "--input", input, "--journal", journal, "--repository", "test/repository", "--repository-id", "123", "--workflow-id", "10"], { cwd: checkout, env: process.env });
     let stdout = "", stderr = ""; child.stdout.on("data", data => stdout += data); child.stderr.on("data", data => stderr += data); child.on("close", code => resolve({ code, stdout, stderr }));
   });
   assert.equal(result.code, 0, result.stderr); assert.deepEqual(JSON.parse(readFileSync(journal)).inputs, f.entryInput); assert.equal(JSON.parse(result.stdout).run.id, 501);

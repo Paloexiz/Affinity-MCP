@@ -4,7 +4,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { outputs, artifactBinding, executionContext, route, pushRefProof, productionDiff, workspace } from "./workflow.mjs";
 import { publicationFixture } from "./fixtures/publication.mjs";
 import { json, digest } from "./github.mjs";
@@ -27,7 +27,7 @@ async function runFixture(t) {
   const env = { ...process.env, GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/develop", GITHUB_SHA: f.source, GITHUB_WORKFLOW_SHA: f.source, GITHUB_WORKFLOW_REF: "test/repository/.github/workflows/docs-hooks.yml@refs/heads/develop", GITHUB_REPOSITORY: "test/repository", GITHUB_REPOSITORY_ID: "123", GITHUB_RUN_ID: "101", GITHUB_RUN_ATTEMPT: "1", GITHUB_TOKEN: "read-fixture-token", GITHUB_EVENT_PATH: event, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary, RELEASE_ENABLED: "true", RELEASE_POLICY: JSON.stringify(f.policy), RELEASE_CONTROL_ROOT: f.rootSha, FIXTURE_NOW: "2026-10-24T12:00:00Z", RELEASE_REF_ARTIFACT: JSON.stringify({ id: 201, digest: f.original.ref_artifact_digest }) };
   const run = async (mode, extra = {}) => {
     writeFileSync(output, "");
-    const child = spawn(process.execPath, ["--import", f.preload, "--import", localFetch, join(root, mode === "ci-policy" ? "scripts/ci.mjs" : "scripts/release/workflow.mjs"), mode === "ci-policy" ? "policy" : mode], { cwd: checkout, env: { ...env, ...extra } });
+    const child = spawn(process.execPath, ["--import", f.preload, "--import", pathToFileURL(localFetch).href, join(root, mode === "ci-policy" ? "scripts/ci.mjs" : "scripts/release/workflow.mjs"), mode === "ci-policy" ? "policy" : mode], { cwd: checkout, env: { ...env, ...extra } });
     let stdout = "", stderr = ""; child.stdout.on("data", data => stdout += data); child.stderr.on("data", data => stderr += data);
     const code = await new Promise(resolve => child.once("close", resolve));
     return { code, stdout, stderr, outputs: Object.fromEntries(readFileSync(output, "utf8").split("\n").filter(Boolean).map(line => { const equals = line.indexOf("="); return [line.slice(0, equals), line.slice(equals + 1)]; })) };

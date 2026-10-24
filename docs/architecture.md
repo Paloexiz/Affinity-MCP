@@ -181,7 +181,7 @@ preamble 中声明为文本的内容块必须提供字符串 `text`；任一非�
 
 ## 生产归档的本地验证
 
-[归档工具](../scripts/release.mjs)的 `prepare`、`verify`、`verify-install` 使用显式 source/base 完整 SHA；工作树、时钟和运行目录不参与生产字节选择。读取 Git 对象禁止按需 fetch，并禁用本地 replacement refs，临时 Git 对象库计算 tree，不改来源仓库索引、对象或引用。每条 Git 命令的输出缓冲上限为 256 MiB，超过时明确失败；接纳更大生产文件前需改为流式处理。版本规则复用现有检查器，允许清单和安装引用复用链接检查器；日期只取源提交的双语 CHANGELOG。具体配方与命令见[版本说明](versioning.md#发布归档的生成与核对)。
+[归档工具](../scripts/release.mjs)的 `prepare`、`verify`、`verify-install` 使用显式 source/base 完整 SHA；工作树、时钟和运行目录不参与生产字节选择。读取 Git 对象禁止按需 fetch，并禁用本地 replacement refs，临时 Git 对象库计算 tree，不改来源仓库索引、对象或引用。通过 `GIT_CONFIG_NOSYSTEM=1` 和 `GIT_CONFIG_GLOBAL=/dev/null` 隔离系统及全局配置，空配置路径采用 [Git 的约定](https://git-scm.com/docs/git)。每条 Git 命令的输出缓冲上限为 256 MiB，超过时明确失败；接纳更大生产文件前需改为流式处理。版本规则复用现有检查器，允许清单和安装引用复用链接检查器；日期只取源提交的双语 CHANGELOG。具体配方与命令见[版本说明](versioning.md#发布归档的生成与核对)。
 
 安装模拟分别使用实际 ZIP 解出的文件，以及独立从 source 生成的干净生产树。两者各生成含空格、中文和字面美元符号路径的临时测试副本，只替换 Codex/共用配置的模拟服务 endpoint；其他字节和配置字段必须相同。调用副本内 smoke CLI，从独立工作目录启动，核对副本路径、代理 hash、版本、分页和 preamble；只使用随机本机端口，不连接真实 Affinity。原归档、原生产树和测试副本在运行前后核对，临时目录及模拟服务结束后清理。运行记录与可复现 manifest 分开，不在 manifest 中预记模拟通过。
 
@@ -209,7 +209,7 @@ main 请求的意图绑定前后两个完整 SHA：保存意图前核对 main �
 
 恢复先读回旧 job 的 ID、run 与已完成状态，并分页读取[准确 run/attempt 的 jobs](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt)确认成员归属；不假定单个 job 响应提供 `run_attempt`。分页缺项、重复身份、总数变化或读取失败均停止。还须确认记录的 token 失效时间已过，当前工具不接受提前撤销的外部断言。没有意图，或目标能精确证明原请求已成功，才追加恢复记录；403/404、取消、超时、暂未出现目标都不能证明请求未提交。成功依据分别为准确 main 提交、annotated tag 对象、草稿身份与正文、下载附件字节、不可变且为 latest 的正式 Release。仍未知时停止并保留记录，需取得原请求终态或获授权的人工故障处置；不会按 TTL 清锁。[GitHub API](../scripts/release/github.mjs)不回显响应错误正文或凭据，也不自动重试写入。
 
-[控制回归](../scripts/release/control.test.mjs)以真实临时 Git 仓库和本机 HTTP 模拟 API 验证双进程竞争、SIGKILL 后重新读取、响应丢失、旧请求迟到、永久撤销、错误身份与缺对象，以及独立恢复 CLI 进程。它不连接 GitHub，不证明实际规则集、Environment 或队列已启用。
+[控制回归](../scripts/release/control.test.mjs)以真实临时 Git 仓库和本机 HTTP 模拟 API 验证双进程竞争、SIGKILL 后重新读取、响应丢失、旧请求迟到、永久撤销、错误身份与缺对象，以及独立恢复 CLI 进程。测试子进程的 `--import` 加载器通过 `pathToFileURL(...).href` 传入，适用于包含盘符及需 URL 编码字符的文件路径。本机 API 夹具关闭 keep-alive 空闲超时，连接由测试清理统一关闭，避免同步 Git 工作与空闲连接关闭发生竞态；生产请求的30秒预算不变。它不连接 GitHub，不证明实际规则集、Environment 或队列已启用。
 
 若收到确定拒绝后、结果记录持久化前进程失联，后来运行没有该响应的可验证证据，仍按未知意图阻塞；已有拒绝的内存判断不能由新运行继承。回归覆盖 422 后结果写入失败及新进程拒绝清锁。只有取得可验证的原请求终态或完成获授权的人工故障处置才能继续，不根据“目标未出现”猜测未提交。
 

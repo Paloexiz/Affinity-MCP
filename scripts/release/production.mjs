@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, readdirSync, lstatSync } from "node:fs";
-import { tmpdir, devNull } from "node:os";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { checkSnapshot, checkIncrement, packageDeclarations, parseVersion } from "../check-version.mjs";
 import { productionAllowlist, checkProductionReferences } from "../check-links.mjs";
@@ -15,7 +15,7 @@ const text = bytes => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true })
 
 function gitBytes(root, args, input) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
-  Object.assign(env, { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: devNull, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" });
+  Object.assign(env, { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" });
   // shortcut: buffer Git results up to 256 MiB, stream before admitting larger production files.
   try { return execFileSync("git", ["--no-lazy-fetch", "--no-replace-objects", ...args], { cwd: root, input, env, stdio: "pipe", maxBuffer: 256 * 1024 * 1024 }); }
   catch (error) {

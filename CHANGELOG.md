@@ -2,6 +2,12 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## Unreleased
+
+### 0.5.4-dev.4
+
+No user-visible changes.
+
 ## 2026-10-22
 
 ### 0.5.4-dev.3

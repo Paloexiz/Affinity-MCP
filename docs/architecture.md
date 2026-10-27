@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.4-dev.8`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
+本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.4`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
 
 ## 目标和边界
 

@@ -47,6 +47,11 @@ for (const name of pluginFiles) {
 const streams = new Map();
 const calls = [];
 const upstreamReplies = new Map();
+const replyPosts = [];
+const replyGates = new Set();
+const requestHandlers = new Set();
+const handlerErrors = [];
+let replyBodyGate;
 const preambleText = "This is a JavaScript SDK for the Affinity by Canva application.\nSDK includes should be in the form require('/document.js').\nThe script execution will not return output so you need to use console.log().";
 let session = 0;
 let upstreamMode = "normal";
@@ -57,7 +62,25 @@ function writeSse(stream, wire) {
   if (sseProbe) sseProbe.sent = Buffer.concat([sseProbe.sent, Buffer.from(wire)]);
   stream.write(wire);
 }
-const server = createServer(async (req, res) => {
+async function waitFor(promise, label, waitMs = 2500) {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label}: timed out`)), waitMs);
+    })]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+const server = createServer((req, res) => {
+  const handling = handleRequest(req, res).catch(error => {
+    handlerErrors.push(error);
+    res.destroy();
+  });
+  requestHandlers.add(handling);
+  handling.then(() => requestHandlers.delete(handling));
+});
+async function handleRequest(req, res) {
   if (req.url === "/sse") {
     if (["connect_http", "smoke_fallback"].includes(upstreamMode)) {
       if (upstreamMode === "smoke_fallback") upstreamMode = "normal";
@@ -79,18 +102,31 @@ const server = createServer(async (req, res) => {
     writeSse(res, `event: endpoint${eol}data: /message?session=${session}${eol}${sseProbe?.split ? "\r" : eol}`);
     return;
   }
+  const connection = Number(new URL(req.url, "http://localhost").searchParams.get("session"));
+  if (replyBodyGate?.connection === connection) {
+    const gate = replyBodyGate;
+    replyBodyGate = undefined;
+    gate.headers.resolve();
+    await waitFor(gate.release.promise, "upstream reply body gate");
+  }
   let body = "";
   for await (const chunk of req) body += chunk;
   const msg = JSON.parse(body);
   calls.push(msg);
-  const connection = Number(new URL(req.url, "http://localhost").searchParams.get("session"));
   const stream = streams.get(connection);
   if (!Object.hasOwn(msg, "method")) {
-    const mode = upstreamReplies.get(`${connection}:${msg.id}`);
+    replyPosts.push({ connection, message: msg });
+    const record = upstreamReplies.get(`${connection}:${msg.id}`);
+    record?.received.resolve();
+    const mode = record?.mode;
     if (mode === "stale") stream.end();
     if (mode === "fail") res.writeHead(503).end("ping reply refused");
-    else if (mode === "delay" || mode === "stale") {
-      setTimeout(() => res.writeHead(503).end("late ping reply failure"), mode === "stale" ? 200 : 900);
+    else if (mode === "delay") {
+      await waitFor(record.responseGate.promise, "upstream reply HTTP response gate");
+      record.responseReleased = true;
+      res.writeHead(503).end("late ping reply failure");
+    } else if (mode === "stale") {
+      setTimeout(() => res.writeHead(503).end("late ping reply failure"), 200);
     } else res.writeHead(202).end();
     return;
   }
@@ -131,13 +167,32 @@ const server = createServer(async (req, res) => {
     const replyMode = name === "upstream_ping_delay" ? "delay"
       : name === "upstream_ping_failure" ? "fail"
       : name === "upstream_ping_stale" ? "stale" : "normal";
-    upstreamReplies.set(`${connection}:${msg.id}`, replyMode);
+    const expected = name === "upstream_notification" ? undefined
+      : name === "upstream_unknown" ? { error: { code: -32601, message: "Unsupported method: mock/unknown" } }
+      : name === "upstream_bad_params" ? { error: { code: -32602, message: "params must be an object" } }
+      : { result: {} };
+    const record = { connection, request: msg, mode: replyMode, expected, received: Promise.withResolvers() };
+    if (replyMode === "delay") {
+      record.responseGate = Promise.withResolvers();
+      record.closed = once(stream, "close");
+      replyGates.add(record.responseGate);
+    }
+    upstreamReplies.set(`${connection}:${msg.id}`, record);
+    const bodyGate = name === "upstream_unknown" ? replyBodyGate : undefined;
+    if (bodyGate) bodyGate.connection = connection;
     const incoming = name === "upstream_notification"
       ? { jsonrpc: "2.0", method: "notifications/mock", params: {} }
       : { jsonrpc: "2.0", id: msg.id, method: name === "upstream_unknown" ? "mock/unknown" : "ping", params: name === "upstream_bad_params" ? [] : {} };
     stream.write(`data: ${JSON.stringify(incoming)}\n\n`);
-    if (replyMode !== "stale") {
-      setTimeout(() => stream.write(`data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: `${name} real result` }] } })}\n\n`), 40);
+    const businessResult = () => stream.write(`data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: `${name} real result` }] } })}\n\n`);
+    if (bodyGate) {
+      await waitFor(bodyGate.headers.promise, "upstream reply headers");
+      businessResult();
+    } else if (replyMode === "delay") {
+      await waitFor(record.received.promise, "upstream ping reply body");
+      businessResult();
+    } else if (replyMode !== "stale" && replyMode !== "fail") {
+      setTimeout(businessResult, 40);
     }
     return;
   }
@@ -228,9 +283,17 @@ const server = createServer(async (req, res) => {
   } else {
     writeSse(stream, `data: {"jsonrpc":"2.0","id":${msg.id},${eol}data: "result":${JSON.stringify(result)}}${eol}${eol}`);
   }
-});
+}
 server.listen(0, "127.0.0.1");
 await once(server, "listening");
+
+function upstreamReply(name, before) {
+  const request = calls.slice(before).find(call => call.params?.name === name);
+  assert.ok(request, "The business request was fully recorded");
+  const record = upstreamReplies.get(`${session}:${request.id}`);
+  assert.equal(record?.request, request);
+  return record;
+}
 
 async function check(framed, launch, label = "direct", timeout, diagnostics = false) {
   const env = { ...process.env, ...launch?.env, AFFINITY_MCP_BASE_URL: `http://127.0.0.1:${server.address().port}`, AFFINITY_MCP_PROTOCOL_VERSION: "2025-03-26" };
@@ -242,12 +305,15 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     env,
     stdio: ["pipe", "pipe", "pipe"],
   });
+  const closed = once(child, "close");
+  closed.catch(() => {});
   let buffer = Buffer.alloc(0);
   let stderr = "";
   let id = 0;
   const pending = new Map();
   const responses = new Map();
   const expectedResponses = new Set();
+  const responseTimers = new Set();
   child.stderr.on("data", c => stderr += c);
   child.stdout.on("data", chunk => {
     buffer = Buffer.concat([buffer, chunk]);
@@ -274,7 +340,8 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     expectedResponses.add(key);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`${label} ${framed ? "framed" : "newline"} ${method} id=${key}: no response; exitCode=${child.exitCode}; signal=${child.signalCode}; stderr:\n${stderr}`)), waitMs);
-      pending.set(key, msg => { clearTimeout(timer); resolve(msg); });
+      responseTimers.add(timer);
+      pending.set(key, msg => { clearTimeout(timer); responseTimers.delete(timer); resolve(msg); });
     });
   }
   const encode = body => Buffer.from(framed ? `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}` : `${body}\n`);
@@ -354,19 +421,35 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
       ["upstream_notification", undefined],
     ]) {
       const before = calls.length;
+      const bodyGate = name === "upstream_unknown" && label === "direct" && !framed && timeout === undefined
+        ? { headers: Promise.withResolvers(), release: Promise.withResolvers() } : undefined;
+      if (bodyGate) { replyBodyGate = bodyGate; replyGates.add(bodyGate.release); }
       const response = await rpc("tools/call", { name });
       assert.equal(response.result.content[0].text, `${name} real result`, "Upstream requests never settle our same-ID pending request");
+      const record = upstreamReply(name, before);
+      if (bodyGate) {
+        assert.deepEqual(calls.slice(before).filter(call => !Object.hasOwn(call, "method")), [], "Business stdout arrives before the held reply body is consumed");
+        bodyGate.release.resolve();
+      }
+      if (expected) await waitFor(record.received.promise, `${name} full reply body`);
       const posted = calls.slice(before);
       const replies = posted.filter(call => !Object.hasOwn(call, "method"));
       assert.deepEqual(replies, expected ? [{ jsonrpc: "2.0", id: posted[0].id, ...expected }] : [], "Only upstream requests receive one local reply");
     }
     if (diagnostics) {
-      const pingStart = performance.now();
+      const before = calls.length;
       assert.equal((await rpc("tools/call", { name: "upstream_ping_delay" })).result.content[0].text, "upstream_ping_delay real result");
-      assert.ok(performance.now() - pingStart < 650, "Upstream ping POST must not block business SSE responses");
+      const delayed = upstreamReply("upstream_ping_delay", before);
+      assert.equal(delayed.responseReleased, undefined, "Business stdout arrives while the upstream reply HTTP response is held");
+      await waitFor(delayed.received.promise, "delayed ping reply body");
+      assert.deepEqual(replyPosts.filter(post => post.connection === delayed.connection && post.message.id === delayed.request.id),
+        [{ connection: delayed.connection, message: { jsonrpc: "2.0", id: delayed.request.id, result: {} } }]);
+      delayed.responseGate.resolve();
+      await waitFor(delayed.closed, "Failed upstream reply closes its SSE connection");
       const pingFailure = (await rpc("tools/call", { name: "upstream_ping_failure" })).error;
       assert.equal(pingFailure.data.phase, "post");
       assert.equal(pingFailure.data.outcome, "unknown");
+      assert.equal(pingFailure.data.cause, "HTTP 503 ping reply refused");
       assert.ok((await rpc("tools/list")).result.tools.length, "A failed upstream reply allows the next request to reconnect");
       const stale = (await rpc("tools/call", { name: "upstream_ping_stale" })).error;
       assert.equal(stale.data.phase, "sse");
@@ -475,12 +558,8 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     }
     initializeResultOverride = undefined;
     assert.ok((await rpc("tools/list")).result.tools.length, "Next request reconnects");
-    const closed = once(child, "close");
     child.stdin.end();
-    await Promise.race([closed, new Promise((_, reject) => {
-      const timer = setTimeout(() => reject(new Error(`${label} ${framed ? "framed" : "newline"}: Proxy did not exit on stdin EOF; exitCode=${child.exitCode}; signal=${child.signalCode}; stderr:\n${stderr}`)), 2500);
-      timer.unref();
-    })]);
+    await waitFor(closed, `${label} ${framed ? "framed" : "newline"}: Proxy stdin EOF exit`);
     assert.equal(child.exitCode, 0, `${label} ${framed ? "framed" : "newline"}; exitCode=${child.exitCode}; signal=${child.signalCode}; stderr:\n${stderr}`);
     assert.equal(buffer.length, 0, "No incomplete output remains after EOF");
     assert.deepEqual(new Set(responses.keys()), expectedResponses, "No unexpected responses, including notifications");
@@ -489,7 +568,12 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
   } finally {
     upstreamMode = "normal";
     initializeResultOverride = undefined;
-    if (child.exitCode === null) child.kill();
+    for (const gate of replyGates) gate.resolve();
+    replyGates.clear();
+    replyBodyGate = undefined;
+    for (const timer of responseTimers) clearTimeout(timer);
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+    await waitFor(closed, "Proxy cleanup exit");
   }
 }
 
@@ -734,6 +818,7 @@ async function checkInvalidRequests(framed) {
   }
 }
 
+let suiteSucceeded = false;
 try {
   await checkStdioDetection();
   await checkSseLineEndings("\r");
@@ -965,10 +1050,23 @@ try {
   writeFileSync(sharedPath, JSON.stringify(installedShared));
   await assert.rejects(checkInstalledConnection(scratch, "shared"), /Node version/i);
   console.log("PASS installed smoke: both configs, pagination, identity, fallback, JSON-RPC/tool errors, empty/invalid preamble, timeout and invalid launchers");
+  suiteSucceeded = true;
 } finally {
+  for (const gate of replyGates) gate.resolve();
   for (const stream of streams.values()) stream.end();
+  const closed = new Promise(resolve => server.close(resolve));
   server.closeAllConnections();
-  await new Promise(resolve => server.close(resolve));
+  await closed;
+  await Promise.all([...requestHandlers]);
   assert.equal(dirname(resolve(scratch)), resolve(tmpdir()));
   rmSync(scratch, { recursive: true, force: true });
+  if (suiteSucceeded) {
+    assert.deepEqual(handlerErrors, [], "Every mock HTTP handler completed without an unobserved failure");
+    const expectedPosts = [...upstreamReplies.values()].filter(record => record.expected).map(record => ({
+      connection: record.connection, message: { jsonrpc: "2.0", id: record.request.id, ...record.expected },
+    }));
+    const key = post => JSON.stringify([post.connection, post.message.id]);
+    const ordered = posts => posts.toSorted((left, right) => key(left).localeCompare(key(right)));
+    assert.deepEqual(ordered(replyPosts), ordered(expectedPosts), "All upstream HTTP replies match exactly; notifications, duplicates and unknown IDs add none");
+  }
 }

@@ -2,22 +2,50 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## 2026-10-27
+
+### 0.5.4-dev.8
+
+No user-visible changes.
+
+## 2026-10-26
+
+### 0.5.4-dev.7
+
+No user-visible changes.
+
+### 0.5.4-dev.6
+
+No user-visible changes.
+
+## 2026-10-25
+
+### 0.5.4-dev.5
+
+#### Changed
+
+- Clarify in the READMEs which non-front targets were tested, require ordinary unlinking to reject front-frame targets first, and warn that unlinking the front frame can clear the entire Story.
+
+### 0.5.4-dev.4
+
+No user-visible changes.
+
 ## 2026-10-22
 
 ### 0.5.4-dev.3
 
 #### Changed
 
-- Reject front-frame unlinking because a tested call cleared the whole Story; unlinking a middle frame leaves the full text upstream and empties the downstream chain.
+- Reject front-frame unlinking: a tested call cleared the whole Story. A middle-frame unlink leaves the full text in the upstream frame and empties the downstream chain.
 
 #### Added
 
 - Clone a PathBrush from an existing brushed curve, adjust its width, and reuse it on another curve; preparing a preset in the UI remains a separate step.
-- Add bounded recipes for three-frame flows across spreads, known-height frame reflow, multi-page/selected-page PDF and transparent text export, and asynchronous native save/overwrite/reopen.
+- Add recipes with documented limits for three-frame flows across spreads, known-height frame reflow, multi-page and selected-page PDF export, transparent text export, and asynchronous native save, overwrite, and reopen.
 
 #### Fixed
 
-- Require explicit checks for mixed-format replacements, complete Bleed and packaged originals: successful calls can lose formatting, crop the output or render degraded image regions after reopening.
+- Require explicit checks of mixed-format replacements, complete Bleed, and packaged originals: a successful call can still lose formatting, crop the output, or leave degraded image regions after reopening.
 
 ## 2026-10-21
 
@@ -30,16 +58,16 @@ No user-visible changes.
 #### Changed
 
 - Treat linked text frames as merged text; unlinking no longer assumes restoring original separate text.
-- Require explicitly specifying whether to save or discard unsaved changes before async document close.
+- Require the caller to state whether to save or discard unsaved changes before closing a document asynchronously.
 
 #### Added
 
-- Add workflow recipes for rectangle Boolean operations, RGBA8 pixels, multi-format export (PNG/JPEG/SVG/PDF/WebP), and native save/reopen.
+- Add workflow recipes for rectangle Boolean operations, RGBA8 pixel access, export in multiple formats (PNG/JPEG/SVG/PDF/WebP), and native save and reopen.
 
 #### Fixed
 
-- Update SDK support status: regular character insertion and async PNG export are confirmed functional rather than blocked by legacy limits.
-- Fix brush discovery to use PathBrush names and remove invalid VectorBrush discovery logic.
+- Update SDK support status: regular character insertion and async PNG export are confirmed working, and the earlier assessment was based on legacy limits.
+- Fix brush discovery to use PathBrush names, and remove the invalid VectorBrush discovery logic.
 
 ## 2026-10-20
 
@@ -48,7 +76,7 @@ No user-visible changes.
 #### Changed
 
 - Choose text tools based on layout requirements (paragraphs, wrapping, containers, and alignment) instead of defaulting to Artistic Text.
-- Distinguish Chinese body visual alignment from full glyph centering, and clarify optical alignment mode switching vs. custom punctuation hanging rules.
+- Distinguish visual alignment of Chinese body text from full glyph centering, and clarify the difference between switching optical alignment modes and custom punctuation hanging rules.
 
 ### 0.5.2
 
@@ -131,7 +159,7 @@ No user-visible changes.
 
 #### Fixed
 
-- Validate client requests and upstream handshakes to accurately identify timeout and disconnection stages.
+- Validate client requests and upstream handshakes so that timeout and disconnection stages can be identified accurately.
 - Distinguish unsubmitted operations from unknown outcomes, rejecting offline tool lists as proof of a live connection.
 
 ## 2026-10-09

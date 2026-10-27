@@ -2,169 +2,194 @@
   <img src="assets/affinity-mcp-icon.svg" width="112" height="112" alt="Affinity MCP">
 </p>
 
-# Affinity MCP
+<h1 align="center">Affinity MCP</h1>
 
-Select your Language: English | [简体中文](README.zh-cn.md)
+<p align="center">A Model Context Protocol (MCP) plugin connecting AI clients to Affinity by Canva</p>
+<p align="center">English | <a href="README.zh-cn.md">简体中文</a></p>
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#usage-notes">Usage notes</a> ·
+  <a href="#privacy-and-terms">Privacy and terms</a>
+</p>
 
-A standalone plugin for **Codex, ZCode and Claude Code**, connecting to Affinity by Canva's local MCP server. One repository contains one plugin; manifests live at the root and runtime scripts ship inside `skills/affinity-mcp/`.
+<a id="quick-start"></a>
+<a id="get-started"></a>
 
-Independent community project maintained by [Paloexiz](https://github.com/Paloexiz), not an official OpenAI, Z.ai, Anthropic, Canva or Affinity release.
+## Quick start
 
-## Privacy and terms
+### Prerequisites
 
-Read the [Privacy Policy](PRIVACY.md) and [Terms of Service](TERMS.md). The proxy connects locally by default, but document content and previews returned to your AI client may be sent to its model provider. The software remains licensed under [MIT](LICENSE). Contact: [project Issues](https://github.com/Paloexiz/Affinity-MCP/issues) (public; redact sensitive information).
+- **Affinity by Canva** (must run locally on the same machine as your AI client)
+- **Node.js** 24.20 or newer (24.21+ recommended)
+- Supported AI client: **Codex**, **ZCode**, or **Claude Code**
 
-The same policies cover Codex, Claude Code and ZCode. Policy links are declared in the Codex listing, the Claude Code manifest for Anthropic's directory, and the ZCode marketplace entry. Where your client or directory does not show them, use the links above or the copies included with the plugin.
+### 1. Enable MCP service
 
-## Affinity by Canva settings
+In Affinity, open **Settings → Model Context Protocol** and turn on **Enable Affinity MCP**.
 
-Open **Settings → Model Context Protocol** in Affinity by Canva. **Enable Affinity MCP** is the only switch required to connect; the default endpoint is `http://localhost:6767/sse`.
+<details>
+<summary>Settings screenshot and permission descriptions</summary>
 
-![Affinity by Canva's Model Context Protocol settings panel](assets/affinity-mcp-settings.png)
+![Affinity's Model Context Protocol settings panel](assets/affinity-mcp-settings.png)
 
-The screenshot shows the recommended configuration. Keep **Access files on your Desktop**, both scripting-panel switches and **Save task hints to your device's local memory** on so those capabilities stay available. **Access networks**, **Use Canva AI Studio features** and **Share task hints with Affinity** are optional: switch them on only when you want what they do.
+The default endpoint is `http://localhost:6767/sse`. Additional permissions can be configured as needed:
 
-| Setting | Set it to | Effect |
+| Permission | Setting | Description |
 | --- | --- | --- |
-| Enable Affinity MCP | On (required) | Exposes the local MCP server that connects the agent to Affinity by Canva. |
-| Access files on your Desktop | On | Lets scripts open, edit and save files on your Desktop when a task needs them. Paths outside the Desktop are denied, so this is not whole-disk access. |
-| Access networks | Off unless a script needs HTTP | Lets scripts make HTTP requests through `network.js`. Independent of the MCP transport, so the connection works while it is off. |
-| Use saved scripts | On | Lets the agent read scripts already stored in your Affinity scripting panel. |
-| Save scripts to your scripting panel | On | Lets the agent save completed scripts into your Affinity scripting panel. |
-| Use Canva AI Studio features | Off unless you want Canva AI | Lets scripts use Canva AI Studio features; the Premium and Ultra AI tools draw on your Canva plan's monthly AI allowance. Independent of the MCP connection. |
-| Save task hints to your device's local memory | On | Stores task hints locally so similar future tasks start with that context. |
-| Share task hints with Affinity | Optional — your choice | Shares anonymized task hints to help improve the Affinity knowledge base. |
+| Desktop file access | **Access files on your Desktop** | Grants access to your Desktop directory only; not full disk access. |
+| Read saved scripts | **Use saved scripts** | Allows reading scripts stored in Affinity's scripting panel. |
+| Save scripts to panel | **Save scripts to your scripting panel** | Allows saving generated scripts to the scripting panel. |
+| Local hint storage | **Save task hints to your device's local memory** | Stores task context hints locally on your machine. |
+| Script network access | **Access networks** | Allows scripts to make outbound HTTP requests; disabling it does not affect local MCP operation. |
+| Canva AI features | **Use Canva AI Studio features** | Enables Canva AI tools (premium tools consume plan allowances). |
+| Anonymous hint sharing | **Share task hints with Affinity** | Shares anonymized task hints with Affinity (optional). |
 
-## Requirements
+</details>
 
-- Affinity by Canva with **Enable Affinity MCP** on, running on the same computer as the agent.
-- Node.js **24.20 or newer** on `PATH` as `node` (24.21 or newer recommended). The plugin's proxy connects to Affinity's local server using `node`; on Windows, older versions can abort when the process exits—observed after the client disconnects (libuv `UV_HANDLE_CLOSING` assertion, exit code `3221226505`).
-- Codex, ZCode or Claude Code with plugin support.
+<a id="install"></a>
 
-## Install
+### 2. Install the plugin
 
-Install the complete **Affinity MCP Plugin**. Copying `skills/affinity-mcp/` alone or installing it through a skill installer is unsupported. The complete Plugin manifests register and launch the MCP server using the Skill's runtime scripts; installing the Skill alone does not register that server.
-
-If the client already has another plugin or MCP server that provides Affinity by Canva's tools, disable it before installing this one — otherwise both stay active and every Affinity tool appears twice.
-
-### Codex
-
-Add `Paloexiz/Affinity-MCP` in the plugin marketplace UI, then install **Affinity MCP**. CLI equivalent:
+**Codex**: Search and install `affinity-mcp` in the plugin marketplace, or run:
 
 ```shell
 codex plugin marketplace add Paloexiz/Affinity-MCP
 codex plugin add affinity-mcp@affinity-mcp
 ```
 
-Codex reads `.agents/plugins/marketplace.json`. Its single plugin source is `./`. The plugin manifest defines its MCP launcher inline; Codex resolves `cwd: "."` to the installed plugin directory.
+<details>
+<summary>Claude Code</summary>
 
-### ZCode
-
-Open a workspace and go to **Settings → Plugins → Create → Add Plugin Marketplace**. Add `Paloexiz/Affinity-MCP` or this local repository directory, then install **affinity-mcp** from the personal marketplace.
-
-ZCode loads the same `.claude-plugin/` manifests, `.mcp.json` and Skill as Claude Code. The shared marketplace includes its HTTPS SVG icon and Chinese description. Refresh the marketplace to pick up changes.
-
-### Claude Code
-
-Add this repository as a marketplace, then install the plugin:
+Add the marketplace source and install:
 
 ```shell
 claude plugin marketplace add https://github.com/Paloexiz/Affinity-MCP.git
 claude plugin install affinity-mcp@affinity-mcp
 ```
 
-Claude Code reads `.claude-plugin/plugin.json` and the single-entry `.claude-plugin/marketplace.json`. It automatically loads the shared Skill and root `.mcp.json`; no separate MCP registration is needed. For local development, use `claude --plugin-dir /path/to/Affinity-MCP` or add the local repository path as the marketplace.
+</details>
 
-### Update
+<details>
+<summary>ZCode</summary>
 
-Refresh the marketplace and update/reinstall the plugin in your client. For Codex CLI:
+Navigate to **Settings → Plugins → Create → Add Plugin Marketplace**, enter `Paloexiz/Affinity-MCP`, and install **affinity-mcp** from your personal marketplace. You can also specify a local repository path directly.
+
+</details>
+
+> [!NOTE]
+> Installing the complete plugin is required to register the MCP server automatically; installing the standalone Skill cannot establish a connection.
+
+### 3. Verify connection
+
+Send the following prompt to your AI client to verify connectivity:
+
+> Connect to Affinity, list open documents, and do not make changes yet.
+
+<a id="features"></a>
+<a id="what-can-it-do"></a>
+<a id="supported-features"></a>
+
+## Features
+
+| Category | Supported operations |
+| --- | --- |
+| Typography | Create Artistic Text and Frame Text; edit content, font families, sizes, and paragraph styles; link text frames. |
+| Layer management | Inspect, select, rename, and reorder layers; toggle lock and visibility states. |
+| Layout & geometry | Align elements, resize objects, configure margins, draw primitive vector shapes, and adjust fills and strokes. |
+| Documents & exports | Save and reopen native documents; export to PNG, JPEG, SVG, PDF, and WebP. |
+
+Usage example:
+
+> Align the selected text frames to the left without changing their font sizes.
+
+For each operation's scope, limits, and verified cases, see the [operation guide](skills/affinity-mcp/SKILL.md#supported-operations) and [verified test cases](skills/affinity-mcp/references/sdk-verified.md#version-boundaries).
+
+<a id="usage-notes"></a>
+<a id="before-you-use-it"></a>
+<a id="unsupported-or-unverified-features"></a>
+
+### Usage notes
+
+- **Saving and closing documents**: Closing a document asynchronously discards unsaved changes without showing a confirmation prompt. Save explicitly before you close.
+- **Unlinking text frames**: In the samples we tested, unlinking a frame that was not the front of the flow left the whole Story in the upstream frame and left the unlinked frame and the rest of the chain with an empty Story. It does not split the visible text, and it does not restore the separate texts you had before linking. Unlinking the front frame can clear the entire Story, so reject front-frame targets before any ordinary unlink. For the tested builds, target preconditions, and verification limits, see [linked text flow](skills/affinity-mcp/references/sdk-verified.md#linked-text-flow); these samples do not establish behavior for every chain or version.
+- **Typography needs visual inspection**: Judge Chinese punctuation wrapping and hanging, mixed formatting, and overflow on the canvas. Choose Artistic Text or Frame Text according to how the text must lay out. See [typography notes](skills/affinity-mcp/references/sdk-verified.md#text-tool-choice-and-refit).
+- **Validate exported files**: A basic export that succeeds does not prove that bleeds, multi-page setups, font embedding, or custom dimensions came out as intended; check the result yourself. See [export verification scope](skills/affinity-mcp/references/sdk-verified.md#verified-file-and-export-workflow).
+- **Timeout handling**: A request timeout does not mean the operation failed; the script may already have run inside Affinity. Check the document state before retrying, or you may apply the same change twice.
+
+<details>
+<summary>Known limitations</summary>
+
+The MCP interface does not cover everything the Affinity desktop UI can do. For example, custom Chinese punctuation hanging rules and vertical text alignment inside frames have no working SDK entry points, and default brush creation and asynchronous file copy still raise exceptions in current builds. Do not rely on complex text chains or advanced selection parameters without verifying them first.
+
+For the full boundaries and test records, see the [SDK reference](skills/affinity-mcp/references/sdk-verified.md). For connectivity, permission, and scripting problems, see the [troubleshooting guide](skills/affinity-mcp/references/scripting-pitfalls.md).
+
+</details>
+
+<a id="common-questions"></a>
+
+## Common questions
+
+| Issue | Resolution |
+| --- | --- |
+| Connection fails | Verify Affinity is running with MCP enabled in Settings; confirm Node.js is installed (`node --version` ≥ 24.20, recommended 24.21+). Note: seeing tools in the client list does not indicate an active connection. |
+| Duplicate tools | Disable duplicate plugins or MCP entries providing overlapping Affinity tools. |
+| Updates not applied | Refresh the marketplace in your client, update the plugin, and restart the session to clear cached tools and Skill files. |
+| Permission denied | Verify that **Access files on your Desktop** is enabled in Affinity settings and the file resides within the user's Desktop directory. |
+
+<details>
+<summary>Updating the plugin</summary>
+
+Refresh marketplace sources and perform updates:
+
+**Codex CLI**:
 
 ```shell
 codex plugin marketplace upgrade affinity-mcp
 codex plugin add affinity-mcp@affinity-mcp
 ```
 
-Open a new task if the current task retains old tools or Skill content. For Claude Code, run `claude plugin marketplace update affinity-mcp` followed by `claude plugin update affinity-mcp@affinity-mcp`, then restart the session. Every development or stable delivery must use the same version in both plugin manifests, the shared Claude Code/ZCode marketplace entry and the proxy's reported version.
+**Claude Code**:
 
-See the [changelog](CHANGELOG.md) ([简体中文](CHANGELOG.zh-cn.md)) for release notes and the [versioning rules](https://github.com/Paloexiz/Affinity-MCP/blob/33aec1d170d982000c36ceafdc8dfd7f52bcfdff/docs/versioning.md) for channel numbering and changelog conventions.
+```shell
+claude plugin marketplace update affinity-mcp
+claude plugin update affinity-mcp@affinity-mcp
+```
 
-## Use and limits
+**ZCode**: Refresh your personal marketplace and update. Restarting client sessions is recommended to load updated tools and reference guidelines.
 
-Start with: **Read the Affinity SDK preamble and list open documents without modifying them.** Read live SDK documentation before scripting; inspect actual results after edits.
+See the [Changelog](CHANGELOG.md) ([简体中文](CHANGELOG.zh-cn.md)) for release history.
 
-The proxy forwards Affinity's SDK documentation, script execution, rendering, script-library and hint tools. These are gateways to the installed SDK, not separate implementations of every document operation.
+</details>
 
-See [supported operations and limits](skills/affinity-mcp/SKILL.md#supported-operations); only the listed cases are covered.
+<a id="check-a-real-installed-connection"></a>
+<details>
+<summary>Advanced: Connection smoke test</summary>
 
-After a timeout or disconnect, inspect document state before retrying: the script may already have executed. Submitted tool calls are never replayed automatically. An offline fallback tool list does not prove a live Affinity by Canva connection.
-
-Set `AFFINITY_MCP_REQUEST_TIMEOUT_MS` in the proxy process environment to change upstream request/POST waits: default `30000`, allowed integer range `100`–`300000` milliseconds. An unset value uses the default; empty, non-integer or out-of-range values stop the proxy with an error on stderr. It also applies to upstream initialize/initialized calls. Initial SSE connection setup remains 30 seconds and endpoint discovery about 5 seconds; these stages are not one end-to-end deadline. Set the client's own tool budget to cover its intended wait and connection setup; the shared config's `timeoutMs: 60000` does not override this environment setting. Restart the proxy after changing its environment.
-
-Transport/upstream errors identify `connect`, `endpoint`, `post`, `response`, `sse` or `upstream` in the message and JSON-RPC `error.data.phase`, retaining the cause. `method` is included when a request method is known; local input validation and unsupported-method errors need not have `data`. For a tool call attempted upstream, `outcome: "unknown"` requires state inspection before retrying, including HTTP failures. `not_submitted` means the requested tool call was not sent (for example, initialization failed); it is not a claim that earlier work did not execute. An SSE response can settle a request before its POST completes. Late results/errors never produce a second response or automatic replay; SDK text, images and `isError` results remain unaltered.
-
-## Supported features
-
-These categories cover only the cases recorded in the [SDK reference](skills/affinity-mcp/references/sdk-verified.md#version-boundaries). Historical cases with incomplete build/platform metadata require validation in the target environment.
-
-- [x] **Connect to Affinity by Canva**: Codex, ZCode and Claude Code can call Affinity by Canva through its local MCP server.
-- [x] **Read SDK resources**: list and read SDK documentation, search hints and save local hints when authorized.
-- [x] **Run and inspect scripts**: execute JavaScript in Affinity by Canva and render the current canvas or selection to check the result.
-- [x] **Work with documents and pages**: inspect open documents and save state, create multi-page documents, resize or switch canvases, and undo or redo changes.
-- [x] **Edit text and typography**: create text frames, write or replace text, and set fonts, size, spacing, alignment and indentation.
-- [x] **Work with vectors and artboards**: create, move and delete layers, containers, shapes and artboards, and handle geometry, bounds, names, locking and visibility.
-- [x] **Edit selections and pixels**: select layers or text ranges, read and write bitmap pixels, and process pixels with rectangular raster selections.
-- [x] **Apply fills and strokes**: use solid colours, gradients, hatches, strokes and existing vector brushes.
-- [x] **Apply effects and image processing**: use the verified shadows, transparency, blend modes, filters, adjustments and image tracing.
-- [x] **Edit margins and document properties**: read and modify the verified margins, units and canvas properties.
-- [x] **Save and export**: save Affinity documents and package copies, export PNG files, and export existing macros.
-- [x] **Edit slice export settings**: read, change and apply PNG size settings from an existing slice.
-- [x] **Work with embedded content and picture frames**: read embedded documents and picture frames, and switch an embedded document's page or artboard.
-- [x] **Use files, networking and dialogs**: when authorized, access desktop files, make local network requests, use timers and show SDK dialogs.
-- [x] **Manage the local script library**: when authorized, list, read and save Affinity by Canva scripts.
-- [x] **Recover from disconnects**: continue with new requests after reconnection without automatically repeating submitted calls.
-
-## Unsupported or unverified features
-
-The entries below describe operation-specific limits. Unless a build is stated, they come from historical **3.2.3.4646** records through **September 11, 2026**; some cases lack complete build/platform metadata and require validation in the target environment. Entries for **3.3.0.4850 Win32** cover only the samples observed on **October 8, 2026**. See [version boundaries](skills/affinity-mcp/references/sdk-verified.md#version-boundaries).
-
-- [ ] **Unverified document-close scenarios**: on 3.3.0.4850 Win32, synchronous close passed only disposable, modified/unsaved samples; async paths, business documents and save prompts remain unverified. See [lifecycle boundaries](skills/affinity-mcp/references/sdk-verified.md#lifecycle-documents-and-export).
-- [ ] **Insert or stitch pages into an existing document**: the SDK has no usable entry point; it can only create a new multi-page document.
-- [ ] **Create default brush objects directly**: the default RasterBrush and VectorBrush entry points are unavailable; an existing vector brush can still be read and modified.
-- [ ] **Adjust RasterBrush properties**: no usable raster-brush object has been obtained, so opacity and spacing remain unverified.
-- [ ] **Link text frames or insert individual glyph objects**: frame linking is unverified and the tested CharGlyph insertion path is unavailable; ordinary text insertion and replacement work.
-- [ ] **Complete advanced vector operations**: curve editing, Boolean operations and every shape-parameter combination remain unverified.
-- [ ] **Complete raster-selection operations**: add, subtract, intersect and polygon selections remain unverified.
-- [ ] **Complete slice export workflows**: slices or ExportConfig objects cannot be created entirely through the SDK, and direct export with that configuration is unverified.
-- [ ] **Set export width and height together**: the matching ExportScale entry point returned the wrong size type.
-- [ ] **Use more export options**: PDF, bleed, multi-page export and other formats or presets remain unverified.
-- [ ] **Create or replace picture-frame content**: only reading an existing picture frame has been verified.
-- [ ] **Record or replay macros**: only exporting an existing macro has been verified.
-- [ ] **Use every effect and image-processing option**: only selected filters, adjustments, fills, strokes and layer effects have been verified.
-- [ ] **Use complete networking support**: public internet, TLS and asynchronous networking remain unverified; synchronous local requests work.
-- [ ] **Copy files asynchronously**: the tested asynchronous copy path is unavailable; synchronous desktop file operations and some asynchronous reads work.
-- [ ] **Use Canva AI features**: one generation command was denied before execution, and the remaining AI features are unverified.
-- [ ] **Report SDK issues to Affinity by Canva**: no report has been sent, and every report requires explicit user authorization.
-
-SDK operations not listed here remain unverified. Permission-controlled features must first be enabled in Affinity by Canva.
-
-## Check a real installed connection
-
-Keep Affinity open with MCP enabled, then explicitly run:
+With Affinity running and MCP enabled, execute from the plugin directory:
 
 ```shell
 node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute-plugin-root>" --config codex
 ```
 
-Replace `<absolute-plugin-root>` with the exact installed plugin directory. Use `--config shared` for the Claude Code/ZCode `.mcp.json` launcher. The checker reads that copy's configuration and starts its proxy; it does not choose a cache version automatically or change the installed files.
+Replace `<absolute-plugin-root>` with the absolute installation path; use `--config shared` for Claude Code / ZCode.
 
-The proxy and connection checker ship in `skills/affinity-mcp/scripts/` as part of the complete Plugin. The checker verifies that the selected copy's manifest and proxy versions match.
+The script checks local manifests, proxy versions, tool discovery, and the SDK preamble. It does not execute document manipulation scripts, alter document data, or modify script panels. A passing check confirms only that the local interface of the selected copy is reachable; it does not prove that the UI loaded this copy.
 
-It initializes the proxy, follows `tools/list` pagination and reads the SDK preamble. It does not execute scripts or change documents, settings, hints or the script library. Fallback discovery, RPC/tool errors, unrecognized preamble content and timeouts fail the check; cleanup must complete before it reports success. Requests have a 45-second limit within a 60-second overall budget, followed by bounded process cleanup.
+</details>
 
-The JSON summary records the selected directory/configuration, plugin version, proxy SHA-256 and Node version. `applicationBuild` and `applicationPlatform` are `null` because these calls do not establish the application's identity. A pass verifies only this launch configuration's connection and preamble, not which copy a host UI loaded or whether SDK document operations work. Preamble wording changes may require updating the content checks.
+<a id="privacy-and-terms"></a>
 
-## Sources and attribution
+## Privacy and terms
 
-The layout follows [Superpowers](https://github.com/obra/superpowers) and its [single-entry index pointing to ./](https://github.com/obra/superpowers/blob/main/.claude-plugin/marketplace.json). ZCode reuses that format through its documented [Claude Code plugin compatibility](https://zcode.z.ai/en/docs/plugin). Claude Code integration follows its [plugin reference](https://code.claude.com/docs/en/plugins-reference) and [marketplace specification](https://code.claude.com/docs/en/plugin-marketplaces).
+By default, the plugin communicates only with the local Affinity service. However, any document data, text, and previews returned to your AI client are passed on to the model provider configured in that client. Review our [Privacy Policy](PRIVACY.md) and [Terms of Service](TERMS.md) before use.
 
-Proxy and Skill derive from [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33), with source revision `9f2c2db` in Paloexiz's fork. Original MIT attribution is retained in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). This repository uses [MIT](LICENSE).
+This is an open-source community project maintained by [Paloexiz](https://github.com/Paloexiz), not an official product of OpenAI, Z.ai, Anthropic, Canva, or Affinity. Report issues via [GitHub Issues](https://github.com/Paloexiz/Affinity-MCP/issues) (public tracker; remove sensitive data before posting).
+
+## Project structure and credits
+
+Release channels and versioning conventions are documented in the [versioning guide](https://github.com/Paloexiz/Affinity-MCP/blob/fea92f526e93c36966f71544547c48e3c7322ce5/docs/versioning.md).
+
+The layout follows [Superpowers](https://github.com/obra/superpowers); ZCode reuses this format through its [plugin compatibility feature](https://zcode.z.ai/en/docs/plugin); the Claude Code integration follows the official [plugin guidelines](https://code.claude.com/docs/en/plugins-reference) and [marketplace specifications](https://code.claude.com/docs/en/plugin-marketplaces).
+
+The proxy implementation and bundled Skill are derived from [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33) (source commit `9f2c2db` in Paloexiz's fork). Upstream MIT attribution is retained in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). This project is licensed under the [MIT License](LICENSE).

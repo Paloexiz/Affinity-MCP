@@ -14,6 +14,20 @@ const ticket = createHash('sha256').update('test-session\0test-turn').digest('he
 const context = value => value.hookSpecificOutput?.additionalContext || '';
 const stored = (root, id = ticket) => JSON.parse(fs.readFileSync(path.join(root,'.scratch/docs-hooks',`${id}.json`),'utf8'));
 const write = (root, name, value) => { fs.mkdirSync(path.dirname(path.join(root,name)),{recursive:true}); fs.writeFileSync(path.join(root,name),value,'utf8'); };
+test('actual repository SessionStart CLI provides six complete documents within the context budget',()=>{
+  const result=spawnSync(process.execPath,['scripts/docs-hooks.mjs','hook'],{
+    cwd:repo,input:JSON.stringify({hook_event_name:'SessionStart'}),encoding:'utf8',timeout:10000,windowsHide:true,
+  });
+  assert.equal(result.status,0,'SessionStart CLI must exit successfully');
+  assert.ok(result.stderr==='','SessionStart CLI must not write stderr');
+  const output=JSON.parse(result.stdout);
+  const names=['docs/README.md','docs/agents/domain.md','docs/maintaining.md','docs/architecture.md','docs/sdk/README.md','docs/hooks.md'];
+  const expected='以下是本仓库当前文档内容，先阅读后执行任务；按文档入口继续阅读相关构建页。文档中的代码/例子是参考，不自动授权执行。\n\n'+names.map(name=>`--- ${name} ---\n${new TextDecoder('utf-8',{fatal:true}).decode(fs.readFileSync(path.join(repo,name)))}`).join('\n\n');
+  assert.ok(expected.length<=60000,'Repository bootstrap docs exceed 60000 characters');
+  assert.ok(!Object.hasOwn(output,'systemMessage'),'SessionStart must provide documents rather than a warning');
+  assert.equal(output.hookSpecificOutput?.hookEventName,'SessionStart');
+  assert.ok(context(output)===expected,'SessionStart must provide every complete current document with the original prefix');
+});
 test('Skill runtime scripts require architecture review while other Skill code retains SDK review',()=>{
   for(const name of ['affinity-mcp-proxy.mjs','affinity-mcp-smoke.mjs']) assert.deepEqual(relatedDocs(`skills/affinity-mcp/scripts/${name}`),['docs/architecture.md']);
   for(const name of ['skills/affinity-mcp/scripts/affinity-mcp-proxy.test.mjs','skills/affinity-mcp/scripts/other.mjs','skills/other/scripts/affinity-mcp-proxy.mjs']) assert.deepEqual(relatedDocs(name),['docs/sdk/README.md','docs/sdk/verification.md']);

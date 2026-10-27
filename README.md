@@ -103,7 +103,7 @@ Usage example:
 
 > Align the selected text frames to the left without changing their font sizes.
 
-For operational boundaries and verified test cases, see the [operation guide](skills/affinity-mcp/SKILL.md#supported-operations) and [verified test cases](skills/affinity-mcp/references/sdk-verified.md#version-boundaries).
+For each operation's scope, limits, and verified cases, see the [operation guide](skills/affinity-mcp/SKILL.md#supported-operations) and [verified test cases](skills/affinity-mcp/references/sdk-verified.md#version-boundaries).
 
 <a id="usage-notes"></a>
 <a id="before-you-use-it"></a>
@@ -111,18 +111,18 @@ For operational boundaries and verified test cases, see the [operation guide](sk
 
 ### Usage notes
 
-- **Document saving and closure**: Asynchronous document close operations discard unsaved changes without presenting confirmation prompts. Explicitly save documents before closing.
-- **Unlinking text frames**: Disconnecting two linked text frames consolidates all text into the source frame, leaving the target frame empty; it does not reconstruct pre-linked splits.
-- **Visual inspection for typography**: Chinese punctuation wrap/hanging, mixed text formatting, and overflow should be inspected in the canvas; choose Artistic Text or Frame Text according to layout needs. See [typography notes](skills/affinity-mcp/references/sdk-verified.md#text-tool-choice-and-refit).
-- **Exported file validation**: Successfully producing basic file exports does not confirm that bleeds, multi-page setups, font embedding, or custom dimensions have applied as expected; manual validation is recommended. See [export verification scope](skills/affinity-mcp/references/sdk-verified.md#verified-file-and-export-workflow).
-- **Timeout handling**: A request timeout does not imply the operation failed; the script may have executed inside Affinity. Check document state before retrying to avoid duplicate modifications.
+- **Saving and closing documents**: Closing a document asynchronously discards unsaved changes without showing a confirmation prompt. Save explicitly before you close.
+- **Unlinking text frames**: In the samples we tested, unlinking a frame that was not the front of the flow left the whole Story in the upstream frame and left the unlinked frame and the rest of the chain with an empty Story. It does not split the visible text, and it does not restore the separate texts you had before linking. Unlinking the front frame can clear the entire Story, so reject front-frame targets before any ordinary unlink. For the tested builds, target preconditions, and verification limits, see [linked text flow](skills/affinity-mcp/references/sdk-verified.md#linked-text-flow); these samples do not establish behavior for every chain or version.
+- **Typography needs visual inspection**: Judge Chinese punctuation wrapping and hanging, mixed formatting, and overflow on the canvas. Choose Artistic Text or Frame Text according to how the text must lay out. See [typography notes](skills/affinity-mcp/references/sdk-verified.md#text-tool-choice-and-refit).
+- **Validate exported files**: A basic export that succeeds does not prove that bleeds, multi-page setups, font embedding, or custom dimensions came out as intended; check the result yourself. See [export verification scope](skills/affinity-mcp/references/sdk-verified.md#verified-file-and-export-workflow).
+- **Timeout handling**: A request timeout does not mean the operation failed; the script may already have run inside Affinity. Check the document state before retrying, or you may apply the same change twice.
 
 <details>
 <summary>Known limitations</summary>
 
-The MCP interface does not cover all desktop UI capabilities of Affinity. For example, custom Chinese punctuation hanging rules and vertical text alignment in frames have no working SDK entry points; default brush creation and asynchronous file copy still raise exceptions in current builds. Complex text chains and advanced selection parameters should not be relied upon without verification.
+The MCP interface does not cover everything the Affinity desktop UI can do. For example, custom Chinese punctuation hanging rules and vertical text alignment inside frames have no working SDK entry points, and default brush creation and asynchronous file copy still raise exceptions in current builds. Do not rely on complex text chains or advanced selection parameters without verifying them first.
 
-See the [SDK reference](skills/affinity-mcp/references/sdk-verified.md) for full boundaries and tests; refer to the [troubleshooting guide](skills/affinity-mcp/references/scripting-pitfalls.md) for connectivity, permission, and scripting issues.
+For the full boundaries and test records, see the [SDK reference](skills/affinity-mcp/references/sdk-verified.md). For connectivity, permission, and scripting problems, see the [troubleshooting guide](skills/affinity-mcp/references/scripting-pitfalls.md).
 
 </details>
 
@@ -174,7 +174,7 @@ node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute
 
 Replace `<absolute-plugin-root>` with the absolute installation path; use `--config shared` for Claude Code / ZCode.
 
-The script validates local manifests, proxy versions, tool discovery, and the SDK preamble. It does not execute document manipulation scripts, alter document data, or modify script panels. Passing verifies interface connectivity only, not UI runtime load state or the success of arbitrary document edits.
+The script checks local manifests, proxy versions, tool discovery, and the SDK preamble. It does not execute document manipulation scripts, alter document data, or modify script panels. A passing check confirms only that the local interface of the selected copy is reachable; it does not prove that the UI loaded this copy.
 
 </details>
 
@@ -182,7 +182,7 @@ The script validates local manifests, proxy versions, tool discovery, and the SD
 
 ## Privacy and terms
 
-The plugin communicates exclusively with the local Affinity service by default. However, document data, text, and previews returned to your AI client will be transmitted to its configured model provider. Review our [Privacy Policy](PRIVACY.md) and [Terms of Service](TERMS.md) before use.
+By default, the plugin communicates only with the local Affinity service. However, any document data, text, and previews returned to your AI client are passed on to the model provider configured in that client. Review our [Privacy Policy](PRIVACY.md) and [Terms of Service](TERMS.md) before use.
 
 This is an open-source community project maintained by [Paloexiz](https://github.com/Paloexiz), not an official product of OpenAI, Z.ai, Anthropic, Canva, or Affinity. Report issues via [GitHub Issues](https://github.com/Paloexiz/Affinity-MCP/issues) (public tracker; remove sensitive data before posting).
 
@@ -190,6 +190,6 @@ This is an open-source community project maintained by [Paloexiz](https://github
 
 Release channels and versioning conventions are documented in the [versioning guide](docs/versioning.md).
 
-The directory structure follows [Superpowers](https://github.com/obra/superpowers); ZCode reuses this format via its [plugin compatibility feature](https://zcode.z.ai/en/docs/plugin); Claude Code integration follows official [plugin guidelines](https://code.claude.com/docs/en/plugins-reference) and [marketplace specifications](https://code.claude.com/docs/en/plugin-marketplaces).
+The layout follows [Superpowers](https://github.com/obra/superpowers); ZCode reuses this format through its [plugin compatibility feature](https://zcode.z.ai/en/docs/plugin); the Claude Code integration follows the official [plugin guidelines](https://code.claude.com/docs/en/plugins-reference) and [marketplace specifications](https://code.claude.com/docs/en/plugin-marketplaces).
 
-The proxy implementation and bundled Skill derive from [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33) (source commit `9f2c2db` in Paloexiz's fork). Upstream MIT attribution is retained in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). This project is licensed under the [MIT License](LICENSE).
+The proxy implementation and bundled Skill are derived from [deba33/codex-plugins-by-deba33](https://github.com/deba33/codex-plugins-by-deba33) (source commit `9f2c2db` in Paloexiz's fork). Upstream MIT attribution is retained in [LICENSE.upstream](LICENSE.upstream) and [NOTICE](NOTICE). This project is licensed under the [MIT License](LICENSE).

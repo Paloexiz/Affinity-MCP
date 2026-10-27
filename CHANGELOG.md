@@ -4,6 +4,24 @@ English | [简体中文](CHANGELOG.zh-cn.md)
 
 ## 2026-10-27
 
+### 0.5.4
+
+#### Added
+
+- Add bundled, verified recipes for basic rectangle Boolean operations (union, subtract, intersect, XOR), ordinary character insertion, RGBA8 pixels and detached values, and PNG/JPEG/SVG/PDF/WebP export of the current spread followed by a native save and reopen.
+- Add further recipes and their limits for three-frame linked text across spreads, resizing a frame to a known height, exporting the whole document or selected pages to PDF, exporting transparent mixed Chinese and Latin text, and asynchronous native save, overwrite and reopen.
+- Add a PathBrush reuse recipe: clone a PathBrush from a curve that already has a brushed style, change its width, and apply it to another curve; preparing the preset in the UI stays a separate step.
+
+#### Changed
+
+- Treat linked text frames as one merged Story: linking merges the two frames' text, and unlinking does not restore visible separate text. In the tested cases, unlinking a middle frame moved the full text upstream and left the downstream frames empty, while unlinking the front frame cleared the whole Story, so ordinary unlinking now rejects a front-of-flow target first.
+- Require choosing between saving and discarding unsaved work before an asynchronous close: the tested close discarded the unsaved content without showing a save prompt.
+
+#### Fixed
+
+- Require separate checks of mixed-format replacement, complete Bleed and packaged originals: a successful call can still merge or lose formatting, keep the outer Bleed out of the output, or return a package whose image region degrades once the source files are gone.
+- Correct the recorded support status and brush route: ordinary character insertion and asynchronous PNG export are confirmed working, the earlier judgements came from legacy limits, brush discovery uses PathBrush names, and the undefined VectorBrush route is gone.
+
 ### 0.5.4-dev.8
 
 No user-visible changes.

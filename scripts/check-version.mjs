@@ -67,7 +67,7 @@ function matchOne(text, pattern, label) {
   return matches[0][1];
 }
 
-function packageDeclarations(read, selectedProxyPath = proxyPath) {
+export function packageDeclarations(read, selectedProxyPath = proxyPath) {
   const codex = readJson(read, ".codex-plugin/plugin.json");
   const claude = readJson(read, ".claude-plugin/plugin.json");
   const market = readJson(read, ".claude-plugin/marketplace.json");
@@ -81,6 +81,15 @@ function packageDeclarations(read, selectedProxyPath = proxyPath) {
     ["marketplace entry", market.plugins[0].version],
     ["proxy clientInfo", matchOne(proxy, /clientInfo:\s*\{[^{}]*?\bversion:\s*"([^"]+)"/g, "proxy clientInfo")],
     ["proxy serverInfo", matchOne(proxy, /serverInfo:\s*\{[^{}]*?\bversion:\s*"([^"]+)"/g, "proxy serverInfo")],
+  ];
+}
+
+export function documentationDeclarations(read) {
+  return [
+    ["docs entry", matchOne(read("docs/README.md"), /当前仓库清单为插件 `([^`]+)`/g, "docs entry")],
+    ["architecture", matchOne(read("docs/architecture.md"), /插件标识 `([^`]+)`/g, "architecture")],
+    ["SDK plugin identity", matchOne(read("docs/sdk/README.md"), /\| 仓库插件版本 \| `([^`]+)`/g, "SDK plugin identity")],
+    ["SDK proxy identity", matchOne(read("docs/sdk/README.md"), /\| 代理报告版本 \| `([^`]+)`/g, "SDK proxy identity")],
   ];
 }
 
@@ -106,18 +115,9 @@ function baseline(root, ref, channel) {
   return { commit, version: consistentVersion(declarations, channel ?? (typeof version === "string" && version.includes("-dev.") ? "development" : "stable")) };
 }
 
-export function checkRepository(root, { channel, from, stable } = {}) {
-  for (const ref of [from, stable]) if (ref !== undefined && (typeof ref !== "string" || !ref.trim())) fail("Git baseline must be a nonempty commit reference.");
-  const read = path => readText(root, path);
+export function checkSnapshot(read, exists, { channel } = {}) {
   const declarations = packageDeclarations(read);
-  if (channel === "development" || existsSync(join(root, "docs"))) {
-    declarations.push(
-      ["docs entry", matchOne(read("docs/README.md"), /当前仓库清单为插件 `([^`]+)`/g, "docs entry")],
-      ["architecture", matchOne(read("docs/architecture.md"), /插件标识 `([^`]+)`/g, "architecture")],
-      ["SDK plugin identity", matchOne(read("docs/sdk/README.md"), /\| 仓库插件版本 \| `([^`]+)`/g, "SDK plugin identity")],
-      ["SDK proxy identity", matchOne(read("docs/sdk/README.md"), /\| 代理报告版本 \| `([^`]+)`/g, "SDK proxy identity")],
-    );
-  }
+  if (channel === "development" || exists("docs")) declarations.push(...documentationDeclarations(read));
   const changelog = read("CHANGELOG.md");
   const unreleasedHeading = /^## (?:Unreleased|未发布|\[Unreleased\])[ \t]*\r?$/gm;
   const unreleasedCount = [...changelog.matchAll(unreleasedHeading)].length;
@@ -146,7 +146,7 @@ export function checkRepository(root, { channel, from, stable } = {}) {
       fail(`${channel === "stable" ? "Stable candidate" : "Delivered development version"} requires exactly one matching CHANGELOG entry with a valid YYYY-MM-DD date.`);
     }
   }
-  if (existsSync(join(root, "CHANGELOG.zh-cn.md"))) {
+  if (exists("CHANGELOG.zh-cn.md")) {
     const headings = {
       "## 未发布": "## Unreleased", "## [Unreleased]": "## Unreleased", "## 日期待核实": "## Date unverified",
       "#### 新增": "#### Added", "#### 变更": "#### Changed", "#### 修复": "#### Fixed",
@@ -158,14 +158,20 @@ export function checkRepository(root, { channel, from, stable } = {}) {
       fail("Bilingual CHANGELOG dates, versions, categories and entry counts must match.");
     }
   }
+  return { mode: "static", channel, version };
+}
+
+export function checkRepository(root, { channel, from, stable } = {}) {
+  for (const ref of [from, stable]) if (ref !== undefined && (typeof ref !== "string" || !ref.trim())) fail("Git baseline must be a nonempty commit reference.");
+  const result = checkSnapshot(path => readText(root, path), path => existsSync(join(root, path)), { channel });
   if ((stable && !from) || (from && channel === "development" && !stable) || (stable && channel === "stable")) {
     fail("Increment checks require --from; development also requires --stable. Stable checks use --from only.");
   }
-  const result = { mode: from ? "increment" : "static", channel, version };
+  result.mode = from ? "increment" : "static";
   if (from) {
     const previous = baseline(root, from, channel === "stable" ? "stable" : undefined);
     const production = stable ? baseline(root, stable, "stable") : undefined;
-    checkIncrement(version, previous.version, production?.version, channel);
+    checkIncrement(result.version, previous.version, production?.version, channel);
     result.baselines = { from: previous, ...(production ? { stable: production } : {}) };
   }
   return result;

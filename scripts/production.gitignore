@@ -22,3 +22,9 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# Local agent state; it must never enter the production tree.
+/.serena/
+/.claude/
+/.mimosa/
+/.scratch/

@@ -165,14 +165,14 @@ test("production imports and manifest paths must resolve inside the allowlist", 
 
 test("production ignore template matches reviewed bytes and preserves every allowed output", t => {
   const template = readFileSync(new URL("./production.gitignore", import.meta.url), "utf8");
-  const expected = ["# Local runtime files; production membership is controlled by the allowlist.", "node_modules/", ".env", ".env.*", "!.env.example", "!.env.sample", "!.env.template", ".DS_Store", "._*", "Thumbs.db", "desktop.ini", "*.log", "*.swp", "*.swo", "*~"].join("\n") + "\n";
+  const expected = ["# Local runtime files; production membership is controlled by the allowlist.", "node_modules/", ".env", ".env.*", "!.env.example", "!.env.sample", "!.env.template", ".DS_Store", "._*", "Thumbs.db", "ehthumbs.db", "desktop.ini", "/.vscode/*", "!/.vscode/extensions.json", "!/.vscode/settings.json", "/.idea/", "*.log", "*.tmp", "*.bak", "*.orig", "*.rej", "*.swp", "*.swo", "*~"].join("\n") + "\n";
   assert.equal(template, expected, "template changes require review of the expected production bytes");
   const f = fixture(t); f.write(".gitignore", template);
   const allowed = JSON.parse(readFileSync(new URL("./production-files.json", import.meta.url), "utf8")).map(entry => entry.path);
   const check = paths => spawnSync("git", ["check-ignore", "--no-index", "--stdin"], { cwd: f.root, input: paths.join("\n") + "\n", encoding: "utf8" });
   const keep = check([...allowed, ".env.example", ".env.sample", ".env.template"]);
   assert.equal(keep.status, 1, keep.stderr || keep.stdout); assert.equal(keep.stdout, "");
-  const local = ["node_modules/example/index.js", ".env", ".env.local", ".DS_Store", "Thumbs.db", "runtime.log", "edit.swp"];
+  const local = ["node_modules/example/index.js", ".env", ".env.local", ".DS_Store", "Thumbs.db", "ehthumbs.db", ".vscode/launch.json", ".idea/workspace.xml", "runtime.log", "scratch.tmp", "old.bak", "patch.orig", "conflict.rej", "edit.swp"];
   const ignored = check(local);
   assert.equal(ignored.status, 0, ignored.stderr); assert.deepEqual(ignored.stdout.trim().split(/\r?\n/), local);
 });

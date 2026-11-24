@@ -13,7 +13,7 @@
 | 分支 / 渠道 | 格式 | 含义 |
 | --- | --- | --- |
 | `main` / 正式 | `MAJOR.MINOR.PATCH` | 正式交付版本，只包含用户安装树及根中英文 CHANGELOG；实际交付另行核验 |
-| `develop` / 开发与发布准备 | 日常使用 `MAJOR.MINOR.PATCH-dev.N`；正式交付时转为 `MAJOR.MINOR.PATCH` | `N` 从 1 起，按开发交付批次递增；正式版本先在本分支提交并推送，再同步到 `main` |
+| `develop` / 开发与发布准备 | 日常使用 `MAJOR.MINOR.PATCH-dev.N`；正式交付时转为 `MAJOR.MINOR.PATCH` | `N` 从 1 起，每交付一批改变软件的开发改动递增一次。正式版本先在本分支提交并推送，再同步到 `main` |
 
 例如，正式基准为 `0.4.0` 时，接下来的修复目标依次是 `0.4.1-dev.1`、`0.4.1-dev.2`。准备正式交付时，先在 `develop` 把版本改成 `0.4.1`，完成检查、审查、提交和推送，再把该提交中的生产内容同步到 `main`。版本号写成稳定格式，并不代表已经发布。按 SemVer 的优先级，`0.4.0 < 0.4.1-dev.1 < 0.4.1-dev.2 < 0.4.1`；数字部分按数值比较，所以 `dev.10` 高于 `dev.9`。这只说明源码版本的先后顺序，不能说明已安装的宿主会怎样跨渠道更新。
 
@@ -80,6 +80,28 @@
 
 重编号后的历史开发基准是 `0.4.0-dev.1`，正式基准是 `0.4.0`。这次迁移是一次明确授权的源码身份和提交历史改写，不改变协议日期、应用构建、实验日期或实际运行观察，也不构成日常覆盖已发布历史的许可。新旧提交和 tag 不会在旧 clone 或宿主缓存里自动替换；实际引用采用、推送和安装状态都要逐项读回核验，不能靠本页或版本号推断。
 
+<a id="historical-delivery-evidence"></a>
+### 历史改写后怎样核对交付日期
+
+1. **定位原始事件。** 按交付时的仓库和完整 ref 查询 `GET /repos/{owner}/{repo}/activity`。例如用 `ref=refs/heads/main&per_page=100&time_period=year` 查正式分支，按响应头 `Link` 中的 `rel="next"` 翻页。记录仓库、ref、活动类型、事件时间（API 版本 `2022-11-28` 为 `timestamp`）及当时的完整 `before`、`after` SHA。[仓库活动 API](https://docs.github.com/en/rest/repos/repos#list-repository-activities)
+2. **确认版本首次进入该渠道。** 检查事件前后提交的插件清单和更新日志，并排查更早的交付。分支创建时 `before` 全为零，只能读取 `after`。若仓库重建或查询时段未覆盖首次交付，须回查原仓库或当时保存的平台事件。正式版还要按[正式交付条件](#开发候选转为正式版本)核对 tag 和公开 Release。Release 的 `published_at` 能证明公开日期，`main` 或 tag 可能更早提供同一版本。
+3. **比对新旧快照。** 从已核对的目标分支或标签定位该版本的新提交，附注标签可用 `git rev-parse 'v0.5.4^{}'` 解引用。用 `git show -s --format='%H %T' <commit>` 读取提交及根 tree SHA。若本地缺失旧对象，可用事件中的完整 SHA 查询 `GET /repos/{owner}/{repo}/git/commits/{sha}`，读取 `tree.sha`。[Git 提交 API](https://docs.github.com/en/rest/git/commits#get-a-commit)
+
+   根 tree 相同即可确认文件快照相同。若不同，用 `git diff --no-renames <old> <new>` 核对变动的路径、文件模式和文本差异。对有变化的二进制文件，用 `git cat-file blob '<commit>:<path>'` 从有该文件的每一端导出原始字节，按文件格式检查差异。逐项确认变化是否属于已授权的改写。
+
+   旧对象仅在平台上可读时，可以比较平台返回的完整文件树及差异文件，也可用已证实与原提交同 tree 的本地提交作比较。记录两端的提交、tree 和差异依据。仅凭同一版本号、相似提交标题或后续强推，无法建立映射。
+4. **记录结论。** 日期沿用原渠道首次交付事件的 UTC 日。若日期已有证据，但提交映射尚有无法解释的差异，保留已核实的日期，将映射单列为待核实。缺少日期证据时按[日期分组规则](#changelog-与正式交付)处理。Git 作者、提交者和 tagger 日期都无法代替平台交付事件。
+
+以正式版 `0.5.4` 为例，2026-10-27 在 `refs/heads/main` 上的 push 从 `a691c2ebd027553a4c17749518228419c90573da` 更新到下表第一行的提交，清单从 `0.5.3` 变为 `0.5.4`。Release 也在同一 UTC 日公开。[仓库活动](https://github.com/Paloexiz/Affinity-MCP/activity) · [v0.5.4 Release](https://github.com/Paloexiz/Affinity-MCP/releases/tag/v0.5.4)
+
+| 生产快照 | 提交 SHA | 根 tree SHA |
+| --- | --- | --- |
+| 首次推送的 `after` | `998aea4f8fbee5e9f2818d495aa489ec47d910c3` | `b1f59f00a41da8da3e88dbb1e1a3a391b1e43dde` |
+| 中间修订，文件快照相同 | `f698fb19ff1923355e94e8a8a144246c28a4b828` | `b1f59f00a41da8da3e88dbb1e1a3a391b1e43dde` |
+| 改写后的 `v0.5.4` | `412f9153dd89d6d202f4aadf893e84342eb3b42b` | `ba4035ac127f8894ea43a13b34d188c463143b0c` |
+
+后两行之间的全部差异是两份 README 各更新了一处版本指南的固定链接。这个差异解释了新标签的 tree 为何变化，原始 push 仍能按第一行的 SHA 核验。
+
 ## 必须同步的位置
 
 - [Codex 清单](../.codex-plugin/plugin.json)、[Claude Code/ZCode 清单](../.claude-plugin/plugin.json)和[共用市场条目](../.claude-plugin/marketplace.json)必须使用同一个完整版本。
@@ -103,7 +125,7 @@ node --test scripts/check-version.test.mjs
 改变软件并递增版本的开发交付，还要运行交付增量检查。它要求 **Git 2.45+**，以及**已由维护者确认**的两个本地提交：上一改变软件的交付和正式基准。下面的占位符要替换为确认后的完整提交 SHA：
 
 ```shell
-node scripts/check-version.mjs --channel development --from <previous-development-commit> --stable <confirmed-production-commit>
+node scripts/check-version.mjs --channel development --from <previous-software-delivery-commit> --stable <confirmed-production-commit>
 ```
 
 `--from` 填上一改变软件的交付提交，跳过中间版本号未变的纯维护提交：开发周期内填上一批 `dev.N`，正式发布后 `develop` 保留稳定版本并首次开启下一轮 `dev.1` 时填该正式转正提交（检查器也支持上一轮 `dev.N` 或旧的稳定开发快照）；`--stable` 始终对应已确认的 `main` 正式快照，不要把旧开发版本误当成生产基准。基准会解析成本地 commit，然后读取三份清单和两个代理声明并核对一致。历史基准里只认两种已知的代理布局：`scripts/affinity-mcp-proxy.mjs` 和 `skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`，并且必须恰好有一个入口。零个或两个入口、缺对象、缺必要文件、声明不一致，都会直接失败；读取失败后不会再去试另一个入口。当前文件系统仍要求新布局。脚本不会自动 fetch，也不修改 Git 状态，更无法证明指定基准就是远端最新版本；需要先做相应的只读核验，并保留输出里的完整 SHA。
@@ -150,7 +172,9 @@ node scripts/check-links.mjs
 
 更新日志分语言维护。`CHANGELOG.md` 是英文，根标题为 `# Affinity MCP Changelog`；`CHANGELOG.zh-cn.md` 是简体中文，根标题为 `# Affinity MCP 更新日志`。两份日志的版本、日期、分类、条目数量和语义要逐项对应。存在中文日志时，版本检查会核对结构是否一致，但不会代替对翻译语义的人工审阅；历史单日志快照仍可只读核验。二级标题用 `## YYYY-MM-DD`，按交付日期倒序分组；组内用 `### MAJOR.MINOR.PATCH` 或完整的开发版本号标识版本。英文分类依次是 `Added`、`Changed`、`Fixed`、`Deprecated`、`Removed`、`Security`，中文对应“新增”“变更”“修复”“废弃”“移除”“安全”，都用四级标题，不保留空分类。同一天有多个版本时，它们共用一个日期分组。待交付候选分别放在顶部的 `## Unreleased` / `## 未发布` 分组里，不为还没发生的开发交付填日期，候选版本标题要和清单一致。没有待交付内容时，把未发布分组一起删掉，清单里的版本在对应交付日期下恰好只有一条。
 
-日期取本版第一次实际交付当天的 UTC 日历日；开发渠道和正式渠道各自保留自己的记录。历史编号重映射时，沿用对应旧编号首次可确认的交付日。核对时优先查 [GitHub 仓库活动](https://github.com/Paloexiz/Affinity-MCP/activity)里的实际推送事件和对应源码版本；[活动 API](https://docs.github.com/en/rest/repos/repos#list-repository-activities)会给出时间、分支和前后提交，不要把 Git 作者、提交者或 tagger 日期当作推送日期。缺证据时，把版本放进“日期待核实”分组。正式候选按下面的流程预填计划日期，交付后再核对实际事件。整体按 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 的原则，保留逐版本、同类变化和最新在前的摘要；日期分组和对应语言的分类是本仓库的展示约定。
+日期取本版在对应渠道第一次实际交付当天的 UTC 日历日。历史编号重映射时，沿用对应旧编号首次可确认的交付日。优先查 [GitHub 仓库活动](https://github.com/Paloexiz/Affinity-MCP/activity)，改写过的提交按[历史交付取证方法](#historical-delivery-evidence)核对。正式候选按下面的流程预填计划日期，交付后再核对实际事件。整体按 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 的原则，保留逐版本、同类变化和最新在前的摘要。日期分组和对应语言的分类是本仓库的展示约定。
+
+英文 `## Date unverified` 与中文 `## 日期待核实` 仅用于缺少日期证据的旧版本条目。对清单中的现行版本，[静态检查](../scripts/check-version.mjs)要求正式版本和已完成日期收尾的开发版本各有一个有效的 `YYYY-MM-DD` 条目。当前开发批次尚待取证时，保留双语未发布条目，暂缓日期收尾。复核已日期化的现行版本时，若证据缺失，保留原条目，在核验报告中注明待核实。静态检查可以确认日期格式，交付核验须等原始证据补齐。
 
 两份 CHANGELOG 都面向插件使用者，只写该版本实际带来的能力、问题修复、兼容性，以及安装、升级或操作方式的变化。先对照这个版本的实际差异，再直接写“变了什么、影响什么”；不能只把旧文缩短，也不能用“完善”“加强”“优化”这类泛称代替具体变化。Skill/references 的更新要写成用户操作行为的变化，不要把 Agent 的执行步骤、实验过程或验收流水搬进来。内部版本治理、CI/hooks/测试维护、Git 操作、文档同步，以及日志自身的编辑活动，留在维护文档或提交记录里；不要写“更正某版说明”“精简更新日志”这种自我描述。没有变化的内容，只在解释兼容性影响时简短保留。会话、私人路径和本机测试记录不得写进日志。
 

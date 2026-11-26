@@ -109,6 +109,43 @@ test("production scope uses the documented set and explicit README conversion on
   assert.throws(() => checkLinks(f.root), /production/i);
 });
 
+test("production-root CLI checks an unpacked tree and reads links from that tree", t => {
+  const f = productionFixture(t);
+  const candidate = mkdtempSync(join(tmpdir(), "ai-agent-production-中文 space-"));
+  t.after(() => rmSync(candidate, { recursive: true, force: true }));
+  const run = () => spawnSync(process.execPath, [cli, "--root", f.root, "--production-root", candidate],
+    { cwd: tmpdir(), encoding: "utf8" });
+  const rejects = pattern => {
+    const result = run();
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stderr, pattern);
+  };
+  const readme = join(candidate, "README.md");
+  mkdirSync(join(candidate, "skills"));
+  writeFileSync(readme, "[guide](skills/guide.md#guide)");
+  writeFileSync(join(candidate, "skills/guide.md"), "# Guide");
+  rejects(/Missing production files: \.gitignore/);
+  writeFileSync(join(candidate, ".gitignore"), "local.log\n");
+  const ok = run();
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.equal(JSON.parse(ok.stdout).productionTreeChecked, true);
+  writeFileSync(join(candidate, "local.log"), "");
+  rejects(/Unexpected production entry: local\.log/);
+  rmSync(join(candidate, "local.log"));
+  mkdirSync(join(candidate, ".git"));
+  rejects(/Unexpected production entry: \.git/);
+  rmSync(join(candidate, ".git"), { recursive: true });
+  writeFileSync(readme, "[rules](docs/versioning.md)");
+  rejects(/Production link requires a development file/);
+  writeFileSync(readme, "[guide](skills/guide.md#absent)");
+  rejects(/Missing production link anchor/);
+  if (process.platform !== "win32") {
+    rmSync(readme);
+    symlinkSync(join(f.root, "README.md"), readme);
+    rejects(/Unexpected production entry: README\.md/);
+  }
+});
+
 test("allowlist omissions, duplicates, missing template and extra files fail", t => {
   for (const change of ["omit", "duplicate", "missing-template", "extra"]) {
     const f = productionFixture(t);

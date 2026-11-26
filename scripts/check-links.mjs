@@ -1,4 +1,4 @@
-import { readFileSync, lstatSync } from "node:fs";
+import { readFileSync, lstatSync, readdirSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { posix, resolve, join } from "node:path";
 import { parseArgs } from "node:util";
@@ -127,7 +127,7 @@ function documentedFiles(text) {
   return paths.sort();
 }
 
-export function checkLinks(root, { production = true } = {}) {
+export function checkLinks(root, { production = true, productionRoot } = {}) {
   root = resolve(root);
   const files = [...new Set(git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean))];
   const known = new Set(files);
@@ -145,10 +145,34 @@ export function checkLinks(root, { production = true } = {}) {
       checked++;
     }
   }
-  if (!production) return { ok: true, documents: documents.length, links: checked };
+  if (!production && productionRoot === undefined) return { ok: true, documents: documents.length, links: checked };
   const entries = productionAllowlist(read, path => safeFile(root, path).isFile() && available(path));
   checkProductionReferences(read, entries, { allowReadmeDevelopmentLink: true });
-  return { ok: true, documents: documents.length, links: checked, productionFiles: entries.length };
+  const summary = { ok: true, documents: documents.length, links: checked, productionFiles: entries.length };
+  if (productionRoot !== undefined) {
+    checkProductionTree(resolve(productionRoot), entries);
+    summary.productionTreeChecked = true;
+  }
+  return summary;
+}
+
+function checkProductionTree(root, entries) {
+  if (!lstatSync(root).isDirectory()) fail("Production root must be a directory, not a link.");
+  const missing = new Set(entries.map(entry => entry.path));
+  const directories = new Set();
+  for (const path of missing) {
+    for (let dir = posix.dirname(path); dir !== "."; dir = posix.dirname(dir)) directories.add(dir);
+  }
+  function visit(dir) {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const path = posix.join(dir, entry.name);
+      if (entry.isDirectory() && directories.has(path)) visit(path);
+      else if (!entry.isFile() || !missing.delete(path)) fail(`Unexpected production entry: ${path}.`);
+    }
+  }
+  visit("");
+  if (missing.size) fail(`Missing production files: ${[...missing].join(", ")}.`);
+  checkProductionReferences(path => readFileSync(join(root, path), "utf8"), entries);
 }
 
 export function productionAllowlist(read, exists) {
@@ -208,7 +232,7 @@ export function checkProductionReferences(read, entries, { allowReadmeDevelopmen
 
 if (import.meta.main) {
   try {
-    const { values } = parseArgs({ options: { root: { type: "string" } }, strict: true, allowPositionals: false });
-    console.log(JSON.stringify(checkLinks(values.root ?? process.cwd())));
+    const { values } = parseArgs({ options: { root: { type: "string" }, "production-root": { type: "string" } }, strict: true, allowPositionals: false });
+    console.log(JSON.stringify(checkLinks(values.root ?? process.cwd(), { productionRoot: values["production-root"] })));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

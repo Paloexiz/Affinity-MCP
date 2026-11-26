@@ -173,7 +173,7 @@ node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute
 
 把 `<absolute-plugin-root>` 换成实际安装目录的绝对路径；Claude Code / ZCode 用 `--config shared`。
 
-这个脚本只核对本地清单、代理版本，读取 SDK preamble（即 SDK 说明），并完成服务握手与工具发现，不执行文档修改脚本，也不修改文档数据、系统设置或脚本库。测试通过只说明指定副本的底层服务接口能连上，不代表客户端界面已经加载这个副本。
+这个脚本只核对所选清单、启动配置和代理版本，并完成在线工具发现、读取 SDK preamble（即 SDK 说明）；它不验证完整文件集合及其内容完整性，也不执行文档修改脚本，不修改文档数据、系统设置或脚本库。测试通过只说明指定副本的底层服务接口能连上，不代表客户端界面已经加载这个副本。
 
 </details>
 

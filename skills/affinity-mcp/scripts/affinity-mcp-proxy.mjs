@@ -200,7 +200,7 @@ class AffinitySseClient {
     const initialized = await this.request("initialize", {
       protocolVersion: AFFINITY_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "affinity-mcp-proxy", version: "0.5.4" },
+      clientInfo: { name: "affinity-mcp-proxy", version: "0.5.5-dev.1" },
     });
     if (typeof initialized.protocolVersion !== "string" || !isObject(initialized.capabilities) ||
         !isObject(initialized.serverInfo) || typeof initialized.serverInfo.name !== "string" ||
@@ -412,13 +412,11 @@ class AffinitySseClient {
     return this.request("tools/list", params);
   }
 
-  async callTool(name, args) {
-    await this.connect();
-    return this.request("tools/call", { name, arguments: args });
-  }
 }
 
 const affinity = new AffinitySseClient();
+// Client IDs are independent of the transport's upstream pending IDs.
+const waitingToolCalls = new Map();
 let inputBuffer = Buffer.alloc(0);
 let framedStdio;
 
@@ -476,7 +474,15 @@ function receive(rawMessage) {
     sendError(isObject(message) && isRequestId(message.id) ? message.id : null, -32600, "Invalid JSON-RPC request");
     return;
   }
-  if (!Object.hasOwn(message, "id")) return;
+  if (!Object.hasOwn(message, "id")) {
+    const params = message.params;
+    if (message.method === "notifications/cancelled" && isObject(params) && isRequestId(params.requestId) &&
+        (!Object.hasOwn(params, "reason") || typeof params.reason === "string") &&
+        (!Object.hasOwn(params, "_meta") || isObject(params._meta))) {
+      waitingToolCalls.delete(params.requestId);
+    }
+    return;
+  }
   if (Object.hasOwn(message, "params") && !isObject(message.params)) {
     sendError(message.id, -32602, "params must be an object");
     return;
@@ -499,6 +505,26 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
+async function forwardToolCall(message) {
+  const { id, params } = message;
+  if (waitingToolCalls.has(id)) {
+    sendError(id, -32600, "Tool call ID already waiting for connection");
+    return;
+  }
+  waitingToolCalls.set(id, message);
+  let connectionError;
+  try {
+    await affinity.connect();
+  } catch (error) {
+    connectionError = error;
+  }
+  // A cancelled waiter owns neither a response nor any later use of its ID.
+  if (waitingToolCalls.get(id) !== message) return;
+  waitingToolCalls.delete(id);
+  if (connectionError) throw connectionError;
+  sendResult(id, await affinity.request("tools/call", { name: params.name, arguments: params.arguments ?? {} }));
+}
+
 async function handleMessage(message) {
   try {
     switch (message.method) {
@@ -510,7 +536,7 @@ async function handleMessage(message) {
         sendResult(message.id, {
           protocolVersion: CLIENT_PROTOCOL_VERSION,
           capabilities: { tools: {} },
-          serverInfo: { name: "affinity-mcp", version: "0.5.4" },
+          serverInfo: { name: "affinity-mcp", version: "0.5.5-dev.1" },
           instructions:
             "Use Affinity by Canva through its local MCP server. Read read_sdk_documentation_topic with filename 'preamble' before writing or executing scripts.",
         });
@@ -542,10 +568,7 @@ async function handleMessage(message) {
           sendError(message.id, -32602, "tools/call requires a string name and object arguments");
           break;
         }
-        sendResult(
-          message.id,
-          await affinity.callTool(message.params.name, message.params.arguments ?? {}),
-        );
+        await forwardToolCall(message);
         break;
 
       case "resources/list":

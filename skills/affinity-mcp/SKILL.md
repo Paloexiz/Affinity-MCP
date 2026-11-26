@@ -7,7 +7,7 @@ description: Use when connecting Codex, ZCode or Claude Code to Affinity by Canv
 
 This plugin connects Codex, ZCode or Claude Code to Affinity by Canva through its local MCP server, `affinity-by-canva`.
 
-Install the complete Affinity MCP Plugin. Copying this Skill alone, or installing it through a skill installer, is unsupported and does not register its MCP server. The plugin manifests start the bundled [proxy](scripts/affinity-mcp-proxy.mjs). The [connection checker](scripts/affinity-mcp-smoke.mjs) reads an explicitly selected complete plugin installation without changing its files.
+Install the complete Affinity MCP Plugin. Copying this Skill alone, or installing it through a skill installer, is unsupported and does not register its MCP server. The plugin manifests start the bundled [proxy](scripts/affinity-mcp-proxy.mjs). The [connection checker](scripts/affinity-mcp-smoke.mjs) checks the selected manifest, launcher, proxy version, online discovery, and preamble without changing the installation; it does not verify the complete file set or its integrity.
 
 ## Choose the session path
 

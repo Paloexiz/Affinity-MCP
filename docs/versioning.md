@@ -48,7 +48,15 @@
 
 所有文档、源码和发布范围的修改都先在 `develop` 完成。生产候选取自经过核对的开发提交，只从中提取允许文件，并保留规定的生产 README 链接适配和 Git 规则；不要在 `main` 上写开发文档，也不要另外修正功能。
 
-当前中英文 README 里指向 `docs/versioning.md` 的相对链接，在生产副本中要换成 HTTPS 固定链接，指向本次已核对开发提交里的同一文件；`develop` 保留原来的相对链接。不能为了保留相对链接就把 `docs/` 复制进生产树。机器可读的清单见 [production-files.json](../scripts/production-files.json)，生产用的忽略规则来自[独立模板](../scripts/production.gitignore)。[链接检查器](../scripts/check-links.mjs)会按本表核对文件集合、来源和安装引用；它不生成生产包，也不证明现有的 `main` 已经符合这张清单。
+当前中英文 README 里指向 `docs/versioning.md` 的相对链接，在生产副本中要换成 HTTPS 固定链接，指向本次已核对开发提交里的同一文件；`develop` 保留原来的相对链接。不能为了保留相对链接就把 `docs/` 复制进生产树。机器可读的清单见 [production-files.json](../scripts/production-files.json)，生产用的忽略规则来自[独立模板](../scripts/production.gitignore)。[链接检查器](../scripts/check-links.mjs)会核对开发树的允许清单来源和安装引用，也可检查单独导出或解包的生产目录；它不生成生产包，也不证明现有的 `main` 已经符合这张清单。
+
+要检查生产目录，在开发树执行：
+
+```shell
+node scripts/check-links.mjs --root . --production-root "<exported-production-dir>"
+```
+
+`--root` 指向提供允许清单的开发树，`--production-root` 指向只包含生产文件的干净导出或解包目录。检查按准确路径核对常规文件与严格的安装引用，拒绝缺失文件、额外文件或目录（包括空目录）、符号链接和特殊文件；不要把含 `.git` 或宿主管理文件的目录作为生产目录。它不逐字比对文件内容或核对内容 hash，也不证明发布来源或验证运行状态，这些要另行核对。
 
 同步验收须同时满足：
 

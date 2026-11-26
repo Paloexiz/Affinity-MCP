@@ -2,6 +2,15 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## Unreleased
+
+### 0.5.5-dev.1
+
+#### Fixed
+
+- Stop a cancelled `tools/call` from being submitted when it is still waiting for a connection. Other calls and the shared connection continue; calls already attempted may still run and are not rolled back.
+- Clarify that a passing connection check confirms the selected copy can connect, discover tools online, and read the preamble. Verify package integrity separately.
+
 ## 2026-10-27
 
 ### 0.5.4

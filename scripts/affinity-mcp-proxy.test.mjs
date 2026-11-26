@@ -58,6 +58,12 @@ let upstreamMode = "normal";
 let sseProbe;
 let preambleContentOverride;
 let initializeResultOverride;
+let heldPost;
+function holdNextPost(method) {
+  heldPost = { method, received: Promise.withResolvers(), release: Promise.withResolvers() };
+  replyGates.add(heldPost.release);
+  return heldPost;
+}
 function writeSse(stream, wire) {
   if (sseProbe) sseProbe.sent = Buffer.concat([sseProbe.sent, Buffer.from(wire)]);
   stream.write(wire);
@@ -113,6 +119,12 @@ async function handleRequest(req, res) {
   for await (const chunk of req) body += chunk;
   const msg = JSON.parse(body);
   calls.push(msg);
+  if (heldPost && heldPost.method === msg.method) {
+    const gate = heldPost;
+    heldPost = undefined;
+    gate.received.resolve();
+    await waitFor(gate.release.promise, "release held upstream POST");
+  }
   const stream = streams.get(connection);
   if (!Object.hasOwn(msg, "method")) {
     replyPosts.push({ connection, message: msg });
@@ -496,6 +508,41 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     const before = calls.filter(c => c.params?.name === "disconnect").length;
     assert.match((await rpc("tools/call", { name: "disconnect" })).error.message, /closed/i);
     assert.equal(calls.filter(c => c.params?.name === "disconnect").length, before + 1, "Never replay a tool after an ambiguous disconnect");
+    if (label === "direct" && timeout === undefined) {
+      const send = message => child.stdin.write(encode(JSON.stringify({ jsonrpc: "2.0", ...message })));
+      for (const failedHandshake of [false, true]) {
+        const start = calls.length;
+        const cancelledId = failedHandshake ? -22 : -21;
+        const otherId = String(cancelledId);
+        const handshake = holdNextPost("initialize");
+        send({ id: cancelledId, method: "tools/call", params: { name: "cancelled_call" } });
+        await waitFor(handshake.received.promise, "upstream handshake started");
+        send({ id: otherId, method: "tools/call", params: { name: "other_call" } });
+        send({ method: "notifications/cancelled", params: { requestId: otherId, reason: 42 } });
+        send({ method: "notifications/cancelled", params: { requestId: cancelledId, reason: "stop" } });
+        await rpc("ping"); // The proxy processed the cancellation before we release the handshake.
+        assert.deepEqual(calls.slice(start).map(call => call.method), ["initialize"]);
+        const businessPost = failedHandshake ? undefined : holdNextPost("tools/call");
+        if (failedHandshake) initializeResultOverride = {};
+        const otherResponse = waitForResponse(otherId, "other tool call");
+        handshake.release.resolve();
+        if (businessPost) {
+          await waitFor(businessPost.received.promise, "uncancelled tool submitted");
+          send({ method: "notifications/cancelled", params: { requestId: otherId } });
+          await rpc("ping");
+          businessPost.release.resolve();
+        }
+        const response = await otherResponse;
+        assert.deepEqual(calls.slice(start).filter(call => call.method === "tools/call").map(call => call.params.name),
+          failedHandshake ? [] : ["other_call"]);
+        if (failedHandshake) assert.equal(response.error.data.outcome, "not_submitted");
+        else {
+          assert.ok(response.result);
+          await rpc("tools/call", { name: "disconnect" });
+        }
+        initializeResultOverride = undefined;
+      }
+    }
     if (diagnostics) {
       for (const [mode, phase] of [["connect_http", "connect"], ["endpoint_missing", "endpoint"], ["endpoint_invalid", "endpoint"], ["endpoint_cross_origin", "endpoint"], ["initialize_stall", "response"], ["notify_stall", "post"]]) {
         upstreamMode = mode;
@@ -571,6 +618,7 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     for (const gate of replyGates) gate.resolve();
     replyGates.clear();
     replyBodyGate = undefined;
+    heldPost = undefined;
     for (const timer of responseTimers) clearTimeout(timer);
     if (child.exitCode === null && child.signalCode === null) child.kill();
     await waitFor(closed, "Proxy cleanup exit");

@@ -174,7 +174,7 @@ node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute
 
 Replace `<absolute-plugin-root>` with the absolute installation path; use `--config shared` for Claude Code / ZCode.
 
-The script checks local manifests, proxy versions, tool discovery, and the SDK preamble. It does not execute document manipulation scripts, alter document data, or modify script panels. A passing check confirms only that the local interface of the selected copy is reachable; it does not prove that the UI loaded this copy.
+The script checks the selected manifest and launch configuration, proxy version, online tool discovery, and SDK preamble. It does not verify the complete file set or its integrity. It does not execute document manipulation scripts, alter document data, or modify script panels. A passing check confirms only that the local interface of the selected copy is reachable; it does not prove that the UI loaded this copy.
 
 </details>
 

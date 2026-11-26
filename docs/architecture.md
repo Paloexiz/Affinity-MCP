@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.4`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
+本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.5-dev.1`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -32,8 +32,8 @@ flowchart LR
 | [`skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) | stdin 解析、请求路由、SSE 连接、响应关联、错误转发 | 不校验目标文档、不回滚 SDK 操作、不保存操作结果 |
 | [`scripts/affinity-mcp-proxy.test.mjs`](../scripts/affinity-mcp-proxy.test.mjs) | 模拟服务上的进程边界和打包配置回归 | 不证明真实 SDK 操作有效 |
 | [`scripts/check-version.mjs`](../scripts/check-version.mjs) 与[回归](../scripts/check-version.test.mjs) | 在显式指定的渠道下检查版本格式、现行声明是否同步，以及可选的 Git 基准增量检查 | 不决定产品影响级别，不发布版本，也不验证宿主缓存或安装渠道切换 |
-| [`scripts/check-links.mjs`](../scripts/check-links.mjs)、[回归](../scripts/check-links.test.mjs)及[生产文件清单](../scripts/production-files.json) | 核对本地 Markdown/HTML 引用、锚点、忽略规则、生产允许文件来源和安装引用 | 不访问外部链接，不替代真实 ZIP/安装验收、任意 Markdown 解析或隐私语义审查 |
-| [`skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs) | 指定安装副本之后，做在线发现并检查 preamble 连接 | 不自动查找缓存版本，也不验证宿主 UI 加载的副本或 SDK 文档操作 |
+| [`scripts/check-links.mjs`](../scripts/check-links.mjs)、[回归](../scripts/check-links.test.mjs)及[生产文件清单](../scripts/production-files.json) | 核对开发树的文档引用和生产文件来源，也可按允许清单检查导出生产目录及其安装引用 | 不访问外部链接，不比对文件内容或 hash、验证发布来源或真实运行，也不替代任意 Markdown 解析或隐私语义审查 |
+| [`skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs) | 指定安装副本后，核对所选清单和启动配置、代理版本、在线发现与 preamble | 不检查整包完整性或宿主 UI 加载的副本，也不验证 SDK 文档操作 |
 | [`skills/affinity-mcp/`](../skills/affinity-mcp/SKILL.md) | 操作入口、授权边界、样本与结果验收指导 | 不替代应用当前版本的运行证据 |
 | [`inspection-preview.mjs`](../skills/affinity-mcp/scripts/inspection-preview.mjs) | 用已导出 PNG 和同次核验的几何生成独立 SVG 检查图，标出完整 Bleed、Trim 与启用的 Margin，以棋盘底显示原图透明区；仅用 Node 内置模块 | 不连接 Affinity、不写工程、不改代理；不是原生辅助线开关或自动印前验收，SVG 的本地渲染与宿主交付另行验证 |
 | `docs/` 中的公共技术文档与根目录 `AGENTS.md` | 架构、版本记录、脱敏技术摘要及维护约定 | 仅在开发分支维护，不进入生产安装树；不能引用被 Git 忽略的内容 |
@@ -96,9 +96,10 @@ SSE 流按 LF、CRLF 或裸 CR 分行：遇 CR 立即结束当前行，紧随的
 | --- | --- | --- |
 | `initialize` | 客户端侧支持 `2025-11-25`。客户端请求其他字符串时，代理返回自己支持的版本，由客户端决定是否继续；protocolVersion 缺失或不是字符串时返回 `-32602`。这一步只在本地完成协商，不会连接 Affinity。 | 代理实现的 CLIENT_PROTOCOL_VERSION 与 initialize 分支；[MCP 版本协商](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle#version-negotiation) |
 | `tools/list` | 提供 cursor 时它必须是字符串，可以为空串；成功时原样转发结果和 `nextCursor`。未提供 cursor 时，发现失败返回 11 个静态备用工具；提供 cursor 时失败直接报错。 | 代理实现 |
-| `tools/call` | name 必须是字符串；arguments 若提供必须是对象，省略时按空对象处理。校验通过后才确保连接。已经提交的调用不会自动重放。 | 代理实现 |
+| `tools/call` | name 必须是字符串；arguments 若提供必须是对象，省略时按空对象处理。校验通过后才确保连接；已有同 ID 的调用在等待连接时，后一个调用返回 `-32600`。已经提交的调用不会自动重放。 | 代理实现 |
 | `resources/list`、`prompts/list` | 都返回空列表；SDK 文档需经由工具读取。 | 代理实现 |
-| 通知 | 客户端通知只要具有合法的 JSON-RPC 外壳且没有 id，就被忽略：不产生响应，也不触发连接；上游的 `notifications/initialized` 由代理自行发送。 | 代理实现 |
+| `notifications/cancelled` | 合法通知按原客户端 ID 匹配，只取消仍在本地等待连接且尚未尝试 POST 的 `tools/call`；该调用不会提交，通知和该调用都不回包。其他并发调用和共享握手继续；已尝试提交的调用保持原行为，取消不保证回滚。 | 代理实现 |
+| 其他通知 | 客户端通知只要具有合法的 JSON-RPC 外壳且没有 id，就被忽略：不产生响应，也不触发连接；上游的 `notifications/initialized` 由代理自行发送。 | 代理实现 |
 | 上游请求/通知 | 上游 `ping` 由代理本地回复；未知请求返回 `-32601`，无效 params 返回 `-32602`；合法通知忽略。回复通过 POST 发出，不阻塞 SSE 上的业务响应，也不创建 pending。 | 代理实现；[MCP 双向 ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) |
 | 上游消息校验 | 收到无效 JSON-RPC 外壳，或命中 pending 的响应本身无效时，按 SSE 协议故障处理，拒绝当前连接上的全部 pending。响应必须恰好含一个对象 result 或一个合法 error，不能在没有结果时以成功结束。 | 代理实现；[MCP 消息规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/index) |
 | 上游初始化结果 | protocolVersion 须为字符串；capabilities 与 serverInfo 须为非 null、非数组对象；serverInfo.name/version 须为字符串；返回协议须等于配置选定的上游版本。失败归入 upstream/initialize/not_submitted，代理关闭连接，不发送 initialized，也不进入业务；无 cursor 的发现仍按既有规则降级。 | 代理实现；[MCP InitializeResult](https://modelcontextprotocol.io/specification/2025-11-25/schema#initializeresult) |
@@ -126,7 +127,7 @@ SSE 流按 LF、CRLF 或裸 CR 分行：遇 CR 立即结束当前行，紧随的
 
 请求结果以先到达的终止事件为准：SSE 成功或上游错误可以在 POST 还在等待时完成请求；之后即使 POST 报错，该错误仍会被观察到，但不改变已经交付的结果。等待超时会移除 pending，此后的迟到成功或错误一律丢弃，不补发第二次响应。SSE 解析失败或断线会拒绝当前 pending，后续新请求可以重新连接。
 
-工具一旦尝试提交，之后的传输失败或上游错误都保守记为 outcome=unknown，此时应先读回文档的实际状态。not_submitted 只表示本次业务工具没有提交（例如建连或初始化失败），不能据此推断历史操作状态。代理不会取消或回滚应用里已在运行的脚本。
+工具一旦尝试提交，之后的传输失败或上游错误都保守记为 outcome=unknown，此时应先读回文档的实际状态。not_submitted 只表示本次业务工具没有提交（例如建连或初始化失败），不能据此推断历史操作状态。客户端取消只能阻止尚在本地等待连接的调用提交；代理不会取消或回滚应用里已在运行的脚本。
 
 上游请求的回复如果 POST 失败，代理会关闭它所属的连接，并拒绝尚未完成的 pending；已经交付的结果不会再补一次响应。异步失败只影响发出回复时的那条连接，旧连接上的拒绝不会清理新连接里的请求。
 
@@ -176,7 +177,7 @@ SSE 回归覆盖 LF、裸 CR、跨读取边界的 CRLF、混合行结束符、�
 
 初始模式识别和旧帧长度读取还覆盖这些情况：第一条输入是 c/C 开头的坏 JSON、出现像头部的坏输入后如何恢复、旧头的大小写、顺序、水平空白与附加字段、附加字段名称或值中的同名长度文本、字段值内的 U+2028/U+2029，以及头名称、冒号、长度、CR/LF、空行和中文 body 内部的分片。测试 IPC 观察器要等实际 stdin handler 收到前一段后才放行后一段；它检查完整回包格式、回包次数以及上游连接为零，同时保留普通直接 CLI 的对照。
 
-[可选连接检查](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs)独立于普通回归，使用选定安装副本的 Codex 配置或共用启动配置，只执行初始化、分页发现和读取 preamble。检查器核对完整的 Plugin 清单、代理入口和版本一致性，拒绝不受支持的代理路径和缺少清单的单独 Skill。回归夹具包含两套清单、市场索引、Skill/references/运行脚本、清单资源和署名文件，从夹具的检查器入口在另一工作目录执行；夹具核对插件版本和代理文件的精确 hash。
+[可选连接检查](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs)独立于普通回归，使用选定安装副本的 Codex 配置或共用启动配置，只执行初始化、分页发现和读取 preamble。检查器核对所选清单、启动配置和代理版本一致性，拒绝不受支持的代理路径和缺少所选清单的单独 Skill；它不核对完整安装文件集合或文件完整性。回归夹具包含两套清单、市场索引、Skill/references/运行脚本、清单资源和署名文件，从夹具的检查器入口在另一工作目录执行；夹具核对插件版本和代理文件的精确 hash，这不是实际安装副本的完整性验证。
 
 分页 cursor 作为不透明字符串原样传递，空字符串也继续分页；只有 nextCursor 缺失才结束，非字符串或重复 cursor 明确失败。检查器复用既有 stderr 降级诊断，并在子进程关闭后检查。RPC 错误、工具错误、内容缺失/不匹配、超时及清理异常都不能通过。Node 版本按所选启动命令、环境和工作目录取得；插件版本与代理 hash 分开记录。没有应用构建或平台时保留空值，不把插件身份当应用身份。模拟服务还覆盖两种配置下的空串分页、非法或重复 cursor、错误、降级、超时和清理分支。真实命令与边界见 [README](../README.zh-cn.md#检查真实安装连接)及 [MCP 分页规范](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination)。
 

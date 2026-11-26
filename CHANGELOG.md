@@ -2,7 +2,7 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
-## Unreleased
+## 2026-11-26
 
 ### 0.5.5-dev.1
 

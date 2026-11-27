@@ -2,7 +2,7 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
-## Unreleased
+## 2026-11-27
 
 ### 0.5.5-dev.3
 
@@ -10,8 +10,6 @@ English | [简体中文](CHANGELOG.zh-cn.md)
 
 - Fixed the proxy trying to send requests when Affinity supplied an empty endpoint. Tool calls now report an `endpoint` error immediately.
 - Fixed outstanding HTTP requests staying open after the connection to Affinity failed. The proxy now closes those requests and reports the first failure it detected to calls that are still waiting.
-
-## 2026-11-27
 
 ### 0.5.5-dev.2
 

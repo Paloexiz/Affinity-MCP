@@ -60,7 +60,7 @@ let preambleContentOverride;
 let initializeResultOverride;
 let heldPost;
 function holdNextPost(method) {
-  heldPost = { method, received: Promise.withResolvers(), release: Promise.withResolvers() };
+  heldPost = { method, received: Promise.withResolvers(), release: Promise.withResolvers(), closed: Promise.withResolvers() };
   replyGates.add(heldPost.release);
   return heldPost;
 }
@@ -100,6 +100,11 @@ async function handleRequest(req, res) {
       res.flushHeaders();
       return;
     }
+    if (upstreamMode === "endpoint_empty" || upstreamMode === "endpoint_whitespace") {
+      const data = upstreamMode === "endpoint_empty" ? "" : "data:  \t\n";
+      res.write("event: endpoint\n" + data + "\n");
+      return;
+    }
     if (["endpoint_invalid", "endpoint_cross_origin"].includes(upstreamMode)) {
       const endpoint = upstreamMode === "endpoint_invalid" ? "http://[" : "https://example.invalid/message";
       res.write(`event: endpoint\ndata: ${endpoint}\n\n`);
@@ -119,14 +124,18 @@ async function handleRequest(req, res) {
   let body = "";
   for await (const chunk of req) body += chunk;
   const msg = JSON.parse(body);
+  const stream = streams.get(connection);
+  assert.ok(stream, "A POST requires a session created by the SSE service");
+  assert.equal(req.url, "/message?session=" + connection, "Every POST uses the advertised endpoint path");
   calls.push(msg);
   if (heldPost && heldPost.method === msg.method) {
     const gate = heldPost;
     heldPost = undefined;
-    gate.received.resolve();
+    res.once("close", () => gate.closed.resolve(res.writableEnded));
+    gate.received.resolve(stream);
     await waitFor(gate.release.promise, "release held upstream POST");
+    if (res.destroyed) return;
   }
-  const stream = streams.get(connection);
   if (!Object.hasOwn(msg, "method")) {
     replyPosts.push({ connection, message: msg });
     const record = upstreamReplies.get(`${connection}:${msg.id}`);
@@ -250,6 +259,11 @@ async function handleRequest(req, res) {
   if (msg.method === "initialize") {
     result = initializeResultOverride ?? { protocolVersion: msg.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "mock", version: "1" } };
     if (upstreamMode === "initialize_invalid_once") { result = {}; upstreamMode = "normal"; }
+    if (upstreamMode === "initialize_endpoint_lost") {
+      // Both events arrive before the proxy resumes validation of the initialize result.
+      stream.write(`data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: {} })}\n\nevent: endpoint\ndata:\n\n`);
+      return;
+    }
   }
   if (msg.method === "tools/list") result = Object.hasOwn(msg.params, "cursor")
     ? { tools: [{ name: "second", inputSchema: { type: "object" } }] }
@@ -504,9 +518,11 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
       await new Promise(resolve => setTimeout(resolve, 1100));
       assert.ok([...responses.values()].every(n => n === 1), "Late results/errors never produce a second response");
       assert.doesNotMatch(stderr, /unhandled/i);
+      const oldStreamClosed = once(streams.get(session), "close");
       const malformed = (await rpc("tools/call", { name: "bad_sse" })).error;
       assert.equal(malformed.data.phase, "sse");
       assert.equal(malformed.data.outcome, "unknown");
+      await waitFor(oldStreamClosed, "protocol failure closes the old SSE stream before reconnect");
       assert.ok((await rpc("tools/list")).result.tools.length);
     }
     assert.match((await rpc("tools/call", { name: "post_failure" })).error.message, /503/);
@@ -514,6 +530,22 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
     assert.match((await rpc("tools/call", { name: "disconnect" })).error.message, /closed/i);
     assert.equal(calls.filter(c => c.params?.name === "disconnect").length, before + 1, "Never replay a tool after an ambiguous disconnect");
     if (label === "direct" && timeout === undefined) {
+      await rpc("tools/list");
+      const start = calls.length;
+      const held = holdNextPost("tools/call");
+      const pending = rpc("tools/call", { name: "read_before_close" });
+      try {
+        const stream = await waitFor(held.received.promise, "outstanding POST received");
+        stream.end();
+        const { error } = await pending;
+        assert.equal(error.data.phase, "sse");
+        assert.equal(error.data.outcome, "unknown");
+        assert.equal(await waitFor(held.closed.promise, "outstanding POST closed before reconnect"), false);
+      } finally { held.release.resolve(); }
+      assert.ok((await rpc("tools/call", { name: "read_after_reconnect" })).result);
+      assert.deepEqual(calls.slice(start).filter(msg => msg.method === "tools/call").map(msg => msg.params.name),
+        ["read_before_close", "read_after_reconnect"], "The next connection never replays the interrupted request");
+      await rpc("tools/call", { name: "disconnect" });
       const send = message => child.stdin.write(encode(JSON.stringify({ jsonrpc: "2.0", ...message })));
       for (const failedHandshake of [false, true]) {
         const start = calls.length;
@@ -549,14 +581,22 @@ async function check(framed, launch, label = "direct", timeout, diagnostics = fa
       }
     }
     if (diagnostics) {
-      for (const [mode, phase] of [["connect_http", "connect"], ["endpoint_missing", "endpoint"], ["endpoint_invalid", "endpoint"], ["endpoint_cross_origin", "endpoint"], ["initialize_stall", "response"], ["notify_stall", "post"]]) {
+      for (const [mode, phase] of [["connect_http", "connect"], ["endpoint_missing", "endpoint"], ["endpoint_empty", "endpoint"], ["endpoint_whitespace", "endpoint"], ["endpoint_invalid", "endpoint"], ["endpoint_cross_origin", "endpoint"], ["initialize_stall", "response"], ["notify_stall", "post"]]) {
         upstreamMode = mode;
         const submitted = calls.filter(c => c.method === "tools/call").length;
         const failure = (await rpc("tools/call", { name: "never_submitted" }, 7000)).error;
         assert.equal(failure.data.phase, phase, mode);
         assert.equal(failure.data.outcome, "not_submitted", mode);
+        if (mode === "endpoint_empty" || mode === "endpoint_whitespace") assert.equal(failure.data.cause, "empty endpoint");
         assert.equal(calls.filter(c => c.method === "tools/call").length, submitted, mode);
       }
+      upstreamMode = "initialize_endpoint_lost";
+      const beforeLostEndpoint = calls.length;
+      const lostEndpoint = (await rpc("tools/call", { name: "never_submitted" })).error;
+      assert.equal(lostEndpoint.data.phase, "endpoint");
+      assert.equal(lostEndpoint.data.cause, "empty endpoint");
+      assert.equal(lostEndpoint.data.outcome, "not_submitted");
+      assert.deepEqual(calls.slice(beforeLostEndpoint).map(call => call.method), ["initialize"]);
       upstreamMode = "notify_disconnect";
       const connectionsBefore = session;
       const toolsBefore = calls.filter(c => c.method === "tools/call").length;

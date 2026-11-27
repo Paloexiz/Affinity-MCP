@@ -200,8 +200,9 @@ class AffinitySseClient {
     const initialized = await this.request("initialize", {
       protocolVersion: AFFINITY_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "affinity-mcp-proxy", version: "0.5.5-dev.2" },
+      clientInfo: { name: "affinity-mcp-proxy", version: "0.5.5-dev.3" },
     });
+    if (this.streamError) throw this.streamError;
     if (typeof initialized.protocolVersion !== "string" || !isObject(initialized.capabilities) ||
         !isObject(initialized.serverInfo) || typeof initialized.serverInfo.name !== "string" ||
         typeof initialized.serverInfo.version !== "string") {
@@ -210,7 +211,7 @@ class AffinitySseClient {
     if (initialized.protocolVersion !== AFFINITY_PROTOCOL_VERSION) {
       throw failure("upstream", "Unsupported upstream protocol version", "initialize");
     }
-    await this.notify("notifications/initialized", {});
+    await this.#post({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }, controller);
     if (this.controller !== controller || controller.signal.aborted || this.streamError || !this.endpointPath) {
       throw this.streamError || failure("sse", "connection closed during initialization");
     }
@@ -242,7 +243,7 @@ class AffinitySseClient {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
-          if (this.controller !== controller) return;
+          if (this.controller !== controller || controller.signal.aborted) return;
           buffer += decoder.decode(value, { stream: true });
           for (;;) {
             if (skipLF) {
@@ -268,26 +269,21 @@ class AffinitySseClient {
             }
           }
         }
+        this.#endStream(controller, failure("sse", "connection closed"));
       } catch (err) {
-        if (this.controller === controller) {
-          this.streamError = err.data ? err : failure("sse", err.message);
-          this.#failAll(err);
-        }
+        this.#endStream(controller, err.data ? err : failure("sse", err.message));
       } finally {
-        if (this.controller === controller) {
-          this.connected = false;
-          this.endpointPath = null;
-          this.streamError ||= failure("sse", "connection closed");
-          this.#failAll(new Error("connection closed"));
-        }
+        reader.releaseLock();
       }
     })();
   }
 
   #flushEvent(eventName, eventData, controller) {
     if (eventName === "endpoint") {
+      const address = eventData.trim();
+      if (!address) throw failure("endpoint", "empty endpoint");
       try {
-        const endpoint = new URL(eventData.trim(), AFFINITY_BASE_URL);
+        const endpoint = new URL(address, AFFINITY_BASE_URL);
         if (endpoint.origin !== new URL(AFFINITY_BASE_URL).origin) {
           throw new Error("endpoint must use the configured server origin");
         }
@@ -305,6 +301,7 @@ class AffinitySseClient {
           throw failure("sse", "Invalid upstream JSON-RPC request");
         }
         if (!Object.hasOwn(msg, "id")) return;
+        if (!this.endpointPath) throw failure("endpoint", "endpoint is not ready");
         const reply = { jsonrpc: "2.0", id: msg.id };
         if (Object.hasOwn(msg, "params") && !isObject(msg.params)) {
           reply.error = { code: -32602, message: "params must be an object" };
@@ -314,14 +311,7 @@ class AffinitySseClient {
           reply.error = { code: -32601, message: `Unsupported method: ${msg.method}` };
         }
         // Reply IDs belong to the upstream request, independently of our pending IDs.
-        this.#post(reply).catch(err => {
-          if (this.controller !== controller) return;
-          this.streamError = err;
-          this.connected = false;
-          this.endpointPath = null;
-          this.#failAll(err);
-          controller.abort();
-        });
+        this.#post(reply, controller).catch(err => this.#endStream(controller, err));
         return;
       }
       if (this.pending.has(msg.id)) {
@@ -341,25 +331,29 @@ class AffinitySseClient {
     }
   }
 
-  #failAll(err) {
+  #endStream(controller, err) {
+    if (this.controller !== controller || this.streamError) return;
+    this.streamError = err;
+    this.connected = false;
+    this.endpointPath = null;
     for (const { reject, timer, method } of this.pending.values()) {
       clearTimeout(timer);
-      reject(failure(err.data?.phase || "sse", err.data?.cause || err.message, method));
+      reject(failure(err.data.phase, err.data.cause, method));
     }
     this.pending.clear();
+    controller.abort();
   }
 
   async #waitForEndpoint() {
-    for (let i = 0; i < 50; i += 1) {
-      if (this.endpointPath) return;
+    for (let waitsLeft = 50; !this.endpointPath; waitsLeft--) {
       if (this.streamError) throw this.streamError;
+      if (waitsLeft === 0) throw failure("endpoint", "Timed out waiting for endpoint");
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    throw failure("endpoint", "Timed out waiting for endpoint");
   }
 
   async request(method, params) {
-    if (!this.endpointPath) throw failure("endpoint", "endpoint is not ready");
+    if (!this.endpointPath) throw this.streamError || failure("endpoint", "endpoint is not ready");
     const id = this.nextId++;
     let postComplete = false;
     const result = new Promise((resolve, reject) => {
@@ -387,22 +381,22 @@ class AffinitySseClient {
     return result;
   }
 
-  async notify(method, params) {
-    await this.#post({ jsonrpc: "2.0", method, params });
-  }
-
-  async #post(payload) {
+  async #post(payload, controller = this.controller) {
+    if (!controller || this.controller !== controller) throw failure("sse", "connection closed");
+    if (this.streamError) throw this.streamError;
+    if (controller.signal.aborted) throw failure("sse", "connection closed");
+    if (!this.endpointPath) throw failure("endpoint", "endpoint is not ready");
     try {
-      const url = new URL(this.endpointPath, AFFINITY_BASE_URL);
-      const res = await fetch(url, {
+      const res = await fetch(this.endpointPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        signal: AbortSignal.any([this.controller.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
         redirect: "error",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status} ${await res.text()}`);
     } catch (err) {
+      if (this.controller === controller && this.streamError) throw this.streamError;
       throw failure("post", err.message, payload.method);
     }
   }
@@ -536,7 +530,7 @@ async function handleMessage(message) {
         sendResult(message.id, {
           protocolVersion: CLIENT_PROTOCOL_VERSION,
           capabilities: { tools: {} },
-          serverInfo: { name: "affinity-mcp", version: "0.5.5-dev.2" },
+          serverInfo: { name: "affinity-mcp", version: "0.5.5-dev.3" },
           instructions:
             "Use Affinity by Canva through its local MCP server. Read read_sdk_documentation_topic with filename 'preamble' before writing or executing scripts.",
         });

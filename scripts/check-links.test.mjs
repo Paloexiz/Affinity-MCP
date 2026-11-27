@@ -160,6 +160,40 @@ test("allowlist omissions, duplicates, missing template and extra files fail", t
   }
 });
 
+test("production changelogs must come from the two generated stable histories", t => {
+  const f = productionFixture(t);
+  const rows = JSON.parse(readFileSync(join(f.root, "scripts/production-files.json"), "utf8"));
+  const candidate = mkdtempSync(join(tmpdir(), "ai-agent-stable-history-"));
+  t.after(() => rmSync(candidate, { recursive: true, force: true }));
+  const check = () => checkLinks(f.root, { productionRoot: candidate });
+  for (const [path, source, title, pending, marker] of [
+    ["CHANGELOG.md", "CHANGELOG.release.md", "Affinity MCP Changelog", "Unreleased", "No user-visible changes."],
+    ["CHANGELOG.zh-cn.md", "CHANGELOG.release.zh-cn.md", "Affinity MCP 更新日志", "未发布", "无用户可见变更。"],
+  ]) {
+    const heading = "# " + title + "\n\n";
+    const stable = "## 2026-10-01\n\n### 1.0.0\n\n" + marker + "\n";
+    rows.push({ path, source, transform: "copy" });
+    f.write(path, heading + "## " + pending + "\n\n### 1.0.1-dev.1\n\n" + marker + "\n\n" + stable);
+    f.write(source, heading + stable);
+    writeFileSync(join(candidate, path), heading + stable);
+  }
+  f.write("scripts/production-files.json", JSON.stringify(rows));
+  f.write("docs/versioning.md", '<a id="production-content"></a>\n## main\n| Files | ' + rows.map(row => "`" + row.path + "`").join("、") + " |\n");
+  mkdirSync(join(candidate, "skills"));
+  for (const [path, text] of [["README.md", "[guide](skills/guide.md)"], ["skills/guide.md", "# Guide"], [".gitignore", "*.log"]]) {
+    writeFileSync(join(candidate, path), text);
+  }
+  assert.equal(check().productionTreeChecked, true);
+  for (const row of rows.filter(row => row.path.startsWith("CHANGELOG"))) {
+    writeFileSync(join(candidate, row.path), readFileSync(join(f.root, row.path)));
+    assert.throws(check, /Production CHANGELOG.* differs/);
+    writeFileSync(join(candidate, row.path), readFileSync(join(f.root, row.source)));
+    f.write("scripts/production-files.json", JSON.stringify(rows.map(entry => entry === row ? { ...row, source: row.path } : entry)));
+    assert.throws(check, /Unexpected production source mapping/);
+    f.write("scripts/production-files.json", JSON.stringify(rows));
+  }
+});
+
 test("static allowlist checks enforce the same entry schema and transformations as preparation", t => {
   for (const invalid of [{ path: "README.md", source: "README.md", transform: "readme", extra: "x" }, { path: "README.md", source: "README.md", transform: "copy" }, null, []]) {
     const f = productionFixture(t), path = join(f.root, "scripts/production-files.json");

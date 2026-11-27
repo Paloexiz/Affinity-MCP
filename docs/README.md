@@ -15,7 +15,9 @@
 | 开发/正式版本、批次递增及交付检查 | [版本规则](versioning.md) |
 | 将开发候选转为正式版本 | [转正与发布流程](versioning.md#开发候选转为正式版本) |
 | 判断哪些文件能进入 main 或生产安装包 | [生产文件允许清单](versioning.md#production-content) |
-| 查看未发布变化和历史源码版本 | [中文更新日志](../CHANGELOG.zh-cn.md) / [English changelog](../CHANGELOG.md) |
+| 查看未发布变化和开发历史 | [中文全量日志](../CHANGELOG.zh-cn.md) / [English full changelog](../CHANGELOG.md) |
+| 查看正式版本历史 | [中文正式日志](../CHANGELOG.release.zh-cn.md) / [English release changelog](../CHANGELOG.release.md) |
+| 撰写、审阅更新日志及汇总正式摘要 | [写法](versioning.md#changelog-writing) / [审稿](versioning.md#changelog-review) / [正式摘要](versioning.md#changelog-release-summary) |
 | 理解职责、数据流、连接生命周期与故障归属 | [架构说明](architecture.md) |
 | 判断某个 SDK 操作在目标构建上是否有依据 | [SDK 版本与能力索引](sdk/README.md) |
 | 查询旧构建的限制及来源 | [3.2.3.4646 历史基线](sdk/3.2.3.4646.md) |
@@ -27,7 +29,7 @@
 
 ## 阅读这些记录时
 
-- 插件版本、MCP 协议日期和 Affinity 应用构建号是三个不同的维度。当前仓库清单为插件 `0.5.5-dev.2`；版本格式和实际交付状态要分开核对。已记录的样本包括 2026-10-08 的 `3.3.0.4850 Win32`，以及 2026-10-19～2026-10-22 的 `3.3.1.4940 MacOS`。后者覆盖了注明的批量、查询、撤销、矩形与海报预览、单行文字光学对齐、双框文本流、异步关闭和已有路径画笔用例。这些样本不等于“官方最新版”。具体来源见[版本身份表](sdk/README.md#version-identity)。
+- 插件版本、MCP 协议日期和 Affinity 应用构建号是三个不同的维度。当前仓库清单为插件 `0.5.5-dev.3`；版本格式和实际交付状态要分开核对。已记录的样本包括 2026-10-08 的 `3.3.0.4850 Win32`，以及 2026-10-19～2026-10-22 的 `3.3.1.4940 MacOS`。后者覆盖了注明的批量、查询、撤销、矩形与海报预览、单行文字光学对齐、双框文本流、异步关闭和已有路径画笔用例。这些样本不等于“官方最新版”。具体来源见[版本身份表](sdk/README.md#version-identity)。
 - SDK 能力以具体操作、对象和后置状态为单位记录。函数存在、调用没有异常、文本正确、视觉正确、文件保存成功，各自都需要证据。
 - 操作配方默认跨系统共用，实测平台只说明证据来自哪个环境；系统差异要有依据，见[表述约束](maintaining.md#capability-platform-wording)。
 - [光学对齐样本](sdk/3.3.1.4940-macos.md#optical-alignment)区分三种情况：可以通过 SDK 设置的模式、查过但没找到的自定义规则入口，以及界面编辑后的实际效果。对象边界对齐不等于中文主体对齐。

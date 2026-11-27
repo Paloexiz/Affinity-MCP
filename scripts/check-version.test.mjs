@@ -103,10 +103,11 @@ test("English changelogs support optional Chinese counterparts and reject struct
   for (const channel of ["development", "stable"]) {
     const version = channel === "development" ? "0.1.16-dev.1" : "0.1.16";
     const group = channel === "development" ? "Unreleased" : "2026-10-14";
-    const english = `# Affinity MCP Changelog\n\n## ${group}\n\n### ${version}\n\n#### Changed\n\n- Current changes.\n\n## 2026-10-13\n\n### 0.1.15\n\n#### Fixed\n\n- Earlier fix.\n`;
+    const english = `# Affinity MCP Changelog\n\n## ${group}\n\n### ${version}\n\n#### Changed\n\n- Current changes.\n\n## 2026-10-13\n\n### 0.1.15\n\n#### Fixed\n\n- Earlier fix.\n\n### 0.1.14\n\nNo user-visible changes.\n`;
     const chinese = english.replace("Affinity MCP Changelog", "Affinity MCP 更新日志")
       .replace("## Unreleased", "## 未发布").replace("#### Changed", "#### 变更").replace("#### Fixed", "#### 修复")
-      .replace("Current changes.", "当前变更。").replace("Earlier fix.", "历史修复。");
+      .replace("Current changes.", "当前变更。").replace("Earlier fix.", "历史修复。")
+      .replace("No user-visible changes.", "无用户可见变更。");
     write(root, { ...files(version), "CHANGELOG.md": english, "CHANGELOG.zh-cn.md": chinese.replaceAll("\n", "\r\n") });
     assert.equal(checkRepository(root, { channel }).version, version);
     for (const drift of [
@@ -114,10 +115,15 @@ test("English changelogs support optional Chinese counterparts and reject struct
       chinese.replace("2026-10-13", "2026-10-12"),
       chinese.replace("#### 修复", "#### 新增"),
       chinese.replace("- 历史修复。\n", ""),
+      chinese.replace("无用户可见变更。\n", ""),
+      chinese.replace("### 0.1.14\n\n无用户可见变更。", "无用户可见变更。\n\n### 0.1.14"),
     ]) {
       write(root, { "CHANGELOG.zh-cn.md": drift });
       assert.throws(() => checkRepository(root, { channel }), /Bilingual CHANGELOG/);
     }
+    write(root, { "CHANGELOG.md": english.replace("No user-visible changes.\n", ""), "CHANGELOG.zh-cn.md": chinese });
+    assert.throws(() => checkRepository(root, { channel }), /Bilingual CHANGELOG/);
+    write(root, { "CHANGELOG.md": english });
     rmSync(join(root, "CHANGELOG.zh-cn.md"));
     assert.equal(checkRepository(root, { channel }).version, version, "Legacy single-log snapshots remain readable");
   }

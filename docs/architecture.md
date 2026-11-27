@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.5-dev.2`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
+本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.5-dev.3`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -32,7 +32,8 @@ flowchart LR
 | [`skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs) | stdin 解析、请求路由、SSE 连接、响应关联、错误转发 | 不校验目标文档、不回滚 SDK 操作、不保存操作结果 |
 | [`scripts/affinity-mcp-proxy.test.mjs`](../scripts/affinity-mcp-proxy.test.mjs) | 模拟服务上的进程边界和打包配置回归 | 不证明真实 SDK 操作有效 |
 | [`scripts/check-version.mjs`](../scripts/check-version.mjs) 与[回归](../scripts/check-version.test.mjs) | 在显式指定的渠道下检查版本格式、现行声明是否同步，以及可选的 Git 基准增量检查 | 不决定产品影响级别，不发布版本，也不验证宿主缓存或安装渠道切换 |
-| [`scripts/check-links.mjs`](../scripts/check-links.mjs)、[回归](../scripts/check-links.test.mjs)及[生产文件清单](../scripts/production-files.json) | 核对开发树的文档引用和生产文件来源，也可按允许清单检查导出生产目录及其安装引用 | 不访问外部链接，不比对文件内容或 hash、验证发布来源或真实运行，也不替代任意 Markdown 解析或隐私语义审查 |
+| [正式版日志生成器](../scripts/build-release-changelog.mjs) | 从两个语言的全量日志提取正式版本及对应日期。两份正式摘要均由维护者在全量日志中编写 | 跨批次的取舍、兼容性影响及翻译含义由维护者复核 |
+| [`scripts/check-links.mjs`](../scripts/check-links.mjs)、[回归](../scripts/check-links.test.mjs)及[生产文件清单](../scripts/production-files.json) | 核对开发树的文档引用和生产文件来源。导出目录检查包括文件集合、安装引用及两份日志与正式版副本的字节比对 | 其他安装文件的内容、开发提交来源与实际运行另行核验 |
 | [`skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs`](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs) | 指定安装副本后，核对所选清单和启动配置、代理版本、在线发现与 preamble | 不检查整包完整性或宿主 UI 加载的副本，也不验证 SDK 文档操作 |
 | [`skills/affinity-mcp/`](../skills/affinity-mcp/SKILL.md) | 操作入口、授权边界、样本与结果验收指导 | 不替代应用当前版本的运行证据 |
 | [`inspection-preview.mjs`](../skills/affinity-mcp/scripts/inspection-preview.mjs) | 用已导出 PNG 和同次核验的几何生成独立 SVG 检查图，标出完整 Bleed、Trim 与启用的 Margin，以棋盘底显示原图透明区；仅用 Node 内置模块 | 不连接 Affinity、不写工程、不改代理；不是原生辅助线开关或自动印前验收，SVG 的本地渲染与宿主交付另行验证 |
@@ -60,7 +61,7 @@ flowchart LR
 
 1. 客户端按插件清单启动 `node skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs`。Codex 以插件目录为 `cwd`；共用配置通过 `${CLAUDE_PLUGIN_ROOT}` 定位脚本。参见 [Codex 清单](../.codex-plugin/plugin.json)和[共用配置](../.mcp.json)。
 2. `initialize` 和 `ping` 由代理在本地直接回答，只有 `tools/list` 或 `tools/call` 才会触发与 Affinity 的惰性连接；所以 initialize/ping 成功不能证明应用已在线。
-3. 代理向 `${AFFINITY_MCP_BASE_URL}/sse` 发起 GET，读取其中的 `endpoint` 事件，只接受与配置基址同源的 POST 地址；随后向该地址发送 `initialize`，检查必需结果字段和选定的上游协议，校验通过才发送 `notifications/initialized`。
+3. 代理向 `${AFFINITY_MCP_BASE_URL}/sse` 发起 GET，读取 `endpoint` 事件。空白地址在 endpoint 阶段被拒绝。代理只向已确认的非空同源地址发送 `initialize`，检查必需结果字段和选定的上游协议，校验通过才发送 `notifications/initialized`。
 4. 每次向上游发请求，代理都分配新的内部 ID，记在内存的 `pending` Map；请求经 HTTP POST 发出，结果从 SSE 返回。代理先区分上游的请求、通知和响应；只有有效响应能按内部 ID 完成对应 Promise，再用客户端原来的请求 ID 返回结果。上游请求用另一套 ID 关联，不会消费同 ID 的 `pending` 记录。
 5. `tools/call` 的工具名、参数和结果都原样转发，结果中可能包含文本、图像和 `isError`。代理不会把脚本输出解读成业务成功，也没有串行执行队列，客户端并发请求会重叠等待。以上五步的实现见[代理实现](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)。
 
@@ -100,10 +101,10 @@ SSE 流按 LF、CRLF 或裸 CR 分行：遇 CR 立即结束当前行，紧随的
 | `resources/list`、`prompts/list` | 都返回空列表；SDK 文档需经由工具读取。 | 代理实现 |
 | `notifications/cancelled` | 合法通知按原客户端 ID 匹配，只取消仍在本地等待连接且尚未尝试 POST 的 `tools/call`；该调用不会提交，通知和该调用都不回包。其他并发调用和共享握手继续；已尝试提交的调用保持原行为，取消不保证回滚。 | 代理实现 |
 | 其他通知 | 客户端通知只要具有合法的 JSON-RPC 外壳且没有 id，就被忽略：不产生响应，也不触发连接；上游的 `notifications/initialized` 由代理自行发送。 | 代理实现 |
-| 上游请求/通知 | 上游 `ping` 由代理本地回复；未知请求返回 `-32601`，无效 params 返回 `-32602`；合法通知忽略。回复通过 POST 发出，不阻塞 SSE 上的业务响应，也不创建 pending。 | 代理实现；[MCP 双向 ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) |
+| 上游请求/通知 | 有有效端点时，代理回复上游 `ping`，对未知请求返回 `-32601`，对无效 params 返回 `-32602`。收到需要回复的请求时若尚无端点，连接以 endpoint 阶段失败。合法通知忽略。回复通过 POST 发出，不阻塞 SSE 上的业务响应，也不创建 pending。 | 代理实现；[MCP 双向 ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) |
 | 上游消息校验 | 收到无效 JSON-RPC 外壳，或命中 pending 的响应本身无效时，按 SSE 协议故障处理，拒绝当前连接上的全部 pending。响应必须恰好含一个对象 result 或一个合法 error，不能在没有结果时以成功结束。 | 代理实现；[MCP 消息规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/index) |
 | 上游初始化结果 | protocolVersion 须为字符串；capabilities 与 serverInfo 须为非 null、非数组对象；serverInfo.name/version 须为字符串；返回协议须等于配置选定的上游版本。失败归入 upstream/initialize/not_submitted，代理关闭连接，不发送 initialized，也不进入业务；无 cursor 的发现仍按既有规则降级。 | 代理实现；[MCP InitializeResult](https://modelcontextprotocol.io/specification/2025-11-25/schema#initializeresult) |
-| 断开 SSE | 代理清理连接标记并拒绝所有 pending。初始化通知结束前，它会再确认本次连接仍然有效，确认失败就不标记 connected；之后独立的新请求可以重新建立连接。 | 代理实现 |
+| 断开 SSE | 流结束或出错时，代理清空端点，拒绝当前连接的 pending，并中止该连接仍在等待的 HTTP 请求。发送初始化通知和回复上游请求时必须有本次连接的有效端点。初始化通知完成后再次检查连接，之后独立的新请求可以重新建立连接。 | 代理实现 |
 | stdin EOF、SIGINT、SIGTERM | 关闭连接、清理 pending，然后退出。 | 代理实现 |
 | 迟到响应 | 响应 ID 已不在 pending 中就不再交付；代理也不会因为这个响应去取消应用里已经在跑的脚本。 | 代理实现 |
 | 未知方法或坏输入 | 未知方法返回 `-32601`，坏 JSON 返回 `-32700`，无效 JSON-RPC 或请求 ID 返回 `-32600`。ID 只接受字符串或整数；显式 null 不按通知处理，非法 ID 不回显。请求的 params 若提供，必须是非 null、非数组的对象；params 或方法参数类型错误时，用原 ID 返回 `-32602`，且不连接上游。 | 代理实现；[MCP 消息规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/index) |
@@ -118,7 +119,7 @@ SSE 流按 LF、CRLF 或裸 CR 分行：遇 CR 立即结束当前行，紧随的
 | 等待阶段 | 配置或实现值 | 范围 |
 | --- | --- | --- |
 | 首次 GET `/sse` 返回 | 30,000 ms | Fetch 响应返回后清除此计时器；不是整个 SSE 流寿命 |
-| 等待 endpoint | 50 次 × 100 ms | 约 5 秒的轮询窗口 |
+| 等待 endpoint | 50 次 × 100 ms | 最后一次等待结束后仍检查已收到的端点或流错误，再判定超时 |
 | 上游响应 pending | AFFINITY_MCP_REQUEST_TIMEOUT_MS，默认 30,000 ms | 从注册 pending 开始；POST 未结束时归因 post 阶段，否则为 response 阶段 |
 | 单个 POST | 同一环境配置 | 与连接 AbortSignal 合并，也用于 initialize 请求及 initialized 通知 |
 | 共用客户端 `.mcp.json` | `timeoutMs: 60000` | 客户端配置，不替换代理环境值；Codex 内联配置未设此字段 |
@@ -129,7 +130,9 @@ SSE 流按 LF、CRLF 或裸 CR 分行：遇 CR 立即结束当前行，紧随的
 
 工具一旦尝试提交，之后的传输失败或上游错误都保守记为 outcome=unknown，此时应先读回文档的实际状态。not_submitted 只表示本次业务工具没有提交（例如建连或初始化失败），不能据此推断历史操作状态。客户端取消只能阻止尚在本地等待连接的调用提交；代理不会取消或回滚应用里已在运行的脚本。
 
-上游请求的回复如果 POST 失败，代理会关闭它所属的连接，并拒绝尚未完成的 pending；已经交付的结果不会再补一次响应。异步失败只影响发出回复时的那条连接，旧连接上的拒绝不会清理新连接里的请求。
+上游请求的回复如果 POST 失败，代理会关闭它所属的连接，并拒绝尚未完成的 pending。后续清理保留最先观察到的连接故障，已经交付的结果不会再补一次响应。退役连接上的异步错误只影响原连接。
+
+握手期间，代理收到初始化响应、准备校验结果字段时，会先检查流上是否已经记录故障。例如同一次读取中先收到初始化结果、随后收到空端点，等待工具调用的一方会得到 `endpoint` 错误和 `not_submitted`，初始化通知与工具请求都不会发出。
 
 连接失败、HTTP 错误、脚本错误、权限拒绝和工具超时需要分别定位。超时或断线后，应用可能已改动文档，而代理没有回滚机制；应先重读 preamble 和文档身份，确认实际状态，再决定后续。[Skill 恢复要求](../skills/affinity-mcp/SKILL.md)、[版本样本的错误边界](sdk/3.3.0.4850.md#errors)。
 
@@ -157,7 +160,7 @@ CHANGELOG 的三级现行版本标题必须恰好匹配一个条目：待交付�
 
 没有待交付内容时，省略英文 `Unreleased` / 中文“未发布”分组。检查器仍兼容历史空分组、中文标题和旧式 `[Unreleased]`，但拒绝重复分组。回归在开发与正式渠道下验证省略该分组的 LF/CRLF 日志及实际 CLI，并继续拒绝缺失日期、无效日期和重复版本条目。
 
-根目录 `CHANGELOG.md` 用英文，`CHANGELOG.zh-cn.md` 用简体中文。中文日志存在时，检查器对照两份日志的日期、版本、分类和条目数量结构，任一处不一致即明确失败。它不比较翻译语义；历史快照只有一份日志时也不拒绝只读核验。双语回归覆盖两种渠道、CRLF 中文日志及版本、历史日期、分类和条目遗漏。安装夹具随完整插件保留两份日志。
+根目录 `CHANGELOG.md` 用英文，`CHANGELOG.zh-cn.md` 用简体中文。中文日志存在时，检查器逐项对照日期、版本、分类、各分类条数，以及独立成行的“无用户可见变更。”与英文对应标记的位置。回归覆盖两个渠道、一侧漏标及标记跨版本错位。内容遗漏和翻译语义由人工核对。历史单日志快照仍可只读核验，完整插件安装夹具保留两份日志。
 
 正式格式回归还覆盖三种情况：开发树文档声明不一致、缺少部分必需文档、生产树整体省略 `docs/`。这样 `develop` 转正与随后同步的生产树可复用同一套正式检查，不放松版本、日期或增量约束。
 

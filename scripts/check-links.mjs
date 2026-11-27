@@ -2,6 +2,7 @@ import { readFileSync, lstatSync, readdirSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { posix, resolve, join } from "node:path";
 import { parseArgs } from "node:util";
+import { checkReleaseChangelogs, releaseFiles } from "./build-release-changelog.mjs";
 
 const fail = message => { throw new Error(message); };
 function git(root, args) {
@@ -147,10 +148,17 @@ export function checkLinks(root, { production = true, productionRoot } = {}) {
   }
   if (!production && productionRoot === undefined) return { ok: true, documents: documents.length, links: checked };
   const entries = productionAllowlist(read, path => safeFile(root, path).isFile() && available(path));
-  checkProductionReferences(read, entries, { allowReadmeDevelopmentLink: true });
+  const sources = new Map(entries.map(entry => [entry.path, entry.source]));
+  if (entries.some(entry => releaseFiles.has(entry.path))) checkReleaseChangelogs(read);
+  checkProductionReferences(path => read(sources.get(path) ?? path), entries, { allowReadmeDevelopmentLink: true });
   const summary = { ok: true, documents: documents.length, links: checked, productionFiles: entries.length };
   if (productionRoot !== undefined) {
     checkProductionTree(resolve(productionRoot), entries);
+    for (const { path, source } of entries.filter(entry => releaseFiles.has(entry.path))) {
+      if (!readFileSync(join(productionRoot, path)).equals(readFileSync(join(root, source)))) {
+        fail(`Production ${path} differs from ${source}.`);
+      }
+    }
     summary.productionTreeChecked = true;
   }
   return summary;
@@ -185,7 +193,8 @@ export function productionAllowlist(read, exists) {
     for (const value of [path, source]) if (typeof value !== "string" || value !== posix.normalize(value) || value.startsWith("/") || value.startsWith("../") || /[\\\x00-\x1f]/.test(value)) fail("Invalid production path.");
     if (outputs.has(path)) fail("Duplicate production path."); outputs.add(path);
     if (transform !== (["README.md", "README.zh-cn.md"].includes(path) ? "readme" : "copy")) fail("Unknown production transform.");
-    if (source !== (path === ".gitignore" ? "scripts/production.gitignore" : path)) fail("Unexpected production source mapping.");
+    const expectedSource = path === ".gitignore" ? "scripts/production.gitignore" : releaseFiles.get(path) ?? path;
+    if (source !== expectedSource) fail("Unexpected production source mapping.");
     if (!exists(source)) fail(`Missing production source: ${source}.`);
   }
   if (JSON.stringify([...outputs].sort()) !== JSON.stringify(documentedFiles(read("docs/versioning.md")))) fail("Production allowlist differs from docs/versioning.md.");

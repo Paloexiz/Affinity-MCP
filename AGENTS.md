@@ -18,6 +18,8 @@
 
 拿到正式发布授权后，先在 `develop` 分支把版本号转正，完成检查和复审，再提交、推送；然后把该提交里的生产内容同步到 `main`。下一批软件开发重新从 `dev.1` 开始。需要同步的地方有：三处清单、代理的两处版本声明、现行文档和根目录中英文 CHANGELOG；历史实测版本记录保持原样。
 
+开发树的两份全量 CHANGELOG 保留开发批次。正式版按[写作与汇总规则](docs/versioning.md#changelog-与正式交付)逐项核对升级影响，再运行 `node scripts/build-release-changelog.mjs --check` 检查生成的正式记录。同步 `main` 的唯一日志来源是同一已确认开发提交的 `CHANGELOG.release.md` 和 `CHANGELOG.release.zh-cn.md`，分别对应生产根目录的 `CHANGELOG.md` 和 `CHANGELOG.zh-cn.md`。
+
 版本号及所有现行版本声明，必须统一放在本批最后一个实现 commit 里。如果之后又追加了实现改动，要重新整理提交，确保版本变更仍只出现在最后一个实现 commit。改变软件的批次与正式交付前，分别完成静态检查和增量基准检查；不改变软件的维护批次只按当前版本格式完成静态检查与适用验证，不运行增量基准检查；没提交的工作区内容不能当成已发布版本。文档边界见[维护规则](docs/maintaining.md#版本与架构决策)。
 
 完成本地检查与独立审查后，按用户授权推送 `develop`，每批软件开发只递增一次 `dev.N`；不改变软件的维护批次保持当前版本。推送后核对远端 SHA；递增了开发版本并新增 CHANGELOG 条目的软件批次，再按[日期收尾](docs/versioning.md#development-date-closure)最多追加一个只补双语日志日期的 commit，版本不变，不夹带其他改动，不改旧提交；维护批次不做日期收尾。正式发布仍需单独授权。

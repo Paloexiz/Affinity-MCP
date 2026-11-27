@@ -2,22 +2,36 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## Unreleased
+
+### 0.5.5-dev.3
+
+#### Fixed
+
+- Fixed the proxy trying to send requests when Affinity supplied an empty endpoint. Tool calls now report an `endpoint` error immediately.
+- Fixed outstanding HTTP requests staying open after the connection to Affinity failed. The proxy now closes those requests and reports the first failure it detected to calls that are still waiting.
+
 ## 2026-11-27
 
 ### 0.5.5-dev.2
 
 #### Fixed
 
-- The connection check reports the proxy's failure phase and submission outcome when available. A tool error while reading the SDK preamble identifies the tool and includes a recognized diagnostic when available. Both messages retain any discovery fallback warning.
+- When the proxy returned a JSON-RPC error during the connection check, the checker reported only the stage and numeric error code without the proxy's failure details. Now it also includes the proxy's recognized failure phase and submission outcome when available.
+- When the configured MCP endpoint returned a tool error (`isError`) while reading the SDK preamble, the connection checker reported only that the preamble tool returned `isError`. The checker now states that the configured MCP endpoint returned an error from `read_sdk_documentation_topic` and includes a recognized safe diagnostic when available.
+- When tool discovery fell back to the offline tool list and another error occurred in the same connection check, the checker dropped the fallback-discovery warning. Now it appends that warning to the failure message.
 
 ## 2026-11-26
 
 ### 0.5.5-dev.1
 
+#### Changed
+
+- Clarify in the READMEs and bundled Skill that a passing connection check verifies only the selected manifest, launch configuration, proxy version, online tool discovery, and SDK preamble; it does not verify complete package files or file integrity.
+
 #### Fixed
 
-- Stop a cancelled `tools/call` from being submitted when it is still waiting for a connection. Other calls and the shared connection continue; calls already attempted may still run and are not rolled back.
-- Clarify that a passing connection check confirms the selected copy can connect, discover tools online, and read the preamble. Verify package integrity separately.
+- When a client sent a valid `notifications/cancelled` notification while a `tools/call` was still waiting for a connection, the call could still be submitted. Now the proxy prevents that call from being submitted while keeping other calls and the shared connection active; calls already attempted may still run and are not rolled back.
 
 ## 2026-10-27
 
@@ -25,19 +39,26 @@ English | [简体中文](CHANGELOG.zh-cn.md)
 
 #### Added
 
-- Add bundled, verified recipes for basic rectangle Boolean operations (union, subtract, intersect, XOR), ordinary character insertion, RGBA8 pixels and detached values, and PNG/JPEG/SVG/PDF/WebP export of the current spread followed by a native save and reopen.
-- Add further recipes and their limits for three-frame linked text across spreads, resizing a frame to a known height, exporting the whole document or selected pages to PDF, exporting transparent mixed Chinese and Latin text, and asynchronous native save, overwrite and reopen.
-- Add a PathBrush reuse recipe: clone a PathBrush from a curve that already has a brushed style, change its width, and apply it to another curve; preparing the preset in the UI stays a separate step.
+- Add bundled Skill workflow recipes with bounded sample limits for basic rectangle Boolean operations (union, subtract, intersect, XOR), ordinary character insertion, detached values and RGBA8 pixel readback, synchronous PNG/JPEG/SVG/PDF/WebP and asynchronous PNG export of the current spread (without Bleed), and synchronous native save-as and reopen of a task-owned file.
+- Add bundled Skill workflow recipes with documented limits for three-frame linked text across spreads, resizing a text frame to a known height without automatic height calculation, two-page whole-document and selected-page PDF export, transparent mixed Chinese and Latin text export (including explicit native `Size` and asynchronous PNG for the current page), and asynchronous native save-as, overwrite, and reopen of a task-owned file.
+- Add a bundled Skill recipe for asynchronous resource packaging with `PackageResourcesPolicy.None` on a task-owned sample without external linked resources: packaging keeps the live document's original path and leaves pre-existing unsaved changes marked dirty, so users who want to save the current project must still execute a save.
+- Add a bundled Skill recipe for reusing an existing `PathBrush`. First apply a brush preset to the source curve in the UI, then clone its `PathBrush`, adjust the width, and apply the brush to another curve using single-field line-style masks. In the sample, both `PathBrush.createDefault()` and `RasterBrush.createDefault()` threw errors. The SDK interfaces checked offered no other way to obtain a `RasterBrush` instance, so cloning, modifying, and painting with one were not tested.
 
 #### Changed
 
-- Treat linked text frames as one merged Story: linking merges the two frames' text, and unlinking does not restore visible separate text. In the tested cases, unlinking a middle frame moved the full text upstream and left the downstream frames empty, while unlinking the front frame cleared the whole Story, so ordinary unlinking now rejects a front-of-flow target first.
-- Require choosing between saving and discarding unsaved work before an asynchronous close: the tested close discarded the unsaved content without showing a save prompt.
+- Reorganize both READMEs around quick start, usage notes, and common questions, and update the bundled Skill to treat recipes as shared across operating systems when runtime APIs and preconditions match, using recorded OS labels as provenance rather than an allowlist.
+- Update the bundled Privacy Policy to state that your AI client will typically send document text, script outputs, and canvas previews returned by tools to your chosen AI model provider, where they may be logged or retained; how that data is handled depends on the terms and account settings of your AI client and model provider.
+- Update the bilingual Terms of Service wording to state that operations involving file writes, network calls, paid AI tools, hint sharing, or issue reporting must remain within explicit user authorization (instead of "should remain within the relevant authorization"), while noting that the bundled Skill only guides the AI and the local proxy does not independently audit permissions or verify script intent.
+- Update the bundled Skill and README guidance to treat linked text frames as one merged Story: linking merges their text, and unlinking does not split visible text or restore original separate texts. In the tested samples, unlinking a non-front frame left the full Story in the upstream frame and left the unlinked frame and downstream chain empty, while unlinking the front frame cleared the whole Story; guidance now advises rejecting front-frame targets before ordinary unlinking.
+- Update the bundled Skill and README guidance to require deciding whether to save or discard unsaved work before an asynchronous close, as tested `closeAsync` and `promises.close` calls discarded unsaved content directly without showing a save prompt.
+- Update the bundled Skill's text editing guidance to note that whole-Story or cross-run `createSetText` replacement does not guarantee that mixed formatting is preserved: even when the call succeeds (including replacing with the same string or equal-length text across a style boundary), character runs can merge or shift, so formatting tasks must verify character and paragraph runs before and after editing.
+- Update the bundled Skill's export guidance to require reading back native Bleed settings and inspecting actual output dimensions or PDF boxes whenever complete Bleed is required: default areas (`CurrentSpread`) and print presets (such as print PDF `WholeDocument`) can omit outer Bleed even when Bleed was requested at creation and export records report `OK`, and no general include-Bleed option is verified.
+- Update the bundled Skill's packaging guidance with an offline fidelity verification requirement for linked images: in a separate `PackageResourcesPolicy.IncludeImages` sample, reopening a package via `Document.load` after the linked source image became unavailable (such as being renamed, moved, or removed) kept text, geometry, and resource metadata intact while the exported image region degraded; verify actual original files and an offline render before portable delivery, and do not delete source files still in use.
 
 #### Fixed
 
-- Require separate checks of mixed-format replacement, complete Bleed and packaged originals: a successful call can still merge or lose formatting, keep the outer Bleed out of the output, or return a package whose image region degrades once the source files are gone.
-- Correct the recorded support status and brush route: ordinary character insertion and asynchronous PNG export are confirmed working, the earlier judgements came from legacy limits, brush discovery uses PathBrush names, and the undefined VectorBrush route is gone.
+- Earlier bundled Skill references recorded ordinary character insertion as failing at construction, while older SDK hints claimed every Mac asynchronous PNG export fails with `NO_ENVIRONMENT` (earlier bundled references had already recorded asynchronous `PNG/CurrentPage`, but not `PNG/CurrentSpread`). Now the references record passing bounded 3.3.1.4940 MacOS samples for ordinary character insertion and asynchronous `PNG/CurrentSpread` export via `promises.export` (alongside updated asynchronous `PNG/CurrentPage` coverage), while keeping `FileSystemPromises.copyFile` as failing and recording two `ExportScale` factory counterexamples.
+- Earlier bundled Skill references pointed to `VectorBrush` and `lineStyle.vectorBrush`. Now the references record that `lineStyle.vectorBrush` was undefined and `/vectorbrush.js` failed to load on 3.3.1.4940 MacOS, and update brush references to `PathBrush` and `lineStyle.pathBrush`. In that build, `PathBrush.createDefault()` and `RasterBrush.createDefault()` both threw a “not yet implemented in C++ API” error. No other way to obtain a `RasterBrush` instance was found in the SDK interfaces checked.
 
 ### 0.5.4-dev.8
 
@@ -59,7 +80,7 @@ No user-visible changes.
 
 #### Changed
 
-- Clarify in the READMEs which non-front targets were tested, require ordinary unlinking to reject front-frame targets first, and warn that unlinking the front frame can clear the entire Story.
+- Update the usage notes in both READMEs to state the tested behavior for unlinking non-front text frames, warn that unlinking the front frame can clear the entire Story, and advise rejecting front-frame targets before ordinary unlinking.
 
 ### 0.5.4-dev.4
 
@@ -69,40 +90,44 @@ No user-visible changes.
 
 ### 0.5.4-dev.3
 
-#### Changed
-
-- Reject front-frame unlinking: a tested call cleared the whole Story. A middle-frame unlink leaves the full text in the upstream frame and empties the downstream chain.
-
 #### Added
 
-- Clone a PathBrush from an existing brushed curve, adjust its width, and reuse it on another curve; preparing a preset in the UI remains a separate step.
-- Add recipes with documented limits for three-frame flows across spreads, known-height frame reflow, multi-page and selected-page PDF export, transparent text export, and asynchronous native save, overwrite, and reopen.
+- Add a bundled Skill recipe for reusing an existing `PathBrush`. First apply a brush preset to the source curve in the UI, then clone its `PathBrush`, adjust the width, and apply the brush to another curve using single-field line-style masks. In the sample, both `PathBrush.createDefault()` and `RasterBrush.createDefault()` threw errors. The SDK interfaces checked offered no other way to obtain a `RasterBrush` instance, so cloning, modifying, and painting with one were not tested.
+- Add bundled Skill recipes with documented limits for three-frame linked text across spreads, resizing a text frame to a known height without automatic height calculation, two-page whole-document and selected-page PDF export, transparent mixed Chinese and Latin text export (including explicit native `Size` and asynchronous PNG for the current page), and asynchronous native save-as, overwrite, and reopen of a task-owned file.
+- Add a bundled Skill recipe for asynchronous resource packaging with `PackageResourcesPolicy.None` on a task-owned sample without external linked resources: packaging keeps the live document's original path and leaves pre-existing unsaved changes marked dirty, so users who want to save the current project must still execute a save.
 
-#### Fixed
+#### Changed
 
-- Require explicit checks of mixed-format replacements, complete Bleed, and packaged originals: a successful call can still lose formatting, crop the output, or leave degraded image regions after reopening.
+- Update the bundled Skill's linked-text guidance to advise rejecting front-frame targets before ordinary unlinking, because a tested front-frame unlink cleared the entire Story; in the tested middle-frame unlink, the full Story remained in the upstream frame while the unlinked frame and downstream chain became empty.
+- Update the bundled Skill's text editing guidance to note that whole-Story or cross-run `createSetText` replacement does not guarantee that mixed formatting is preserved: even when the call succeeds (including replacing with the same string or equal-length text across a style boundary), character runs can merge or shift, so formatting tasks must verify character and paragraph runs before and after editing.
+- Update the bundled Skill's export guidance to require reading back native Bleed settings and inspecting actual output dimensions or PDF boxes whenever complete Bleed is required: default areas (`CurrentSpread`) and print presets (such as print PDF `WholeDocument`) can omit outer Bleed even when Bleed was requested at creation and export records report `OK`, and no general include-Bleed option is verified.
+- Update the bundled Skill's packaging guidance with an offline fidelity verification requirement for linked images: in a separate `PackageResourcesPolicy.IncludeImages` sample, reopening a package via `Document.load` after the linked source image became unavailable (such as being renamed, moved, or removed) kept text, geometry, and resource metadata intact while the exported image region degraded; verify actual original files and an offline render before portable delivery, and do not delete source files still in use.
 
 ## 2026-10-21
 
 ### 0.5.4-dev.2
 
-No user-visible changes.
+#### Changed
+
+- Update the bundled Privacy Policy to state that your AI client will typically send document text, script outputs, and canvas previews returned by tools to your chosen AI model provider, where they may be logged or retained; how that data is handled depends on the terms and account settings of your AI client and model provider.
+- Update the bilingual Terms of Service wording to state that operations involving file writes, network calls, paid AI tools, hint sharing, or issue reporting must remain within explicit user authorization (instead of "should remain within the relevant authorization"), while noting that the bundled Skill only guides the AI and the local proxy does not independently audit permissions or verify script intent.
 
 ### 0.5.4-dev.1
 
-#### Changed
-
-- Treat linked text frames as merged text; unlinking no longer assumes restoring original separate text.
-- Require the caller to state whether to save or discard unsaved changes before closing a document asynchronously.
-
 #### Added
 
-- Add workflow recipes for rectangle Boolean operations, RGBA8 pixel access, export in multiple formats (PNG/JPEG/SVG/PDF/WebP), and native save and reopen.
+- Add bundled Skill workflow recipes with bounded sample limits for basic rectangle Boolean operations (union, subtract, intersect, XOR), ordinary character insertion, detached values and RGBA8 pixel readback, synchronous PNG/JPEG/SVG/PDF/WebP and asynchronous PNG export of the current spread (without Bleed), and synchronous native save-as and reopen of a task-owned file.
+
+#### Changed
+
+- Reorganize both READMEs around quick start, usage notes, and common questions, and update the bundled Skill to treat recipes as shared across operating systems when runtime APIs and preconditions match, using recorded OS labels as provenance rather than an allowlist.
+- Update the bundled Skill and README guidance to treat linked text frames as one merged Story; in the tested two-frame samples, unlinking the destination left the full merged Story in the source and emptied the destination instead of restoring separate texts.
+- Update the bundled Skill and README guidance to require deciding whether to save or discard unsaved work before an asynchronous close, as tested `closeAsync` and `promises.close` calls discarded unsaved content directly without showing a save prompt.
 
 #### Fixed
 
-- Update SDK support status: regular character insertion and async PNG export are confirmed working, and the earlier assessment was based on legacy limits.
-- Fix brush discovery to use PathBrush names, and remove the invalid VectorBrush discovery logic.
+- Earlier bundled Skill references recorded ordinary character insertion as failing at construction, while older SDK hints claimed every Mac asynchronous PNG export fails with `NO_ENVIRONMENT` (earlier bundled references had already recorded asynchronous `PNG/CurrentPage`, but not `PNG/CurrentSpread`). Now the references record passing bounded 3.3.1.4940 MacOS samples for ordinary character insertion and asynchronous `PNG/CurrentSpread` export via `promises.export`, while keeping `FileSystemPromises.copyFile` as failing and recording two `ExportScale` factory counterexamples.
+- Earlier bundled Skill references pointed to `VectorBrush` and `lineStyle.vectorBrush`. Now the references record that `lineStyle.vectorBrush` was undefined and `/vectorbrush.js` failed to load on 3.3.1.4940 MacOS, switch brush references to `PathBrush` and `lineStyle.pathBrush`, and note that default brush factories still throw placeholder errors while acquiring a usable brush instance remains unverified.
 
 ## 2026-10-20
 
@@ -110,8 +135,8 @@ No user-visible changes.
 
 #### Changed
 
-- Choose text tools based on layout requirements (paragraphs, wrapping, containers, and alignment) instead of defaulting to Artistic Text.
-- Distinguish visual alignment of Chinese body text from full glyph centering, and clarify the difference between switching optical alignment modes and custom punctuation hanging rules.
+- Update the bundled Skill's text tool guidance to choose between Frame Text and Artistic Text based on layout constraints (paragraphs, wrapping, containers, and alignment) instead of preferring Artistic Text by default.
+- Update the bundled Skill's alignment guidance to distinguish visual alignment of Chinese body text from full-glyph-bounds centering, and note that while single-line samples verified switching optical alignment modes (`None`, `Manual`, `Font`) through the SDK, no SDK entry point was found for custom punctuation hanging rules.
 
 ### 0.5.2
 
@@ -121,15 +146,19 @@ No user-visible changes.
 
 #### Fixed
 
-- Remove seven SDK verification images and geometry test files from the installation package.
+- The 0.5.0 installation package accidentally included seven development SDK evidence files (five verification images and two geometry fixtures). Now those files are removed from the release package.
 
 ### 0.5.0
 
+#### Added
+
+- Add a bundled local inspection helper (`inspection-preview.mjs`) and Skill guide that generate a standalone SVG inspection preview from a clean complete-Bleed PNG and matching geometry JSON—showing outer Bleed, Trim, and enabled Margin outlines over a transparency checkerboard—without modifying the Affinity document or proxy.
+- Add bilingual release notes (`CHANGELOG.md` in English and `CHANGELOG.zh-cn.md` in Simplified Chinese) with links from both READMEs.
+
 #### Changed
 
-- Add single-call workflows that perform document operations and return a full PNG preview for small composite canvases.
-- Add Bleed, Margin, text safe area, and background coverage checks to poster layout guidance.
-- Add a standalone SVG inspection image with Trim and Margin guides and a checkerboard background indicating transparency.
+- Reorganize the bundled Skill entry point by session path and add execution-efficiency and undo-boundary guidance, including a conditional single-call complete PNG preview recipe for covered small synthetic samples (requiring authorized Desktop file access, host native image forwarding, and a verified complete selection when outer Bleed must be included).
+- Add Bleed, enabled Margin, essential-content safety, and full-bleed background coverage preflight checks to the bundled Skill guidance for posters, flyers, covers, new layouts, and redesigns.
 
 ## 2026-10-16
 
@@ -153,7 +182,7 @@ No user-visible changes.
 
 #### Changed
 
-- Remove internal repository maintenance details from user installation guides.
+- Remove internal branch-maintenance details from both READMEs and add a link to the versioning guide for channel numbering and changelog conventions.
 
 ## 2026-10-14
 
@@ -167,12 +196,12 @@ No user-visible changes.
 
 #### Changed
 
-- Package the proxy service and connection checker inside the Skill directory; installing the full Plugin is required to register MCP.
-- Remove internal development docs and developer tools from the release package.
+- Package the proxy service and connection checker inside `skills/affinity-mcp/scripts/`; installing the full Plugin is required to register MCP.
+- Remove internal development docs, hooks, tests, and developer tools from the release package.
 
 #### Fixed
 
-- Fix parsing of SSE `event` and `data` fields without colons.
+- When an SSE stream contained a bare `event` or `data` line without a colon, the proxy ignored it. Now bare `event` resets the event type and bare `data` appends a newline.
 
 ## 2026-10-12
 
@@ -180,22 +209,22 @@ No user-visible changes.
 
 #### Changed
 
-- Move runtime scripts into the Skill directory; installing the full Plugin is required to register MCP.
+- Move the proxy service and connection checker into `skills/affinity-mcp/scripts/`; installing the full Plugin is required to register MCP.
 
 #### Fixed
 
-- Fix parsing of SSE `event` and `data` fields without colons.
+- When an SSE stream contained a bare `event` or `data` line without a colon, the proxy ignored it. Now bare `event` resets the event type and bare `data` appends a newline.
 
 ### 0.3.0
 
 #### Added
 
-- Add a connection smoke test for installed plugins to verify versions, online tool discovery, and SDK preamble data.
+- Add a connection check script (`affinity-mcp-smoke.mjs`) for an explicitly selected plugin installation to verify its launch configuration, manifest and proxy versions, online `tools/list` pagination (failing if offline fallback tools are used), SDK preamble readback, and clean proxy shutdown.
 
 #### Fixed
 
-- Validate client requests and upstream handshakes so that timeout and disconnection stages can be identified accurately.
-- Distinguish unsubmitted operations from unknown outcomes, rejecting offline tool lists as proof of a live connection.
+- Invalid client JSON-RPC IDs, non-object `params`, malformed `tools/list` or `tools/call` parameters, and `c`/`C`-prefixed non-header inputs could bypass local validation or trigger wrong legacy `Content-Length` framing, and an empty-string `cursor` fell back to static tools on error. Now the proxy validates client requests and standalone `Content-Length` headers locally before connecting upstream, and rejects failed `tools/list` calls whenever `cursor` is provided, including `""`.
+- The proxy previously accepted unvalidated upstream `initialize` results and JSON-RPC payloads, did not answer upstream requests such as `ping`, and split SSE streams only on LF (`\n`). Now it validates upstream `initialize` fields, protocol version match, and JSON-RPC message shapes, replies to upstream requests (closing that connection and rejecting calls still waiting on it if reply delivery fails), and handles bare CR and split CRLF SSE line endings.
 
 ## 2026-10-09
 
@@ -203,12 +232,16 @@ No user-visible changes.
 
 #### Added
 
-- Support configurable request timeouts via `AFFINITY_MCP_REQUEST_TIMEOUT_MS` with structured error diagnostics.
+- Support configuring upstream request and POST timeouts via `AFFINITY_MCP_REQUEST_TIMEOUT_MS` (100–300000 ms, default 30000 ms; invalid values exit at startup) and structured JSON-RPC error diagnostics identifying `phase` (`connect`, `endpoint`, `post`, `response`, `sse`, `upstream`) and `outcome` (`not_submitted` vs. `unknown` for attempted `tools/call` requests).
 
 #### Changed
 
-- Add guidance for multiline text, paragraph centering, and batch layer adjustments.
-- Avoid repeated SDK documentation reads when connection and application build remain unchanged.
+- Add bundled Skill guidance for choosing between Artistic Text and Frame Text, multiline paragraph centering and glyph-bounds alignment (from tested 3.3.0.4850 Win32 samples), target-scope/parent-coordinate checks and a representative sample gate before bulk text or layout edits, and updated 3.3.0.4850 Win32 boundaries for synchronous disposable document close and plain text replacement.
+- Update the bundled Skill to reuse confirmed SDK documentation during an unchanged connection and application build, and add structured session-recovery guidance with mandatory in-script document UUID verification before modifying existing documents.
+
+#### Fixed
+
+- Client `initialize` previously echoed arbitrary `protocolVersion` values without type checks, non-`connect` proxy errors always appended the startup hint, SSE failures during endpoint wait or initialization could be missed, and POST/SSE completion races did not separate `post` and `response` timeouts. Now `initialize` validates `protocolVersion` as a string and returns the proxy's supported version (`2025-11-25`), only `connect` failures show the Affinity startup hint, initialization aborts on stream errors, and the first terminal POST/SSE event settles each request without duplicate responses.
 
 ## 2026-09-15
 
@@ -216,4 +249,4 @@ No user-visible changes.
 
 #### Added
 
-- Initial release with Affinity connection, SDK scripting, and document previews.
+- Initial release for Codex, ZCode, and Claude Code, including the local Node.js MCP proxy for connecting to Affinity by Canva's local MCP server (forwarding SDK documentation, script execution, spread and selection previews, script library, and hint tools) and the bundled Affinity Skill and references.

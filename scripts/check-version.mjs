@@ -115,6 +115,23 @@ function baseline(root, ref, channel) {
   return { commit, version: consistentVersion(declarations, channel ?? (typeof version === "string" && version.includes("-dev.") ? "development" : "stable")) };
 }
 
+export function checkBilingualChangelogs(englishText, chineseText) {
+  const englishLabels = {
+    "## 未发布": "## Unreleased", "## [Unreleased]": "## Unreleased", "## 日期待核实": "## Date unverified",
+    "#### 新增": "#### Added", "#### 变更": "#### Changed", "#### 修复": "#### Fixed",
+    "#### 废弃": "#### Deprecated", "#### 移除": "#### Removed", "#### 安全": "#### Security",
+    "无用户可见变更。": "No user-visible changes.",
+  };
+  const structure = (text, noChanges) => text.split(/\r?\n/).map(line => line.trimEnd())
+    .filter(line => /^#{2,4} |^- /.test(line) || line === noChanges)
+    .map(line => line.startsWith("- ") ? "-" : englishLabels[line] ?? line);
+  const english = structure(englishText, "No user-visible changes.");
+  const chinese = structure(chineseText, "无用户可见变更。");
+  if (JSON.stringify(english) !== JSON.stringify(chinese)) {
+    fail("Bilingual CHANGELOG dates, versions, categories, entry counts and no-change markers must match.");
+  }
+}
+
 export function checkSnapshot(read, exists, { channel } = {}) {
   const declarations = packageDeclarations(read);
   if (channel === "development" || exists("docs")) declarations.push(...documentationDeclarations(read));
@@ -147,16 +164,7 @@ export function checkSnapshot(read, exists, { channel } = {}) {
     }
   }
   if (exists("CHANGELOG.zh-cn.md")) {
-    const headings = {
-      "## 未发布": "## Unreleased", "## [Unreleased]": "## Unreleased", "## 日期待核实": "## Date unverified",
-      "#### 新增": "#### Added", "#### 变更": "#### Changed", "#### 修复": "#### Fixed",
-      "#### 废弃": "#### Deprecated", "#### 移除": "#### Removed", "#### 安全": "#### Security",
-    };
-    const structure = text => text.split(/\r?\n/).map(line => line.trimEnd())
-      .filter(line => /^#{2,4} |^- /.test(line)).map(line => line.startsWith("- ") ? "-" : headings[line] ?? line);
-    if (JSON.stringify(structure(changelog)) !== JSON.stringify(structure(read("CHANGELOG.zh-cn.md")))) {
-      fail("Bilingual CHANGELOG dates, versions, categories and entry counts must match.");
-    }
+    checkBilingualChangelogs(changelog, read("CHANGELOG.zh-cn.md"));
   }
   return { mode: "static", channel, version };
 }

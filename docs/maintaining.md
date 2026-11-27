@@ -11,7 +11,7 @@
 | 安装、设置、首次连接 | 根目录中英文 README | 用户安装方式或运行前提变化时；两种语言保持一致 |
 | 使用者隐私、使用约定与联系入口 | 根目录中英文 PRIVACY / TERMS 文件 | 数据流、保留方式、权限、维护主体或条款变化时；双语同步并随安装树保留 |
 | 开发与正式版本、递增和同步检查 | [versioning.md](versioning.md) | 版本治理或交付检查变化时 |
-| 尚未发布的影响及正式版本摘要 | [英文 CHANGELOG](../CHANGELOG.md) / [中文 CHANGELOG](../CHANGELOG.zh-cn.md) | 两份按条目同步；本批使用者影响变化时归并，正式交付前准备版本条目和计划日期，交付后只读核验实际状态 |
+| 尚未发布的影响及正式版本摘要 | 全量 [英文 CHANGELOG](../CHANGELOG.md) / [中文 CHANGELOG](../CHANGELOG.zh-cn.md)；生成的[英文正式日志](../CHANGELOG.release.md) / [中文正式日志](../CHANGELOG.release.zh-cn.md) | 全量日志按条目同步；正式交付前准备版本条目和计划日期并生成正式日志，交付后只读核验实际状态；[写法](versioning.md#changelog-writing)、[审稿](versioning.md#changelog-review)与[正式摘要](versioning.md#changelog-release-summary)见版本规则 |
 | 系统职责、消息流、连接/超时、部署配置 | [architecture.md](architecture.md) | 对应实现或配置变化时 |
 | 版本身份、功能结果与限制 | [sdk/README.md](sdk/README.md)及构建页 | 得到新构建或新对象的可核验证据时 |
 | 复验流程、字段、验收模板 | [sdk/verification.md](sdk/verification.md) | 新证据暴露了通用记录或验证缺口时 |
@@ -65,7 +65,7 @@
 
 插件版本、MCP 协议日期与 Affinity 应用构建号分别维护；历史构建页、脱敏证据及既有观察中的应用、协议和真实运行身份保持原值。明确授权的源码重编号可以更新对应的源码身份与固定链接，但须标明仅为身份映射，不能改写实验日期、结果或补填当时加载的安装版本。更新仓库版本不表示已提交、推送、发布或刷新安装副本，这些状态仍需分别核验。
 
-版本摘要集中在根中英文 CHANGELOG，按日期、版本和对应语言的分类分层，不在 `docs/` 追加工作流水。未交付的开发候选放在英文 `Unreleased` / 中文“未发布”下；没有待交付内容就删掉该分组。已交付的开发和正式版本使用各自首次实际交付的 UTC 日期。正式候选先在 `develop` 整理计划日期，再把同一套日志同步到 `main`，不在生产分支另补或转正。历史改写后按[原始事件和提交映射](versioning.md#historical-delivery-evidence)复核日期。只有旧版本条目可归入“日期待核实”，现行版本缺证据时按[日期分组规则](versioning.md#changelog-与正式交付)处理。正式交付要求 `main` 只包含安装树及根中英文 CHANGELOG，不机械合并开发维护目录。
+版本摘要集中在开发树的根中英文全量 CHANGELOG，按日期、版本和对应语言的分类分层，不在 `docs/` 追加工作流水。未交付的开发候选放在英文 `Unreleased` / 中文“未发布”下；没有待交付内容就删掉该分组。已交付的开发和正式版本使用各自首次实际交付的 UTC 日期。正式候选先在 `develop` 整理计划日期并[生成正式日志](versioning.md#changelog-release-files)，再将同一开发提交中的正式副本按生产文件名同步到 `main`；不在生产分支另补或转正。历史改写后按[原始事件和提交映射](versioning.md#historical-delivery-evidence)复核日期。只有旧版本条目可归入“日期待核实”，现行版本缺证据时按[日期分组规则](versioning.md#changelog-与正式交付)处理。正式交付要求 `main` 只包含安装树及仅含正式版本的根中英文 CHANGELOG，不机械合并开发维护目录。
 
 只有实际作出需要长期记住的架构选择时才新增 `docs/adr/NNNN-<topic>.md`。最小内容为日期、状态、上下文、决定、选项/权衡、后果和验证条件；已被替代的记录保留并链接新记录。当前架构从源码还原，不为未留痕的历史动机补写“已接受”的 ADR。[ADR 模板参考](https://adr.github.io/adr-templates/)。
 

@@ -1,6 +1,6 @@
 # Affinity MCP 架构说明
 
-本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.5-dev.1`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
+本页以仓库中的[代理源码](../skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs)和插件清单为依据；当前插件标识 `0.5.5-dev.2`。工作区改动不等于已发布新版本；SDK 操作在不同构建上的差异见 [SDK 索引](sdk/README.md)。
 
 ## 目标和边界
 
@@ -180,6 +180,10 @@ SSE 回归覆盖 LF、裸 CR、跨读取边界的 CRLF、混合行结束符、�
 [可选连接检查](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs)独立于普通回归，使用选定安装副本的 Codex 配置或共用启动配置，只执行初始化、分页发现和读取 preamble。检查器核对所选清单、启动配置和代理版本一致性，拒绝不受支持的代理路径和缺少所选清单的单独 Skill；它不核对完整安装文件集合或文件完整性。回归夹具包含两套清单、市场索引、Skill/references/运行脚本、清单资源和署名文件，从夹具的检查器入口在另一工作目录执行；夹具核对插件版本和代理文件的精确 hash，这不是实际安装副本的完整性验证。
 
 分页 cursor 作为不透明字符串原样传递，空字符串也继续分页；只有 nextCursor 缺失才结束，非字符串或重复 cursor 明确失败。检查器复用既有 stderr 降级诊断，并在子进程关闭后检查。RPC 错误、工具错误、内容缺失/不匹配、超时及清理异常都不能通过。Node 版本按所选启动命令、环境和工作目录取得；插件版本与代理 hash 分开记录。没有应用构建或平台时保留空值，不把插件身份当应用身份。模拟服务还覆盖两种配置下的空串分页、非法或重复 cursor、错误、降级、超时和清理分支。真实命令与边界见 [README](../README.zh-cn.md#检查真实安装连接)及 [MCP 分页规范](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination)。
+
+代理返回 JSON-RPC 错误时，连接检查器显示数值错误码，并分别检查 `error.data.phase` 和 `outcome`。阶段限于 `connect`、`endpoint`、`post`、`response`、`sse`、`upstream`，提交状态限于 `not_submitted`、`unknown`。缺失或不识别的字段会被省略。原始错误正文和 `cause` 不进入检查报告。模拟服务通过两套启动配置验证这六种阶段及两种提交状态。
+
+配置的 MCP 端点在 `read_sdk_documentation_topic` 读取 `preamble` 时返回 `isError`，检查器会标明工具和主题。这条响应只证明端点返回了工具错误。检查器逐一核对文本块，仅显示第一条与预置安全短语完整匹配的诊断，其余情况使用固定提示。同次发现若使用了备用工具列表，降级提示会附在原错误后。
 
 连接检查器用 Node 的 `import.meta.main` 区分“直接执行”和“作为模块导入”。回归通过真实 CLI 验证两种配置成功时的 JSON、无效参数的非零退出，以及导入时不运行检查。Windows 还覆盖指向同一入口的 namespaced 路径，避免因路径字符串不同而静默退出。[检查器](../skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs)、[Node.js 24 模块入口](https://nodejs.org/docs/latest-v24.x/api/esm.html#importmetamain)。
 

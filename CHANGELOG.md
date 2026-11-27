@@ -2,6 +2,14 @@
 
 English | [简体中文](CHANGELOG.zh-cn.md)
 
+## Unreleased
+
+### 0.5.5-dev.2
+
+#### Fixed
+
+- The connection check reports the proxy's failure phase and submission outcome when available. A tool error while reading the SDK preamble identifies the tool and includes a recognized diagnostic when available. Both messages retain any discovery fallback warning.
+
 ## 2026-11-26
 
 ### 0.5.5-dev.1

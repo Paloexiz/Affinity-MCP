@@ -88,8 +88,9 @@ const server = createServer((req, res) => {
 });
 async function handleRequest(req, res) {
   if (req.url === "/sse") {
-    if (["connect_http", "smoke_fallback"].includes(upstreamMode)) {
+    if (["connect_http", "smoke_fallback", "smoke_fallback_tool_error"].includes(upstreamMode)) {
       if (upstreamMode === "smoke_fallback") upstreamMode = "normal";
+      if (upstreamMode === "smoke_fallback_tool_error") upstreamMode = "smoke_tool_error";
       res.writeHead(503).end("offline");
       return;
     }
@@ -156,7 +157,7 @@ async function handleRequest(req, res) {
     setTimeout(() => res.writeHead(202).end(), 150);
     return;
   }
-  if (msg.params?.name === "post_failure") {
+  if (msg.params?.name === "post_failure" || (msg.method === "tools/call" && upstreamMode === "smoke_post_failure")) {
     res.writeHead(503).end("unavailable");
     return;
   }
@@ -266,8 +267,12 @@ async function handleRequest(req, res) {
   if (msg.params?.name === "read_sdk_documentation_topic") {
     assert.equal(msg.params.arguments.filename, "preamble");
     if (upstreamMode === "smoke_timeout") return;
+    if (upstreamMode === "smoke_disconnect") {
+      stream.end();
+      return;
+    }
     if (upstreamMode === "smoke_rpc_error") {
-      stream.write(`data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, error: { code: -32001, message: "refused" } })}\n\n`);
+      stream.write(`data: ${JSON.stringify({ jsonrpc: "2.0", id: msg.id, error: { code: -32001, message: "refused: /private/example?token=synthetic" } })}\n\n`);
       return;
     }
     result = {
@@ -962,7 +967,7 @@ try {
   for (const config of ["codex", "shared"]) {
     const before = calls.length;
     initializeResultOverride = {};
-    await assert.rejects(checkInstalledConnection(scratch, config), { stage: "tools/call", message: /JSON-RPC error -32603/ });
+    await assert.rejects(checkInstalledConnection(scratch, config), { stage: "tools/call", message: /JSON-RPC error -32603 \(phase=upstream, outcome=not_submitted\).*Discovery used fallback tools/ });
     assert.deepEqual(calls.slice(before).map(call => call.method), ["initialize", "initialize"], "Persistent invalid initialization never submits a notification or business request");
     initializeResultOverride = undefined;
     upstreamMode = "initialize_invalid_once";
@@ -1058,11 +1063,44 @@ try {
   assert.equal(imported.stderr, "");
   assert.equal(calls.length, beforeImport, "Importing the smoke module never runs its CLI");
   console.log("PASS smoke CLI: direct success/failure, Windows namespaced entry when applicable, and side-effect-free import");
+  const knownToolError = "FAIL tools/call: The configured MCP endpoint returned a tool error from read_sdk_documentation_topic for the SDK preamble (isError). ";
+  const fallbackDiagnostic = "Discovery used fallback tools; online discovery was not verified";
+  const privateText = "File not found: /private/example/synthetic-file?token=example-secret\nSynthetic user document";
+  const rpcFailure = "FAIL tools/call: JSON-RPC error -32603 ";
+  for (const config of ["codex", "shared"]) {
+    for (const [mode, content, expected] of [
+      ["connect_http", undefined, rpcFailure + "(phase=connect, outcome=not_submitted) (" + fallbackDiagnostic + ")"],
+      ["endpoint_invalid", undefined, rpcFailure + "(phase=endpoint, outcome=not_submitted) (" + fallbackDiagnostic + ")"],
+      ["smoke_post_failure", undefined, rpcFailure + "(phase=post, outcome=unknown)"],
+      ["smoke_timeout", undefined, rpcFailure + "(phase=response, outcome=unknown)"],
+      ["smoke_disconnect", undefined, rpcFailure + "(phase=sse, outcome=unknown)"],
+      ["smoke_rpc_error", undefined, rpcFailure + "(phase=upstream, outcome=unknown)"],
+      ["smoke_tool_error", [{ type: "text", text: "File not found" }], knownToolError + "Tool reported: File not found."],
+      ["smoke_tool_error", [
+        null, { type: "image", data: privateText }, { type: "text", text: privateText }, { type: "text", text: ["File not found"] },
+      ], knownToolError + "No safe error detail available."],
+      ["smoke_tool_error", [], knownToolError + "No safe error detail available."],
+      ["smoke_fallback_tool_error", [{ type: "text", text: "File not found." }],
+        knownToolError + "Tool reported: File not found. (" + fallbackDiagnostic + ")"],
+      ["smoke_fallback", undefined, "FAIL tools/list: " + fallbackDiagnostic],
+    ]) {
+      upstreamMode = mode;
+      preambleContentOverride = content;
+      const options = { cwd: tmpdir(), timeout: 15000, env: { ...process.env, AFFINITY_MCP_REQUEST_TIMEOUT_MS: "1200" } };
+      await assert.rejects(execNode(process.execPath, [smokeEntry, "--plugin-root", scratch, "--config", config], options), error => {
+        assert.equal(error.code, 1);
+        assert.equal(error.stdout, "");
+        assert.equal(error.stderr.trimEnd(), expected);
+        return true;
+      });
+    }
+  }
+  preambleContentOverride = undefined;
+  upstreamMode = "normal";
+  console.log("PASS smoke diagnostics: both CLI configs distinguish all six proxy failure phases, safe tool errors and discovery fallback");
   for (const [mode, expected, budget] of [
-    ["smoke_fallback", /fallback/i],
     ["smoke_repeated_cursor", /cursor/i],
     ["smoke_rpc_error", /JSON-RPC/i],
-    ["smoke_tool_error", /isError/i],
     ["smoke_empty", /preamble/i],
     ["smoke_bad_preamble", /preamble/i],
     ["smoke_timeout", /timed out/i, 1500],
@@ -1072,6 +1110,23 @@ try {
     upstreamMode = "normal";
   }
   const proxyCopy = join(scratch, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs");
+  try {
+    // This fixture answers the first (initialize) request, then exits on normal stdin EOF.
+    for (const [error, expected] of [
+      [{ code: -32603, message: privateText }, "JSON-RPC error -32603"],
+      [{ code: -32603, message: privateText, data: { phase: privateText, outcome: privateText } }, "JSON-RPC error -32603"],
+      [{ code: -32603, message: privateText, data: { phase: "post", outcome: privateText } }, "JSON-RPC error -32603 (phase=post)"],
+      [{ code: -32603, message: privateText, data: { phase: privateText, outcome: "unknown" } }, "JSON-RPC error -32603 (outcome=unknown)"],
+      [{ code: privateText, message: privateText }, "Invalid JSON-RPC error"],
+      [null, "Invalid JSON-RPC error"],
+    ]) {
+      const reply = JSON.stringify({ jsonrpc: "2.0", id: 1, error });
+      writeFileSync(proxyCopy, "process.stdin.once('data', () => console.log(" + JSON.stringify(reply) + "));\nprocess.stdin.resume();\n");
+      await assert.rejects(checkInstalledConnection(scratch, "codex"), { stage: "initialize", message: expected });
+    }
+  } finally {
+    copyFileSync(join(root, "skills/affinity-mcp/scripts/affinity-mcp-proxy.mjs"), proxyCopy);
+  }
   const pidFile = join(scratch, "affinity-mcp-test-child-pid.txt");
   writeFileSync(proxyCopy, readFileSync(proxyCopy, "utf8") +
     "\nimport { writeFileSync as writePid } from 'node:fs';\n" +

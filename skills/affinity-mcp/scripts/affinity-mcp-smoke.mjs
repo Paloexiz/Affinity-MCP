@@ -6,6 +6,29 @@ import { readFileSync, realpathSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 
+function rpcErrorMessage(error) {
+  if (!Number.isInteger(error?.code) || typeof error.message !== "string") return "Invalid JSON-RPC error";
+  const details = [];
+  const { phase, outcome } = error.data ?? {};
+  if (["connect", "endpoint", "post", "response", "sse", "upstream"].includes(phase)) details.push("phase=" + phase);
+  if (["not_submitted", "unknown"].includes(outcome)) details.push("outcome=" + outcome);
+  const message = "JSON-RPC error " + error.code;
+  return details.length ? message + " (" + details.join(", ") + ")" : message;
+}
+
+function preambleToolError(content) {
+  // Only report fixed diagnostic phrases. Free-form tool output may contain user data.
+  const safeDetails = ["File not found", "Permission denied", "Access denied", "Request timed out"];
+  if (Array.isArray(content)) {
+    for (const block of content) {
+      if (block?.type !== "text") continue;
+      const detail = safeDetails.find(phrase => block.text === phrase || block.text === phrase + ".");
+      if (detail) return "Tool reported: " + detail + ".";
+    }
+  }
+  return "No safe error detail available.";
+}
+
 export async function checkInstalledConnection(root, configuration, timeoutMs = 60000) {
   assert.ok(typeof root === "string" && isAbsolute(root), "--plugin-root must be an absolute directory");
   assert.ok(["codex", "shared"].includes(configuration), "--config must be codex or shared");
@@ -99,7 +122,7 @@ export async function checkInstalledConnection(root, configuration, timeoutMs = 
           Object.hasOwn(response, "result") !== Object.hasOwn(response, "error"), "Unexpected JSON-RPC response");
         pending.delete(response.id);
         clearTimeout(entry.timer);
-        if (response.error) entry.reject(new Error(stage + " JSON-RPC error " + response.error.code));
+        if (Object.hasOwn(response, "error")) entry.reject(new Error(rpcErrorMessage(response.error)));
         else entry.resolve(response.result);
       }
     } catch {
@@ -154,8 +177,11 @@ export async function checkInstalledConnection(root, configuration, timeoutMs = 
     } while (cursor !== undefined);
     assert.ok(tools.has("read_sdk_documentation_topic"), "Online catalog lacks the preamble reader");
     const preamble = await rpc("tools/call", { name: "read_sdk_documentation_topic", arguments: { filename: "preamble" } });
-    assert.ok(preamble && preamble.isError !== true, "Preamble tool returned isError");
-    assert.ok(Array.isArray(preamble.content), "Missing preamble content");
+    if (preamble?.isError === true) {
+      throw new Error("The configured MCP endpoint returned a tool error from read_sdk_documentation_topic for the SDK preamble (isError). " +
+        preambleToolError(preamble.content));
+    }
+    assert.ok(Array.isArray(preamble?.content), "Missing preamble content");
     const textBlocks = preamble.content.filter(item => item.type === "text");
     assert.ok(textBlocks.every(item => typeof item.text === "string"), "Invalid preamble text content");
     const text = textBlocks.map(item => item.text).join("\n");
@@ -182,9 +208,14 @@ export async function checkInstalledConnection(root, configuration, timeoutMs = 
   failure ||= fatalError;
   if (buffer.length) failure ||= new Error("Incomplete proxy output after close");
   const fallback = stderr.includes("Affinity discovery unavailable; using fallback tools:");
-  if (fallback && !failure) {
-    stage = "tools/list";
-    failure = new Error("Discovery used fallback tools; online discovery was not verified");
+  if (fallback) {
+    const diagnostic = "Discovery used fallback tools; online discovery was not verified";
+    if (failure) {
+      failure.message += " (" + diagnostic + ")";
+    } else {
+      stage = "tools/list";
+      failure = new Error(diagnostic);
+    }
   }
   if (failure) throw Object.assign(failure, { stage });
   return {

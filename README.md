@@ -176,6 +176,8 @@ Replace `<absolute-plugin-root>` with the absolute installation path; use `--con
 
 The script checks the selected manifest and launch configuration, proxy version, online tool discovery, and SDK preamble. It does not verify the complete file set or its integrity. It does not execute document manipulation scripts, alter document data, or modify script panels. A passing check confirms only that the local interface of the selected copy is reachable; it does not prove that the UI loaded this copy.
 
+If the proxy returns a JSON-RPC error, the check shows its numeric code and any recognized failure phase and submission outcome. For example, `phase=connect, outcome=not_submitted` means the proxy could not connect and did not submit the tool call. If the configured endpoint returns a tool error while reading the SDK preamble, the check names the tool and shows a recognized diagnostic when available. It also reports when discovery used the fallback tool list.
+
 </details>
 
 <a id="privacy-and-terms"></a>

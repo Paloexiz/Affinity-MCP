@@ -175,6 +175,8 @@ node skills/affinity-mcp/scripts/affinity-mcp-smoke.mjs --plugin-root "<absolute
 
 这个脚本只核对所选清单、启动配置和代理版本，并完成在线工具发现、读取 SDK preamble（即 SDK 说明）；它不验证完整文件集合及其内容完整性，也不执行文档修改脚本，不修改文档数据、系统设置或脚本库。测试通过只说明指定副本的底层服务接口能连上，不代表客户端界面已经加载这个副本。
 
+如果代理返回 JSON-RPC 错误，检查器会显示错误码，以及能识别的故障阶段和提交状态。例如，`phase=connect, outcome=not_submitted` 表示代理未能建立连接，本次工具调用尚未提交。如果配置的端点在读取 SDK preamble 时返回工具错误，检查器会指出工具名，并在有已识别的诊断时显示该提示。同次发现使用了备用工具列表时，检查器也会说明。
+
 </details>
 
 <a id="隐私与条款"></a>
